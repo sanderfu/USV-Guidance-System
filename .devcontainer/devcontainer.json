@@ -1,0 +1,49 @@
+{
+    "name": "usv_project",
+    "dockerFile": "../Dockerfile.Main",
+    "extensions": [
+        "ms-vscode.cpptools",
+        "ms-iot.vscode-ros",
+        "ms-python.vscode-pylance",
+        "twxs.cmake",
+        "ms-vsliveshare.vsliveshare",
+        "shd101wyy.markdown-preview-enhanced",
+        "eamodio.gitlens",
+        "njpwerner.autodocstring",
+        "lextudio.restructuredtext",
+        "snooty.snooty",
+        "cschlosser.doxdocgen",
+        "xaver.clang-format",
+        "visualstudioexptteam.vscodeintellicode",
+        "ms-vscode-remote.remote-ssh"
+    ],
+    "runArgs": [
+        "--cap-add=SYS_PTRACE",
+        "--security-opt",
+        "seccomp=unconfined",
+        "--name",
+        "usv_project",
+        "-v",
+        "${env:HOME}/.ssh:/home/sanderfu/.ssh",
+        "-e",
+        "DISPLAY=${env:DISPLAY}",
+        "-v",
+        "/tmp/.X11-unix:/tmp/.X11-unix",
+        "-w",
+        "/home/sanderfu",
+        "--device",
+        "/dev/snd",
+        "-v",
+        "/dev:/dev",
+        "--privileged",
+        "--network",
+        "host",
+        "--gpus",
+        "all"
+    ],
+    "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+    },
+    "workspaceMount": "src=${localWorkspaceFolder},dst=/home/sanderfu/catkin_ws/src/usv_guidance_system,type=bind,consistency=cached",
+    "workspaceFolder": "/home/sanderfu/catkin_ws"
+}

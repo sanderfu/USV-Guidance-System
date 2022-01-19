@@ -1,0 +1,62 @@
+FROM ubuntu:20.04
+
+ENV TZ=Europe/Oslo
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+# So tzdata doesn't get stuck
+ENV NVIDIA_VISIBLE_DEVICES \
+    ${NVIDIA_VISIBLE_DEVICES:-all}
+
+ENV NVIDIA_DRIVER_CAPABILITIES \
+    ${NVIDIA_DRIVER_CAPABILITIES:+$NVIDIA_DRIVER_CAPABILITIES,}graphics
+
+# Basic tools
+RUN apt-get update && apt-get install -yq build-essential software-properties-common python3-pip apt-utils git ccache curl gpg-agent --no-install-recommends
+
+# Install noetic
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+#RUN apt-key adv --keyserver 'hkp://keyserver.ubuntu.com:80' --recv-key C1CF6E31E6BADE8868B172B4F42ED6FBAB17C654
+RUN curl -sSL 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC1CF6E31E6BADE8868B172B4F42ED6FBAB17C654' | apt-key add -
+RUN apt update
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get install -y ros-noetic-desktop-full python3-rosdep --no-install-recommends
+RUN rosdep init
+RUN rosdep update
+RUN apt-get install -y vim python3-catkin-tools libboost-all-dev libarmadillo-dev ros-noetic-geometry2 ros-noetic-tf2-sensor-msgs libmetis-dev --no-install-recommends
+
+SHELL ["/bin/bash", "-c"]
+
+# Create a new user which is not root
+ARG ID=1000
+ENV USERNAME=sanderfu
+ENV HOME_DIR /home/sanderfu
+RUN groupadd -g $ID sanderfu && \
+    useradd -r -u $ID -m -g sanderfu -G sudo -s /bin/bash sanderfu
+
+# Install dependencies
+RUN mkdir -p ${HOME_DIR}/catkin_ws/src
+RUN echo "source /opt/ros/noetic/setup.bash" >> $HOME_DIR/.bashrc
+RUN echo "source ~/catkin_ws/devel/setup.bash" >> $HOME_DIR/.bashrc
+RUN echo "source ~/catkin_ws/src/usv_motion_planning/scripts/common_commands.sh" >> $HOME_DIR/.bashrc
+RUN echo "export PATH=\"/usr/lib/ccache:\$PATH\"" >> $HOME_DIR/.bashrc
+RUN source $HOME_DIR/.bashrc
+RUN mkdir /scripts
+#COPY /scripts/install_dependencies.sh /scripts
+#COPY /scripts/requirements.txt /scripts
+#RUN ["chmod", "+x", "/scripts/install_dependencies.sh"]
+#RUN /scripts/install_dependencies.sh 
+
+# Copy over dotfiles for configuring for example tmux
+#COPY /dotfiles/ $HOME_DIR/
+
+# Set passwords: 
+RUN echo 'sanderfu:kahuna' | chpasswd
+RUN echo 'root:root' | chpasswd
+
+# Change ownerships
+RUN chown -R $ID:$ID ${HOME_DIR}/catkin_ws
+RUN chown -R $ID:$ID /scripts
+
+# Use this user as the default user
+USER sanderfu
+
+CMD ["bash"]

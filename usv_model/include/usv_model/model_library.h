@@ -105,16 +105,6 @@ namespace ModelLibrary{
 
     };
 
-    double normalize_angle(double angle){
-        if( isinf(angle)) return angle;
-
-        while(angle <= -M_PI) angle += 2*M_PI;
-
-        while (angle > M_PI) angle -= 2*M_PI;
-
-        return angle;
-    }
-
     double SSA(double angle){
         return fmod(angle+M_PI,2*M_PI) - M_PI;
     }

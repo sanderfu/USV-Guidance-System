@@ -3,6 +3,9 @@
 namespace ModelLibrary{
 
 Viknes830::Viknes830(){
+    //default_T = 100.0;
+    //default_dt = 0.1;
+
     tau_rb = Eigen::Vector3d::Zero();
     L_  = 10;       // [m]
     W_  = 4;        // [m]
@@ -107,6 +110,14 @@ void Viknes830::operator()(const state_type& state, state_type & state_dt, const
     state_dt[4] = temp(1);              //ydotdot
     state_dt[5] = temp(2);              //psidotdot
 
+}
+
+simulatedHorizon Viknes830::simulate(state_type x_init, double u_d, double psi_d, double T){
+    simulatedHorizon sim_hor;
+    this->u_d = u_d;
+    this->psi_d = psi_d;
+    sim_hor.steps = integrate(*this,x_init,0.0,T,0.1,simulatedHorizonObserver(sim_hor));
+    return sim_hor;
 }
 
 

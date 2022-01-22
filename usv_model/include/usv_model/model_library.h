@@ -7,15 +7,48 @@ using namespace boost::numeric::odeint;
 typedef std::vector< double > state_type;
 
 namespace ModelLibrary{
+
+    struct simulatedHorizon{
+        std::vector< state_type > state;
+        std::vector< double > time;
+        size_t steps;
+
+        /*
+        void operator()(const simulatedHorizon& sim_hor){
+            state = sim_hor.state;
+            time = sim_hor.time;
+        }
+        */
+    };
+
+    struct simulatedHorizonObserver
+    {
+        simulatedHorizon& sim_hor_;
+
+        simulatedHorizonObserver(simulatedHorizon& sim_hor)
+        :  sim_hor_(sim_hor){ }
+
+        void operator()( const state_type &x , double t )
+        {
+            sim_hor_.state.push_back( x );
+            sim_hor_.time.push_back( t );
+        }
+    };
+
     class Viknes830{
         public:
             Viknes830();
 
             // ODE functions dxdt = f(x) must be defined in this operator for odeint to work
             void operator() (const state_type& x, state_type &dxdt, const double /*t*/);
+
+            simulatedHorizon simulate(state_type x_init, double u_d, double v_d, double T);
         private:
             state_type pose; //x,y,psi
             state_type twist; //u,v,r
+
+            static double default_T;
+            static double default_dt;
 
             double u_d=5;
             double psi_d=M_PI/4;

@@ -10,6 +10,21 @@ typedef std::vector< double > state_type;
 
 const double gam = 0.15;
 
+struct state_and_time
+{
+    std::vector< state_type >& m_states;
+    std::vector< double >& m_times;
+
+    state_and_time( std::vector< state_type > &states , std::vector< double > &times )
+    : m_states( states ) , m_times( times ) { }
+
+    void operator()( const state_type &x , double t )
+    {
+        m_states.push_back( x );
+        m_times.push_back( t );
+    }
+};
+
 /* The rhs of x' = f(x) defined as a class */
 class harm_osc {
 
@@ -22,21 +37,6 @@ public:
     {
         dxdt[0] = x[1];
         dxdt[1] = -x[0] - m_gam*x[1];
-    }
-};
-
-struct push_back_state_and_time
-{
-    std::vector< state_type >& m_states;
-    std::vector< double >& m_times;
-
-    push_back_state_and_time( std::vector< state_type > &states , std::vector< double > &times )
-    : m_states( states ) , m_times( times ) { }
-
-    void operator()( const state_type &x , double t )
-    {
-        m_states.push_back( x );
-        m_times.push_back( t );
     }
 };
 
@@ -53,14 +53,14 @@ int main(){
 
     size_t steps = integrate( ho ,
             x , 0.0 , 100.0 , 0.1 ,
-            push_back_state_and_time( x_vec , times ) );
+            state_and_time( x_vec , times ) );
 
     /* output */
     ofstream outfile;
     outfile.open("test.txt");
     for( size_t i=0; i<=steps; i++ )
     {
-        cout << times[i] << '\t\t' << x_vec[i][0] << '\t\t' << x_vec[i][1] << '\n';
+        //cout << times[i] << '\t\t' << x_vec[i][0] << '\t\t' << x_vec[i][1] << '\n';
         outfile << times[i] << ',' << x_vec[i][0] << ',' << x_vec[i][1] << '\n';
     }
     outfile.close();
@@ -73,19 +73,20 @@ int main(){
     x_viknes[3] = 0;
     x_viknes[4] = 0;
     x_viknes[5] = 0;
-    vector<state_type> x_vec_viknes;
-    vector<double> times_viknes;
+    ModelLibrary::simulatedHorizon sim_hor = viknes.simulate(x_viknes,5,M_PI/4,100);
 
+    /*
     steps = integrate( viknes ,
             x_viknes , 0.0 , 100.0 , 0.1 ,
-            push_back_state_and_time( x_vec_viknes , times_viknes ) );
-    
+            state_and_time( x_vec_viknes , times_viknes ) );
+    */
+
     /* output */
     outfile.open("viknes_test.txt");
-    for( size_t i=0; i<=steps; i++ )
+    for( size_t i=0; i<=sim_hor.steps; i++ )
     {
         //cout << times[i] << '\t\t' << x_vec[i][0] << '\t\t' << x_vec[i][1] << '\n';
-        outfile << times_viknes[i] << ',' << x_vec_viknes[i][0] << ',' << x_vec_viknes[i][1] << ',' << x_vec_viknes[i][2] << ',' << x_vec_viknes[i][3] << ',' << x_vec_viknes[i][4] << ',' << x_vec_viknes[i][5] << '\n';
+        outfile << sim_hor.time[i] << ',' << sim_hor.state[i][0] << ',' << sim_hor.state[i][1] << ',' << sim_hor.state[i][2] << ',' << sim_hor.state[i][3] << ',' << sim_hor.state[i][4] << ',' << sim_hor.state[i][5] << '\n';
     }
     outfile.close();
 }

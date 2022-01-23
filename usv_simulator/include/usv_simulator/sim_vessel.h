@@ -7,7 +7,10 @@
 #include "nav_msgs/Odometry.h"
 
 #include <chrono>
-
+/**
+ * @brief A general ros wrapper for surface vessel models
+ * 
+ */
 class SimulatedVessel{
     public:
         SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init);

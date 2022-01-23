@@ -3,8 +3,10 @@
 SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init ) : nh_(nh){
 
     x_ = x_init;
-    update_frequency_ = 10;
+    update_frequency_ = 30;
     vessel_name_ = ros::names::clean(nh_.getNamespace());
+    u_d_ = 5;
+    psi_d_ = M_PI/4; 
 
     // Setup transform broadcaster
     tf_broad_ = tf::TransformBroadcaster();
@@ -19,7 +21,11 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init )
     loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulatedVessel::updateLoop,this);
     
 }
-
+/**
+ * @brief The main simulation loop
+ * 
+ * @param e 
+ */
 void SimulatedVessel::updateLoop(const ros::TimerEvent& e){
 
     ros::Time loop_time_start = ros::Time::now();
@@ -32,6 +38,10 @@ void SimulatedVessel::updateLoop(const ros::TimerEvent& e){
 
 }
 
+/**
+ * @brief Publish both the frame transformation and vessel odometry
+ * 
+ */
 void SimulatedVessel::publishData(){
     tf::Transform transform;
     nav_msgs::Odometry odom;
@@ -45,7 +55,7 @@ void SimulatedVessel::publishData(){
     tf_broad_.sendTransform(tf::StampedTransform(transform,
                                             ros::Time::now(),
                                             "map",
-                                            nh_.getNamespace()));
+                                            "usv"));
 
     odom.header.stamp = ros::Time::now();
     odom.header.frame_id = "map";
@@ -63,6 +73,11 @@ void SimulatedVessel::publishData(){
     odom_pub_.publish(odom);
 }
 
+/**
+ * @brief Callback for receiving desired velocity and heading(or course?)
+ * 
+ * @param msg Callback message containing desired setpoints
+ */
 void SimulatedVessel::cmdCb(const geometry_msgs::Twist& msg){
     u_d_ = msg.linear.x;
     psi_d_ = msg.angular.y;

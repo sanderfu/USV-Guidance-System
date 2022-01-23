@@ -89,4 +89,24 @@ int main(){
         outfile << sim_hor.time[i] << ',' << sim_hor.state[i][0] << ',' << sim_hor.state[i][1] << ',' << sim_hor.state[i][2] << ',' << sim_hor.state[i][3] << ',' << sim_hor.state[i][4] << ',' << sim_hor.state[i][5] << '\n';
     }
     outfile.close();
+
+    state_type x_lin_obst(6);
+    x_lin_obst[0] = 0;
+    x_lin_obst[1] = 0;
+    x_lin_obst[2] = M_PI/4;
+    x_lin_obst[3] = 5;
+    x_lin_obst[4] = 0;
+    x_lin_obst[5] = 0;
+    ModelLibrary::LinearObstacleShip obst(x_lin_obst,5,2);
+    ModelLibrary::simulatedHorizon sim_hor_obst = obst.simulate(x_lin_obst, 100, 100);
+     /* output */
+    outfile.open("obst_test.txt");
+    for( size_t i=0; i<=sim_hor_obst.steps; i++ )
+    {
+        //cout << times[i] << '\t\t' << x_vec[i][0] << '\t\t' << x_vec[i][1] << '\n';
+        outfile << sim_hor_obst.time[i] << ',' << sim_hor_obst.state[i][0] << ',' << sim_hor_obst.state[i][1] << ',' << sim_hor_obst.state[i][2] << ',' << sim_hor_obst.state[i][3] << ',' << sim_hor_obst.state[i][4] << ',' << sim_hor_obst.state[i][5] << '\n';
+    }
+    outfile.close();
+
+
 }

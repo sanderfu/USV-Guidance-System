@@ -100,10 +100,21 @@ namespace ModelLibrary{
             double Kp_psi;
             double Kd_psi;
             double Kp_r;
+    };
 
+    class LinearObstacleShip{
+        public:
+            LinearObstacleShip(state_type x_init, double length, double width);
+            void operator()(const state_type& x, state_type &dxdt, const double /*t*/);
+            simulatedHorizon simulate(state_type x_init, size_t steps, double T);
+        private:
+            double length_;
+            double width_;
+            state_type x_init_;
 
 
     };
+
 
     double SSA(double angle){
         return fmod(angle+M_PI,2*M_PI) - M_PI;

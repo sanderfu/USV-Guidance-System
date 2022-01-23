@@ -42,7 +42,8 @@ namespace ModelLibrary{
             // ODE functions dxdt = f(x) must be defined in this operator for odeint to work
             void operator() (const state_type& x, state_type &dxdt, const double /*t*/);
 
-            simulatedHorizon simulate(state_type x_init, double u_d, double v_d, double T);
+            simulatedHorizon simulateHorizon(state_type x_init, double u_d, double psi_d, double T);
+            void simulate(state_type& x, double u_d, double psi_d, double T);
         private:
             state_type pose; //x,y,psi
             state_type twist; //u,v,r

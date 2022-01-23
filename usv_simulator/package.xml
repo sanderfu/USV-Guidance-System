@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>usv_model</name>
+  <name>usv_simulator</name>
   <version>0.0.1</version>
-  <description>The usv_model package</description>
+  <description>The usv_simulator package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -18,5 +18,9 @@
   <buildtool_depend>catkin</buildtool_depend>
   <buildtool_depend>catkin_simple</buildtool_depend>
   <depend>roscpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>usv_model</depend>
+  <depend>tf</depend>
+  <test_depend>rosunit</test_depend>
 
 </package>

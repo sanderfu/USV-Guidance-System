@@ -73,7 +73,8 @@ int main(){
     x_viknes[3] = 0;
     x_viknes[4] = 0;
     x_viknes[5] = 0;
-    ModelLibrary::simulatedHorizon sim_hor = viknes.simulate(x_viknes,5,M_PI/4,100);
+    ModelLibrary::simulatedHorizon sim_hor = viknes.simulateHorizon(x_viknes,5,M_PI/4,100);
+    viknes.simulate(x_viknes,5,M_PI/4,100);
 
     /*
     steps = integrate( viknes ,
@@ -86,9 +87,10 @@ int main(){
     for( size_t i=0; i<=sim_hor.steps; i++ )
     {
         //cout << times[i] << '\t\t' << x_vec[i][0] << '\t\t' << x_vec[i][1] << '\n';
-        outfile << sim_hor.time[i] << ',' << sim_hor.state[i][0] << ',' << sim_hor.state[i][1] << ',' << sim_hor.state[i][2] << ',' << sim_hor.state[i][3] << ',' << sim_hor.state[i][4] << ',' << sim_hor.state[i][5] << '\n';
+        cout << sim_hor.time[i] << ',' << sim_hor.state[i][0] << ',' << sim_hor.state[i][1] << ',' << sim_hor.state[i][2] << ',' << sim_hor.state[i][3] << ',' << sim_hor.state[i][4] << ',' << sim_hor.state[i][5] << '\n';
     }
     outfile.close();
+    cout << x_viknes[0] << " " << x_viknes[1] << " " << x_viknes[2]<< " " << x_viknes[3] << " " << x_viknes[4] << " " << x_viknes[5] << std::endl;
 
     state_type x_lin_obst(6);
     x_lin_obst[0] = 0;

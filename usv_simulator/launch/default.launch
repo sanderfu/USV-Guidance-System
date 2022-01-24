@@ -17,24 +17,27 @@
           output="screen">
     </node>
 
-    <!--<node pkg="asv_path_trackers"
+    <node pkg="usv_path_trackers"
           name="LOSNode"
-          type="asv_ctrl_los_node.py"
+          type="los_controller_node.py"
           respawn="false"
           output="screen">
-      <rosparam param="u_d" subst_value="True">$(arg u_d)</rosparam>
-      <rosparam command="load" file="$(arg waypoint_file)" />
-      <remap from="cmd_vel" to="LOS/cmd_vel" if="$(arg use_vo)"/> 
-      <remap from="cmd_vel" to="LOS/cmd_vel" if="$(arg use_sb_mpc)"/> 
-      
     </node>
-    -->
 
     <param name="robot_description" textfile="$(arg vessel_model_file)" />
     <node pkg="robot_state_publisher"
           type="robot_state_publisher"
           name="tf_broadcaster" />
   </group>
+
+      <node pkg="usv_simulator"
+          name="mesh_node"
+          type="mesh_node.py"
+          respawn="false"
+          output="screen">
+      </node>
+
+
 
   <!--<group if="$(arg use_vo)">
     <node pkg="asv_ctrl_vo"

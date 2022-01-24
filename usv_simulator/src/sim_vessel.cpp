@@ -13,9 +13,9 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init )
 
     // Setup publishers and subscribers 
     pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("pose", 10);
-    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("state", 10);
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("/usv/odom", 10);
     noise_pub_ = nh_.advertise<geometry_msgs::Vector3>("wave_noise", 10);
-    cmd_sub_ = nh_.subscribe("cmd_vel", 1, &SimulatedVessel::cmdCb, this);
+    cmd_sub_ = nh_.subscribe("/los/setpoint", 1, &SimulatedVessel::cmdCb, this);
 
     //Set up driving timer
     loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulatedVessel::updateLoop,this);

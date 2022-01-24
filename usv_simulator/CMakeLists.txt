@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(usv_simulator)
 
 find_package(catkin_simple REQUIRED)
+catkin_python_setup()
 catkin_simple(ALL_DEPS_REQUIRED)
 
 find_package(OpenMP REQUIRED)
@@ -11,11 +12,16 @@ if(OPENMP_FOUND)
   set(OpenMP_LIBS gomp)
 endif()
 
+find_library(gdal_LIBRARIES
+  gdal
+)
+
 #############
 # LIBRARIES #
 #############
 cs_add_library(${PROJECT_NAME}
   src/sim_vessel.cpp
+  src/sim_land.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -37,10 +43,16 @@ cs_add_library(${PROJECT_NAME}
 #)
 #target_link_libraries(dynamic_planner_node ${PROJECT_NAME} graph_builder)
 
+cs_add_executable(sim_land_node
+  src/sim_land_node.cpp
+)
+target_link_libraries(sim_land_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+
 cs_add_executable(sim_vessel_node
   src/sim_vessel_node.cpp
 )
-target_link_libraries(sim_vessel_node ${PROJECT_NAME})
+target_link_libraries(sim_vessel_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+
 
 
 ##########
@@ -48,3 +60,13 @@ target_link_libraries(sim_vessel_node ${PROJECT_NAME})
 ##########
 cs_install()
 cs_export()
+
+## Install python nodes
+#set(py_nodes
+#  mesh_node
+#)
+
+foreach(py_node IN LISTS py_nodes)
+  catkin_install_python(PROGRAMS scripts/${py_node}.py
+    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+endforeach()

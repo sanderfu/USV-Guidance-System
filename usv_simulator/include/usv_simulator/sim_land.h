@@ -1,12 +1,9 @@
 #pragma once
 
-#include "geometry_msgs/PolygonStamped.h"
 #include "jsk_recognition_msgs/PolygonArray.h"
-#include "geometry_msgs/Pose.h"
 #include "ros/ros.h"
 #include "ros/package.h"
 #include "geotf/geodetic_converter.h"
-
 #include <gdal/ogrsf_frmts.h>
 
 class SimulatedLand{
@@ -18,10 +15,10 @@ class SimulatedLand{
         std::string path_;
         
         jsk_recognition_msgs::PolygonArray polygon_array_;
-        geometry_msgs::PolygonStamped polygon;
-        geometry_msgs::Point32 point;
+        geometry_msgs::PolygonStamped polygon_;
+        geometry_msgs::Point32 point_;
         
-        geotf::GeodeticConverter converter;
+        geotf::GeodeticConverter converter_;
 
         OGRSFDriverH gis_driver_;
 

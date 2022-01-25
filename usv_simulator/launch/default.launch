@@ -17,6 +17,13 @@
           output="screen">
     </node>
 
+    <node pkg="usv_simulator"
+          name="land"
+          type="sim_land_node"
+          respawn="false"
+          output="screen">
+    </node>
+
     <node pkg="usv_path_trackers"
           name="LOSNode"
           type="los_controller_node.py"
@@ -29,15 +36,6 @@
           type="robot_state_publisher"
           name="tf_broadcaster" />
   </group>
-
-      <node pkg="usv_simulator"
-          name="mesh_node"
-          type="mesh_node.py"
-          respawn="false"
-          output="screen">
-      </node>
-
-
 
   <!--<group if="$(arg use_vo)">
     <node pkg="asv_ctrl_vo"
@@ -60,6 +58,6 @@
   <node pkg="rviz"
         type="rviz"
         name="rviz"
-        args="-d $(find usv_simulator)/config/rviz/config.rviz" />
+        args="-d $(find usv_simulator)/config/rviz/default.rviz" />
     
 </launch>

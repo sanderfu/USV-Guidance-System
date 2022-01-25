@@ -8,6 +8,7 @@ Panels:
         - /TF1/Frames1
         - /MeshMap1
         - /usv1/Path1
+        - /Land1
       Splitter Ratio: 0.5
     Tree Height: 885
   - Class: rviz/Selection
@@ -44,7 +45,7 @@ Visualization Manager:
       Cell Size: 5
       Class: rviz/Grid
       Color: 160; 160; 164
-      Enabled: true
+      Enabled: false
       Line Style:
         Line Width: 0.029999999329447746
         Value: Lines
@@ -57,7 +58,7 @@ Visualization Manager:
       Plane: XY
       Plane Cell Count: 100
       Reference Frame: <Fixed Frame>
-      Value: true
+      Value: false
     - Class: rviz/TF
       Enabled: true
       Frame Timeout: 9000
@@ -84,7 +85,7 @@ Visualization Manager:
       Marker Topic: /usv/colormap
       Name: MeshMap
       Namespaces:
-        usv: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Group
@@ -242,6 +243,20 @@ Visualization Manager:
           Value: true
       Enabled: true
       Name: Ship1
+    - Backface: false
+      Border: false
+      Border Color: 25; 255; 0
+      Class: rviz_polygon_filled/PolygonFilledDisplay
+      Enabled: true
+      Fill: true
+      Fill color: 0; 85; 0
+      Mesh: false
+      Mesh Color: 25; 255; 0
+      Name: Land
+      Queue Size: 10
+      Topic: /sim/land
+      Unreliable: false
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 2; 65; 84
@@ -270,7 +285,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 383.3722229003906
+      Distance: 134.8044891357422
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

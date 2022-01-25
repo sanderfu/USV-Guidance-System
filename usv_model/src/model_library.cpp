@@ -16,45 +16,44 @@ Viknes830::Viknes830(){
     X_udot = 0.0;
     Y_vdot = 0.0;
     Y_rdot = 0.0;
-	N_vdot = 0.0;
-	N_rdot = 0.0;
+    N_vdot = 0.0;
+    N_rdot = 0.0;
 
-    // Linear damping terms [X_u, Y_v, Y_r, N_v, N_r]
-	X_u	= -50.0;
-	Y_v = -200.0;
-	Y_r = 0.0;
-	N_v = 0.0;
-	N_r = -1281;//-3224.0;
+      // Linear damping terms [X_u, Y_v, Y_r, N_v, N_r]
+    X_u	= -50.0;
+    Y_v = -200.0;
+    Y_r = 0.0;
+    N_v = 0.0;
+    N_r = -1281;//-3224.0;
 
-	// Nonlinear damping terms [X_|u|u, Y_|v|v, N_|r|r, X_uuu, Y_vvv, N_rrr]
-	X_uu = -135.0;
-	Y_vv = -2000.0;
-	N_rr = 0.0;
-	X_uuu = 0.0;
-	Y_vvv = 0.0;
-	N_rrr = -3224.0;
+    // Nonlinear damping terms [X_|u|u, Y_|v|v, N_|r|r, X_uuu, Y_vvv, N_rrr]
+    X_uu = -135.0;
+    Y_vv = -2000.0;
+    N_rr = 0.0;
+    X_uuu = 0.0;
+    Y_vvv = 0.0;
+    N_rrr = -3224.0;
 
-	Eigen::Matrix3d Mtot;
-	Mtot << M - X_udot, 0, 0,
-	        0, M-Y_vdot, -Y_rdot,
-	        0, -Y_rdot, I_z-N_rdot;
-	Minv = Mtot.inverse();
+    Eigen::Matrix3d Mtot;
+    Mtot << M - X_udot, 0, 0,
+            0, M-Y_vdot, -Y_rdot,
+            0, -Y_rdot, I_z-N_rdot;
+    Minv = Mtot.inverse();
 
-	//Force limits
-	Fx_min = -6550.0;
-	Fx_max = 13100.0;
-	Fy_min = -645.0;
-	Fy_max = 645.0;
+    //Force limits
+    Fx_min = -6550.0;
+    Fx_max = 13100.0;
+    Fy_min = -645.0;
+    Fy_max = 645.0;
 
-	// Other
-	rudder_d = 4.0; // distance from rudder to CG
+    // Other
+    rudder_d = 4.0; // distance from rudder to CG
 
-    //Low-level controllers 
-	Kp_u = 1.0;
-	Kp_psi = 5.0;
-	Kd_psi = 1.0;
-	Kp_r = 8.0;
-
+      //Low-level controllers 
+    Kp_u = 1.0;
+    Kp_psi = 5.0;
+    Kd_psi = 1.0;
+    Kp_r = 8.0;
 }
 
 void Viknes830::operator()(const state_type& state, state_type & state_dt, const double /*t*/){
@@ -112,13 +111,19 @@ void Viknes830::operator()(const state_type& state, state_type & state_dt, const
 
 }
 
-simulatedHorizon Viknes830::simulate(state_type x_init, double u_d, double psi_d, double T){
+simulatedHorizon Viknes830::simulateHorizon(state_type x_init, double u_d, double psi_d, double T){
     simulatedHorizon sim_hor;
     this->u_d = u_d;
     this->psi_d = psi_d;
     runge_kutta4< state_type > stepper;
     sim_hor.steps = integrate_const(stepper,*this,x_init,0.0,T,0.1,simulatedHorizonObserver(sim_hor));
     return sim_hor;
+}
+
+void Viknes830::simulate(state_type& x, double u_d, double psi_d, double T){
+    this->u_d = u_d;
+    this->psi_d = psi_d;
+    size_t steps = integrate(*this,x,0.0,T,0.01);
 }
 
 LinearObstacleShip::LinearObstacleShip(state_type x_init, double length, double width){

@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 from socket import MsgFlag
+from matplotlib.pyplot import switch_backend
 from numpy.core.numeric import cross
+from sklearn.metrics import euclidean_distances
 import rospy
 import numpy as np
 import math
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose, Twist
 from std_msgs.msg import Float32, Bool
+import queue
 
 
 class LOS:
@@ -26,16 +29,16 @@ class LOS:
         self.reference_pub = rospy.Publisher("/los/desired_yaw",Float32,queue_size=1,tcp_nodelay=True)
 
         self.pose = None
+        self.waypoint_queue = queue.Queue()
         self.current_waypoint = Pose()
         self.last_waypoint = Pose()
 
         self.tangential_transform = np.eye(3)
-
         self.spline_coord_center = np.array([0,0])
-
         self.pi_p = None
 
-        self.has_received_wp = False
+        self.first_wpt_set = False
+        self.stop = True
 
         self.desired_yaw = 0
         self.desired_speed = 0
@@ -52,7 +55,6 @@ class LOS:
         self.tangential_transform = np.eye(3)
         self.spline_coord_center = np.array([0,0])
         self.pi_p = None
-        self.has_received_wp = False
 
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
@@ -62,8 +64,13 @@ class LOS:
             self.current_waypoint.position = msg.pose.pose.position
             print(msg.pose.pose)
 
-        if not self.has_received_wp:
-            #print("No waypoint yet received, thus return")
+        #Check if should switch waypoint
+        if self.euclidean_distance(msg.pose.pose,self.current_waypoint)<10:
+            print("Within circle of acceptance, switching waypoint")
+            self.switch_waypoint()
+
+        if self.stop==True:
+            self.desired_speed = 0
             return
 
         #Calculate crosstrack
@@ -74,11 +81,20 @@ class LOS:
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
         #print("Desired yaw: ", self.desired_yaw)
 
+    def euclidean_distance(self,point_a:Pose,point_b:Pose)->float:
+        return np.sqrt(pow(point_a.position.x-point_b.position.x,2)+pow(point_a.position.y-point_b.position.y,2))
 
-    def waypoint_cb(self,msg: Pose) -> None:
-        if self.pose == None:
-            print("WaypointCb but no pose yet received, thus ignore")
+    def waypoint_cb(self,msg:Pose) -> None:
+        print("Waypoint received, adding to queue")
+        self.waypoint_queue.put(msg)
+
+    def switch_waypoint(self) -> None:
+        if self.waypoint_queue.qsize()==0:
+            print("No waypoint in queue, stopping and waiting for new")
+            self.stop = True
             return
+        else:
+            self.stop=False
 
         self.last_waypoint.position.x = self.current_waypoint.position.x
         self.last_waypoint.position.y = self.current_waypoint.position.y
@@ -87,7 +103,7 @@ class LOS:
         self.last_waypoint.orientation.z = self.current_waypoint.orientation.z
         self.last_waypoint.orientation.w = self.current_waypoint.orientation.w
 
-        self.current_waypoint = msg
+        self.current_waypoint = self.waypoint_queue.get()
 
         #Determine current tangential frame of spline between last and current
         self.spline_coord_center[0] = self.last_waypoint.position.x

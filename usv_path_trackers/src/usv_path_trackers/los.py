@@ -7,9 +7,11 @@ import rospy
 import numpy as np
 import math
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, Twist, Point
 from std_msgs.msg import Float32, Bool
+from visualization_msgs.msg import Marker
 import queue
+from tf.transformations import euler_from_quaternion, quaternion_from_euler
 
 
 class LOS:
@@ -46,12 +48,21 @@ class LOS:
         #Configuration
         self.los_distance = 8
 
-    
+        #Visualization
+        self.first_viz = True
+        self.waypoints_viz = Marker()
+        self.waypoint_splines_viz = Marker()
+        self.los_vector_viz = Marker()
+        self.waypoints_pub = rospy.Publisher("/los/visualize_waypoints",Marker,queue_size=1,tcp_nodelay=True)
+        self.los_vector_pub = rospy.Publisher("/los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
+        self.initialize_visualization()
+
     def reset(self, msg:Bool):
         print("LOS reset")
         self.pose = None
         self.current_waypoint = Pose()
         self.last_waypoint = Pose()
+        self.waypoint_queue.queue.clear()
         self.tangential_transform = np.eye(3)
         self.spline_coord_center = np.array([0,0])
         self.pi_p = None
@@ -75,11 +86,12 @@ class LOS:
 
         #Calculate crosstrack
         crosstrack_error = self.calculate_crosstrack_error()
-        #print("Crosstrack error is: ",crosstrack_error)
 
         #Calculate desired yaw
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
-        #print("Desired yaw: ", self.desired_yaw)
+
+        #Visualize LOS vector
+        self.visualize_los_vector()
 
     def euclidean_distance(self,point_a:Pose,point_b:Pose)->float:
         return np.sqrt(pow(point_a.position.x-point_b.position.x,2)+pow(point_a.position.y-point_b.position.y,2))
@@ -87,6 +99,8 @@ class LOS:
     def waypoint_cb(self,msg:Pose) -> None:
         print("Waypoint received, adding to queue")
         self.waypoint_queue.put(msg)
+        self.waypoints_viz.points.append(Point(msg.position.x,msg.position.y,0))
+        self.visualize_waypoints()
 
     def switch_waypoint(self) -> None:
         if self.waypoint_queue.qsize()==0:
@@ -141,3 +155,42 @@ class LOS:
         self.debug_crosstrack.publish(Float32(tangential_pose[1]))
         self.debug_alongtrack.publish(Float32(tangential_pose[0]))
         return tangential_pose[1]
+
+    def initialize_visualization(self):
+        self.waypoints_viz.header.frame_id="map"
+        self.waypoints_viz.header.stamp = rospy.Time.now()
+        self.waypoints_viz.ns = "waypoints"
+        self.waypoints_viz.id = 0
+        self.waypoints_viz.type = Marker.SPHERE_LIST
+        self.waypoints_viz.scale.x = 10
+        self.waypoints_viz.scale.y = 10
+        self.waypoints_viz.scale.z = 10
+        self.waypoints_viz.action = Marker.ADD
+        self.waypoints_viz.color.a = 1.0
+        self.waypoints_viz.color.r = 1.0
+        self.waypoints_viz.pose.orientation.w = 1.0
+
+        self.los_vector_viz.header.frame_id="map"
+        self.waypoints_viz.header.stamp = rospy.Time.now()
+        self.los_vector_viz.ns= "los_vector"
+        self.los_vector_viz.type = Marker.ARROW
+        self.los_vector_viz.scale.x = 10*self.desired_speed
+        self.los_vector_viz.scale.y = 1
+        self.los_vector_viz.scale.z = 1
+        self.los_vector_viz.color.a = 1.0
+        self.los_vector_viz.color.b = 1.0
+
+    def visualize_waypoints(self):
+        self.waypoints_pub.publish(self.waypoints_viz)
+    
+    def visualize_los_vector(self):
+        self.los_vector_viz.pose.position = self.pose.position
+        q = quaternion_from_euler(0,0,self.desired_yaw)
+        self.los_vector_viz.scale.x = 10*self.desired_speed
+        self.los_vector_viz.pose.orientation.x = q[0]
+        self.los_vector_viz.pose.orientation.y = q[1]
+        self.los_vector_viz.pose.orientation.z = q[2]
+        self.los_vector_viz.pose.orientation.w = q[3]
+
+        self.los_vector_pub.publish(self.los_vector_viz)
+

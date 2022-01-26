@@ -243,6 +243,22 @@ Visualization Manager:
           Value: true
       Enabled: true
       Name: Ship1
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /los/visualize_waypoints
+      Name: Waypoints
+      Namespaces:
+        waypoints: true
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /los/visualize_vector
+      Name: LosVector
+      Namespaces:
+        los_vector: true
+      Queue Size: 100
+      Value: true
     - Backface: false
       Border: false
       Border Color: 25; 255; 0
@@ -285,7 +301,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 134.8044891357422
+      Distance: 226.89697265625
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -301,9 +317,9 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7148011326789856
+      Pitch: 1.5697963237762451
       Target Frame: usv
-      Yaw: 1.4534540176391602
+      Yaw: 3.9684581756591797
     Saved: ~
 Window Geometry:
   Displays:

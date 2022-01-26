@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>usv_path_trackers</name>
+  <name>usv_map</name>
   <version>0.0.1</version>
-  <description>The usv_path_trackers package</description>
+  <description>The usv_simulator package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -17,9 +17,13 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <buildtool_depend>catkin_simple</buildtool_depend>
-  <depend>rospy</depend>
+  <depend>roscpp</depend>
   <depend>geometry_msgs</depend>
+  <depend>tf</depend>
   <depend>roslib</depend>
+  <depend>geotf</depend>
+  <depend>message_generation</depend>
+  <depend>message_runtime</depend>
   <test_depend>rosunit</test_depend>
 
 </package>

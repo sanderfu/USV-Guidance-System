@@ -112,7 +112,6 @@ class LOS:
             return
         else:
             self.stop=False
-            self.desired_speed = 3
 
         self.last_waypoint.position.x = self.current_waypoint.position.x
         self.last_waypoint.position.y = self.current_waypoint.position.y

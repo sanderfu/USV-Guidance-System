@@ -20,8 +20,9 @@ class LOS:
     """
     def __init__(self) -> None:
         rospy.Subscriber("/usv/odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("/usv_planner/waypoint",Pose,self.waypoint_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("/external_reset/USV_LOS",Bool, self.reset,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("/mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("/mission_planner/waypoint",Pose,self.waypoint_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("/external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
         self.debug_crosstrack = rospy.Publisher("/los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
@@ -51,15 +52,14 @@ class LOS:
         #Visualization
         self.first_viz = True
         self.waypoints_viz = Marker()
-        self.waypoint_splines_viz = Marker()
         self.los_vector_viz = Marker()
         self.waypoints_pub = rospy.Publisher("/los/visualize_waypoints",Marker,queue_size=1,tcp_nodelay=True)
         self.los_vector_pub = rospy.Publisher("/los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
+        self.visualize_timer = rospy.Timer(rospy.Duration(0.1),self.visualize_los_vector)
         self.initialize_visualization()
 
     def reset(self, msg:Bool):
         print("LOS reset")
-        self.pose = None
         self.current_waypoint = Pose()
         self.last_waypoint = Pose()
         self.waypoint_queue.queue.clear()
@@ -67,17 +67,21 @@ class LOS:
         self.spline_coord_center = np.array([0,0])
         self.pi_p = None
 
+        #Reset visualization
+        self.waypoints_viz.points.clear()
+        self.visualize_waypoints()
+
+
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
 
         if self.current_waypoint==Pose():
             print("Current waypoint not set, setting using odometry")
             self.current_waypoint.position = msg.pose.pose.position
-            print(msg.pose.pose)
 
         #Check if should switch waypoint
         if self.euclidean_distance(msg.pose.pose,self.current_waypoint)<10:
-            print("Within circle of acceptance, switching waypoint")
+            #print("Within circle of acceptance, switching waypoint")
             self.switch_waypoint()
 
         if self.stop==True:
@@ -90,25 +94,25 @@ class LOS:
         #Calculate desired yaw
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
 
-        #Visualize LOS vector
-        self.visualize_los_vector()
-
     def euclidean_distance(self,point_a:Pose,point_b:Pose)->float:
         return np.sqrt(pow(point_a.position.x-point_b.position.x,2)+pow(point_a.position.y-point_b.position.y,2))
 
     def waypoint_cb(self,msg:Pose) -> None:
-        print("Waypoint received, adding to queue")
         self.waypoint_queue.put(msg)
         self.waypoints_viz.points.append(Point(msg.position.x,msg.position.y,0))
         self.visualize_waypoints()
+    
+    def speed_cb(self,msg:Twist) -> None:
+        self.desired_speed = msg.linear.x
 
     def switch_waypoint(self) -> None:
         if self.waypoint_queue.qsize()==0:
-            print("No waypoint in queue, stopping and waiting for new")
+            #print("No waypoint in queue, stopping and waiting for new")
             self.stop = True
             return
         else:
             self.stop=False
+            self.desired_speed = 3
 
         self.last_waypoint.position.x = self.current_waypoint.position.x
         self.last_waypoint.position.y = self.current_waypoint.position.y
@@ -137,11 +141,9 @@ class LOS:
         self.pi_p = rotation_angle
         self.has_received_wp = True
 
-        self.desired_speed = 3
-
     def publish_reference_cb(self,timer):
         if self.pose==None:
-            print("publishReferenceCb but no pose yet received, thus ignore")
+            #print("publishReferenceCb but no pose yet received, thus ignore")
             return
         self.reference_pub.publish(Float32(self.desired_yaw))
         msg = Twist()
@@ -183,14 +185,17 @@ class LOS:
     def visualize_waypoints(self):
         self.waypoints_pub.publish(self.waypoints_viz)
     
-    def visualize_los_vector(self):
-        self.los_vector_viz.pose.position = self.pose.position
-        q = quaternion_from_euler(0,0,self.desired_yaw)
-        self.los_vector_viz.scale.x = 10*self.desired_speed
-        self.los_vector_viz.pose.orientation.x = q[0]
-        self.los_vector_viz.pose.orientation.y = q[1]
-        self.los_vector_viz.pose.orientation.z = q[2]
-        self.los_vector_viz.pose.orientation.w = q[3]
+    def visualize_los_vector(self,timer):
+        try: 
+            self.los_vector_viz.pose.position = self.pose.position
+            q = quaternion_from_euler(0,0,self.desired_yaw)
+            self.los_vector_viz.scale.x = 10*self.desired_speed
+            self.los_vector_viz.pose.orientation.x = q[0]
+            self.los_vector_viz.pose.orientation.y = q[1]
+            self.los_vector_viz.pose.orientation.z = q[2]
+            self.los_vector_viz.pose.orientation.w = q[3]
 
-        self.los_vector_pub.publish(self.los_vector_viz)
+            self.los_vector_pub.publish(self.los_vector_viz)
+        except AttributeError as e:
+            return
 

@@ -20,7 +20,8 @@ find_library(gdal_LIBRARIES
 # LIBRARIES #
 #############
 #cs_add_library(${PROJECT_NAME}
-#  src/geotf_ros.cpp
+#  src/sim_vessel.cpp
+#  src/sim_land.cpp
 #)
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -42,21 +43,6 @@ find_library(gdal_LIBRARIES
 #)
 #target_link_libraries(dynamic_planner_node ${PROJECT_NAME} graph_builder)
 
-#cs_add_executable(sim_land_node
-#  src/sim_land_node.cpp
-#)
-#target_link_libraries(sim_land_node ${PROJECT_NAME} ${gdal_LIBRARIES})
-
-#cs_add_executable(geotf_ros_node
-#  src/geotf_ros_node.cpp
-#)
-#target_link_libraries(geotf_ros_node ${PROJECT_NAME} ${gdal_LIBRARIES})
-
-#cs_add_executable(test_services
-#  src/test_services.cpp
-#)
-#target_link_libraries(test_services ${PROJECT_NAME})
-
 
 
 ##########
@@ -65,7 +51,7 @@ find_library(gdal_LIBRARIES
 cs_install()
 cs_export()
 
-#Install python nodes
+## Install python nodes
 set(py_nodes
   static_mission_planner_node
 )

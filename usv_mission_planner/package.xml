@@ -18,13 +18,11 @@
   <buildtool_depend>catkin</buildtool_depend>
   <buildtool_depend>catkin_simple</buildtool_depend>
   <depend>roscpp</depend>
-  <depend>rospy</depend>
   <depend>geometry_msgs</depend>
+  <depend>usv_model</depend>
   <depend>tf</depend>
   <depend>roslib</depend>
   <depend>geotf</depend>
-  <depend>message_generation</depend>
-  <depend>message_runtime</depend>
   <test_depend>rosunit</test_depend>
 
 </package>

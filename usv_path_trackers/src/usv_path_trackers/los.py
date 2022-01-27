@@ -22,7 +22,7 @@ class LOS:
     def __init__(self) -> None:
         rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
         rospy.Subscriber("external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 

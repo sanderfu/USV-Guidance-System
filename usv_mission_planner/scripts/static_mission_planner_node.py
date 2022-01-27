@@ -5,9 +5,10 @@ import numpy as np
 import rospkg
 import os
 from geometry_msgs.msg import Pose, Twist, Point,Quaternion, Vector3
+
 def main():
     rospy.init_node('static_mission_planner_node')
-    rospy.sleep(2)
+    rospy.sleep(5)
     wpt_pub = rospy.Publisher("mission_planner/geo_waypoint",Pose,queue_size=1,tcp_nodelay=True)
     speed_pub = rospy.Publisher("mission_planner/desired_speed",Twist,queue_size=1,tcp_nodelay=True)
     pkg_path = rospkg.RosPack().get_path("usv_mission_planner")

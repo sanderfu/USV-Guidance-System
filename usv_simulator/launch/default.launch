@@ -37,6 +37,8 @@
           name="tf_broadcaster" />
   </group>
 
+  <include file="$(find usv_map)/launch/default.launch"/>
+
   <!--<group if="$(arg use_vo)">
     <node pkg="asv_ctrl_vo"
           name="vo_node"

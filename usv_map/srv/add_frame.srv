@@ -1,0 +1,9 @@
+#Add an enu frame
+Header header
+
+string frame_name
+float64 latitude
+float64 longitude
+float64 altitude
+---
+string response

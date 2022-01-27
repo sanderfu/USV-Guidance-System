@@ -3,8 +3,6 @@
 int main(int argc, char** argv){
     ros::init(argc,argv,"sim");
     ros::NodeHandle vessel_nh;
-    ROS_INFO_STREAM("USV sleeping for 5 seconds before starting");
-    ros::Duration(5).sleep();
 
     state_type x_init(6);
     x_init[0] = 0;

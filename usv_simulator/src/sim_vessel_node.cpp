@@ -1,8 +1,8 @@
 #include "usv_simulator/sim_vessel.h"
 
 int main(int argc, char** argv){
-    ros::init(argc,argv,"vessel1");
-    ros::NodeHandle vessel_nh("vessel1");
+    ros::init(argc,argv,"sim");
+    ros::NodeHandle vessel_nh;
     ROS_INFO_STREAM("USV sleeping for 5 seconds before starting");
     ros::Duration(5).sleep();
 

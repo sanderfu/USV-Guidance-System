@@ -20,17 +20,17 @@ class LOS:
         LOS controller for the USV
     """
     def __init__(self) -> None:
-        rospy.Subscriber("/usv/odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("/mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("/mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("/external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
+        rospy.Subscriber("external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
-        self.debug_crosstrack = rospy.Publisher("/los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
+        self.debug_crosstrack = rospy.Publisher("los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
         self.debug_alongtrack = rospy.Publisher("los/alongtrack",Float32,queue_size=1,tcp_nodelay=True)
-        self.debug_cmd = rospy.Publisher("/los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
+        self.debug_cmd = rospy.Publisher("los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
 
-        self.reference_pub = rospy.Publisher("/los/desired_yaw",Float32,queue_size=1,tcp_nodelay=True)
+        self.reference_pub = rospy.Publisher("los/desired_yaw",Float32,queue_size=1,tcp_nodelay=True)
 
         self.pose = None
         self.waypoint_queue = queue.Queue()
@@ -57,8 +57,8 @@ class LOS:
         self.first_viz = True
         self.waypoints_viz = Marker()
         self.los_vector_viz = Marker()
-        self.waypoints_pub = rospy.Publisher("/los/visualize_waypoints",Marker,queue_size=1,tcp_nodelay=True)
-        self.los_vector_pub = rospy.Publisher("/los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
+        self.waypoints_pub = rospy.Publisher("los/visualize_waypoints",Marker,queue_size=1,tcp_nodelay=True)
+        self.los_vector_pub = rospy.Publisher("los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
         self.visualize_timer = rospy.Timer(rospy.Duration(0.1),self.visualize_los_vector)
         self.initialize_visualization()
 
@@ -80,7 +80,7 @@ class LOS:
         self.pose = msg.pose.pose
 
         if self.current_waypoint==Pose():
-            print("Current waypoint not set, setting using odometry")
+            #print("Current waypoint not set, setting using odometry")
             self.current_waypoint.position = msg.pose.pose.position
 
         #Check if should switch waypoint

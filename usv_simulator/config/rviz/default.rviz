@@ -6,8 +6,11 @@ Panels:
       Expanded:
         - /Grid1
         - /TF1/Frames1
-        - /MeshMap1
+        - /usv1
         - /usv1/Path1
+        - /usv1/Viknes8301
+        - /Waypoints1
+        - /LosVector1
         - /Land1
       Splitter Ratio: 0.5
     Tree Height: 885
@@ -64,9 +67,9 @@ Visualization Manager:
       Frame Timeout: 9000
       Frames:
         All Enabled: true
-        map:
+        Viknes830:
           Value: true
-        usv:
+        map:
           Value: true
       Marker Alpha: 1
       Marker Scale: 50
@@ -76,17 +79,9 @@ Visualization Manager:
       Show Names: true
       Tree:
         map:
-          usv:
+          Viknes830:
             {}
       Update Interval: 0
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /usv/colormap
-      Name: MeshMap
-      Namespaces:
-        {}
-      Queue Size: 100
       Value: true
     - Class: rviz/Group
       Displays:
@@ -151,13 +146,13 @@ Visualization Manager:
             Expand Link Details: false
             Expand Tree: false
             Link Tree Style: Links in Alphabetic Order
-            usv:
+            Viknes830:
               Alpha: 1
               Show Axes: false
               Show Trail: false
               Value: true
-          Name: usv
-          Robot Description: usv/robot_description
+          Name: Viknes830
+          Robot Description: Viknes830/robot_description
           TF Prefix: ""
           Update Interval: 0
           Value: true
@@ -245,7 +240,7 @@ Visualization Manager:
       Name: Ship1
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /los/visualize_waypoints
+      Marker Topic: /Viknes830/los/visualize_waypoints
       Name: Waypoints
       Namespaces:
         waypoints: true
@@ -253,10 +248,10 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /los/visualize_vector
+      Marker Topic: /Viknes830/los/visualize_vector
       Name: LosVector
       Namespaces:
-        los_vector: true
+        {}
       Queue Size: 100
       Value: true
     - Backface: false
@@ -301,7 +296,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 226.89697265625
+      Distance: 344.9445495605469
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1

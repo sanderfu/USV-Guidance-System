@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<robot name="usv">
-  <link name="usv">
+<robot name="Viknes830">
+  <link name="Viknes830">
     <visual>
       <origin rpy="1.570796326 0.0 1.570796326" xyz="-4.15 -1.6 -1.5"/>
       <geometry>

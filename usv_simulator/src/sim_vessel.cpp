@@ -4,18 +4,18 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init )
 
     x_ = x_init;
     update_frequency_ = 30;
-    vessel_name_ = ros::names::clean(nh_.getNamespace());
-    u_d_ = 5;
-    psi_d_ = M_PI/4; 
+    vessel_name_ = ros::this_node::getNamespace().substr(1,ros::this_node::getNamespace().size()-1);
+    u_d_ = 0;
+    psi_d_ = 0; 
 
     // Setup transform broadcaster
     tf_broad_ = tf::TransformBroadcaster();
 
     // Setup publishers and subscribers 
     pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("pose", 10);
-    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("/usv/odom", 10);
+    odom_pub_ = nh_.advertise<nav_msgs::Odometry>("odom", 10);
     noise_pub_ = nh_.advertise<geometry_msgs::Vector3>("wave_noise", 10);
-    cmd_sub_ = nh_.subscribe("/los/setpoint", 1, &SimulatedVessel::cmdCb, this);
+    cmd_sub_ = nh_.subscribe("los/setpoint", 1, &SimulatedVessel::cmdCb, this);
 
     //Set up driving timer
     loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulatedVessel::updateLoop,this);
@@ -55,7 +55,7 @@ void SimulatedVessel::publishData(){
     tf_broad_.sendTransform(tf::StampedTransform(transform,
                                             ros::Time::now(),
                                             "map",
-                                            "usv"));
+                                            vessel_name_));
 
     odom.header.stamp = ros::Time::now();
     odom.header.frame_id = "map";

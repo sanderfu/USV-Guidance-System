@@ -65,10 +65,10 @@ target_link_libraries(test_services ${PROJECT_NAME})
 cs_install()
 cs_export()
 
-## Install python nodes
-#set(py_nodes
-#  mesh_node
-#)
+#Install python nodes
+set(py_nodes
+  test_client
+)
 
 foreach(py_node IN LISTS py_nodes)
   catkin_install_python(PROGRAMS scripts/${py_node}.py

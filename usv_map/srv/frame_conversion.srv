@@ -5,5 +5,5 @@ string from_frame
 string to_frame
 geometry_msgs/Point from_point
 ---
-geometry_msgs/PoseStamped to_pose
+geometry_msgs/Point to_point
 

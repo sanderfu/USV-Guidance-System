@@ -3,6 +3,7 @@ namespace geotf {
 
 GeodeticConverterServer::GeodeticConverterServer(const ros::NodeHandle& nh): nh_(nh) {
     addFrameByEPSG("WGS84",4326);
+    addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
     frame_conversion_srv_ = nh_.advertiseService("/map/frame_conversion",&GeodeticConverterServer::frameConversion,this);
     add_frame_srv_ = nh_.advertiseService("/map/add_frame",&GeodeticConverterServer::addFrame,this);
 }
@@ -14,9 +15,7 @@ bool GeodeticConverterServer::frameConversion(usv_map::frame_conversion::Request
     }
     Eigen::Vector3d to_vec;
     convert(req.from_frame,pointToVector(req.from_point),req.to_frame,&to_vec);
-    res.to_pose.pose.position = vectorToPoint(to_vec);
-    res.to_pose.header.frame_id = req.to_frame;
-    res.to_pose.header.stamp = ros::Time::now();
+    res.to_point = vectorToPoint(to_vec);
     return true;
 }
 
@@ -53,7 +52,7 @@ void GeodeticConverterClient::convert(std::string& from_frame, Eigen::Vector3d& 
     if(!convert_point_client_.call(srv_conv)){
         ROS_ERROR_STREAM("Failed to convert coordinates!");
     } else{
-        std::cout << "Converted to: " << srv_conv.response.to_pose.pose.position.x << " " << srv_conv.response.to_pose.pose.position.y << std::endl;
+        std::cout << "Converted to: " << srv_conv.response.to_point.x << " " << srv_conv.response.to_point.y << std::endl;
     }
 }
 

@@ -7,11 +7,12 @@ import rospy
 import numpy as np
 import math
 from nav_msgs.msg import Odometry
-from geometry_msgs.msg import Pose, Twist, Point
+from geometry_msgs.msg import Pose, Twist, Point, Quaternion
 from std_msgs.msg import Float32, Bool
 from visualization_msgs.msg import Marker
 import queue
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from usv_map.geotf_ros_python import GeodeticConverterClient
 
 
 class LOS:
@@ -21,7 +22,7 @@ class LOS:
     def __init__(self) -> None:
         rospy.Subscriber("/usv/odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("/mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("/mission_planner/waypoint",Pose,self.waypoint_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("/mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("/external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
@@ -48,6 +49,9 @@ class LOS:
 
         #Configuration
         self.los_distance = 8
+
+        #Coordinate conversion client
+        self.converter_client = GeodeticConverterClient()
 
         #Visualization
         self.first_viz = True
@@ -97,9 +101,12 @@ class LOS:
     def euclidean_distance(self,point_a:Pose,point_b:Pose)->float:
         return np.sqrt(pow(point_a.position.x-point_b.position.x,2)+pow(point_a.position.y-point_b.position.y,2))
 
-    def waypoint_cb(self,msg:Pose) -> None:
-        self.waypoint_queue.put(msg)
-        self.waypoints_viz.points.append(Point(msg.position.x,msg.position.y,0))
+    def geo_waypoint_cb(self,msg:Pose) -> None:
+        #Convert to cartesian coordinates
+        wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
+        wpt = Pose(Point(wpt_cart[0],wpt_cart[1],wpt_cart[2]),Quaternion(0,0,0,1))
+        self.waypoint_queue.put(wpt)
+        self.waypoints_viz.points.append(wpt.position)
         self.visualize_waypoints()
     
     def speed_cb(self,msg:Twist) -> None:

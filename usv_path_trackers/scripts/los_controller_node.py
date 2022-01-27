@@ -5,7 +5,7 @@ import rospy
 from usv_path_trackers.los import LOS
 
 def main():
-    rospy.init_node('los_test_node')
+    rospy.init_node('los_guidance_node')
     los = LOS()
     rospy.spin()
 

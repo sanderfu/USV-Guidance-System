@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     if(!client_conversion.call(srv_conv)){
         ROS_ERROR_STREAM("Failed to convert coordinates!");
     } else{
-        std::cout << "Converted to: " << srv_conv.response.to_pose.pose.position.x << " " << srv_conv.response.to_pose.pose.position.y << std::endl;
+        std::cout << "Converted to: " << srv_conv.response.to_point.x << " " << srv_conv.response.to_point.y << std::endl;
     }
 
 

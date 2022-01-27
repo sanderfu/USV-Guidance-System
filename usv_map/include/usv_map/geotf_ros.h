@@ -26,9 +26,6 @@ class GeodeticConverterClient {
         ros::NodeHandle* nh_;
         ros::ServiceClient add_frame_client_;
         ros::ServiceClient convert_point_client_;
-
-
-
 };
 
 Eigen::Vector3d pointToVector(geometry_msgs::Point& point);

@@ -16,6 +16,8 @@ find_library(gdal_LIBRARIES
   gdal
 )
 
+find_package(nav_msgs REQUIRED COMPONENTS)
+
 #############
 # LIBRARIES #
 #############

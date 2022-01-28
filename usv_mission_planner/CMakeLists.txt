@@ -12,9 +12,15 @@ if(OPENMP_FOUND)
   set(OpenMP_LIBS gomp)
 endif()
 
-find_library(gdal_LIBRARIES
-  gdal
-)
+#include_directories(
+#  include
+#  /usr/local/include/GeographicLib
+#  ${catkin_INCLUDE_DIRS}
+#)
+
+#find_library(LIBRARIES
+#  GeographicLib REQUIRED
+#)
 
 #############
 # LIBRARIES #
@@ -38,10 +44,6 @@ find_library(gdal_LIBRARIES
 # BINARIES #
 ############
 
-#cs_add_executable(dynamic_planner_node
-#  src/dynamic_planner_node.cpp
-#)
-#target_link_libraries(dynamic_planner_node ${PROJECT_NAME} graph_builder)
 
 
 

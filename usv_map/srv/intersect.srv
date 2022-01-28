@@ -1,0 +1,3 @@
+string path_wkt
+---
+bool intersects

@@ -38,10 +38,6 @@ find_library(gdal_LIBRARIES
 # BINARIES #
 ############
 
-#cs_add_executable(dynamic_planner_node
-#  src/dynamic_planner_node.cpp
-#)
-#target_link_libraries(dynamic_planner_node ${PROJECT_NAME} graph_builder)
 
 
 

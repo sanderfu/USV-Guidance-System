@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-from socket import MsgFlag
-from matplotlib.pyplot import switch_backend
-from numpy.core.numeric import cross
-from sklearn.metrics import euclidean_distances
 import rospy
 import numpy as np
 import math

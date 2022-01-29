@@ -16,11 +16,14 @@ find_library(gdal_LIBRARIES
   gdal
 )
 
+find_package (GeographicLib REQUIRED)
+
 #############
 # LIBRARIES #
 #############
 cs_add_library(${PROJECT_NAME}
   src/geotf_ros.cpp
+  src/map_service.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -52,10 +55,25 @@ cs_add_executable(geotf_ros_node
 )
 target_link_libraries(geotf_ros_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
+cs_add_executable(map_service_node
+  src/map_service_node.cpp
+)
+target_link_libraries(map_service_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+
 cs_add_executable(test_services
   src/test_services.cpp
 )
 target_link_libraries(test_services ${PROJECT_NAME})
+
+cs_add_executable(test_distance_calc
+  src/test_distance_calc.cpp
+)
+target_link_libraries(test_distance_calc ${GeographicLib_LIBRARIES})
+
+cs_add_executable(test_map_service
+  src/test_map_service.cpp
+)
+target_link_libraries(test_map_service ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
 
 

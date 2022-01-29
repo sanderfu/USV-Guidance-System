@@ -4,6 +4,13 @@
           type="geotf_ros_node"
           respawn="false"
           output="screen">
-    </node>
+  </node>
+
+  <node pkg="usv_map"
+          name="map_server"
+          type="map_service_node"
+          respawn="false"
+          output="screen">
+  </node>
     
 </launch>

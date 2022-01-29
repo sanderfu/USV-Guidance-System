@@ -1,3 +1,13 @@
+#Geometry types supported:
+# 0: LineString
+# 1: Point
+
+# Intersection types supported
+# 0: Collision
+# 1: Caution
+
+uint8 geom_type
+uint8 intersect_type
 string path_wkt
 ---
 bool intersects

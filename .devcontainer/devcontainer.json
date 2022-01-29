@@ -37,9 +37,7 @@
         "/dev:/dev",
         "--privileged",
         "--network",
-        "host",
-        "--gpus",
-        "all"
+        "host"
     ],
     "settings": {
         "terminal.integrated.shell.linux": "/bin/bash"

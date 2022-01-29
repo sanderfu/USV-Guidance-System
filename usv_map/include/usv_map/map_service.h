@@ -6,6 +6,8 @@
 #include <GeographicLib/Geodesic.hpp>
 #include "usv_map/intersect.h"
 
+enum IntersectType {COLLISION, CAUTION};
+
 class MapServiceServer {
     public:
         MapServiceServer(const ros::NodeHandle& nh);
@@ -16,6 +18,15 @@ class MapServiceServer {
         
         std::string db_path_;
         GDALDataset* ds_;
+};
 
-
+class MapServiceClient {
+    public: 
+        MapServiceClient(ros::NodeHandle* nh);
+        bool collision(OGRGeometry* geom);
+        bool caution(OGRGeometry* geom);
+    private:
+        ros::NodeHandle* nh_;
+        ros::ServiceClient intersects_service;
+        bool intersects(OGRGeometry* geom, IntersectType intersect_type);
 };

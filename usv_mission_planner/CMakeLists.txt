@@ -12,15 +12,9 @@ if(OPENMP_FOUND)
   set(OpenMP_LIBS gomp)
 endif()
 
-#include_directories(
-#  include
-#  /usr/local/include/GeographicLib
-#  ${catkin_INCLUDE_DIRS}
-#)
-
-#find_library(LIBRARIES
-#  GeographicLib REQUIRED
-#)
+find_library(gdal_LIBRARIES
+  gdal
+)
 
 #############
 # LIBRARIES #

@@ -20,7 +20,6 @@
   <depend>roscpp</depend>
   <depend>rospy</depend>
   <depend>geometry_msgs</depend>
-  <depend>nav_msgs</depend>
   <depend>tf</depend>
   <depend>roslib</depend>
   <depend>geotf</depend>

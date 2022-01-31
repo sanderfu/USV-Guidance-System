@@ -19,10 +19,9 @@ find_library(gdal_LIBRARIES
 #############
 # LIBRARIES #
 #############
-#cs_add_library(${PROJECT_NAME}
-#  src/sim_vessel.cpp
-#  src/sim_land.cpp
-#)
+cs_add_library(${PROJECT_NAME}
+  src/sb_mpc.cpp
+)
 
 #add_library(graph_builder src/graph_builder.cpp)
 #target_compile_options(graph_builder PRIVATE ${OpenMP_FLAGS})

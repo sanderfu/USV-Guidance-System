@@ -75,4 +75,5 @@ class SimulationBasedMPC{
         ros::Publisher path_viz_pub_;
         visualization_msgs::Marker path_viz_;
         void visualizePath(OGRLineString& path);
+        void clearVisualPath();
 };

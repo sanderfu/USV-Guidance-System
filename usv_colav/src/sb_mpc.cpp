@@ -30,11 +30,11 @@ K_DCHI_P_(1.2)			//   1.2
     geo_converter_.addFrameByEPSG("WGS84",4326);
     geo_converter_.addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
 
-    correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
+    correction_pub_ = nh_.advertise<geometry_msgs::Twist>("/colav/correction",1,false);
 
     odom_sub_ = nh_.subscribe("/Viknes830/odom",1,&SimulationBasedMPC::odomCb,this);
     los_setpoint_sub_ = nh_.subscribe("/Viknes830/los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
-    main_loop_timer_ = nh_.createTimer(ros::Duration(1),&SimulationBasedMPC::mainLoop,this);
+    main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
     double courseOffsets[] = {-90.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,90.0};
@@ -96,22 +96,15 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             state[3] = latest_odom_.twist.twist.linear.x;
             state[4] = latest_odom_.twist.twist.linear.y;
             state[5] = latest_odom_.twist.twist.angular.z;
-            //ros::Time start = ros::Time::now();
-            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizonAdaptive(state,(latest_los_setpoint_.linear.x+1)*(*p_it),latest_los_setpoint_.angular.z+(*chi_it),60);
-            //ros::Time end = ros::Time::now();
-            //ROS_INFO_STREAM("Simulation took: " << (end-start).toSec() << " [s]");
-
-
+            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizon(state,(latest_los_setpoint_.linear.x)*(*p_it),latest_los_setpoint_.angular.z+(*chi_it),60);
+            
             //Simulation horizon to LineString
             OGRLineString path;
-            std::string global_enu = "global_enu";
-            std::string global_wgs = "WGS84";
-
             for(auto hor_it = horizon.state.begin(); hor_it!=horizon.state.end();hor_it++){
                 point_local(0) = hor_it->at(0);
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
-                geo_converter_.convert(global_enu,point_local,global_wgs,&point_global);
+                geo_converter_.convert("global_enu",point_local,"WGS84",&point_global);
                 path.addPoint(point_global(0),point_global(1));
             }
 
@@ -121,9 +114,11 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 cost_i += 100;
             }
 
-            if((*p_it)!=1 || (*chi_it)!=0){
-                cost_i += 5;
-            }
+            //TEMPORARY cost func, prioritize small manueuvers
+            cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
+            cost_i += abs(*chi_it/(M_PI/2));
+            cost_i += 10*abs(*p_it-1); 
+
             
             //Choose action based on minimized cost
             if (cost_i<cost){
@@ -135,6 +130,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
 
         }
     }
+    clearVisualPath();
     visualizePath(choosen_path);
     ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
     ROS_INFO_STREAM("Best cost: " << cost);
@@ -146,6 +142,11 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     double u_os, psi_os;
     ros::Time start = ros::Time::now();
     getBestControlOffset(u_os,psi_os);
+
+    geometry_msgs::Twist offset;
+    offset.linear.x = u_os;
+    offset.angular.z = psi_os;
+    correction_pub_.publish(offset);
     ros::Time stop = ros::Time::now();
     ROS_INFO_STREAM("Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
     ROS_INFO_STREAM("Getting offset took: " << (stop-start).toSec() << " [s]");
@@ -168,6 +169,7 @@ double SimulationBasedMPC::Delta_Chi(double Chi_ca){
 }
 
 void SimulationBasedMPC::visualizePath(OGRLineString& path){
+    path_viz_.action = visualization_msgs::Marker::ADD;
     geometry_msgs::Point point1;
     geometry_msgs::Point prev_point;
     for (int i = 0; i<path.getNumPoints();i++){
@@ -192,5 +194,11 @@ void SimulationBasedMPC::visualizePath(OGRLineString& path){
         prev_point.y = point1.y;
        
     }
+    path_viz_pub_.publish(path_viz_);
+}
+
+void SimulationBasedMPC::clearVisualPath(){
+    path_viz_.points.clear();
+    path_viz_.action = visualization_msgs::Marker::DELETEALL;
     path_viz_pub_.publish(path_viz_);
 }

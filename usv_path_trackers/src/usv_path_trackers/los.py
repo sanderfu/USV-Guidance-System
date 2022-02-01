@@ -20,11 +20,13 @@ class LOS:
         rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
         rospy.Subscriber("external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("/colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
         self.debug_crosstrack = rospy.Publisher("los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
         self.debug_alongtrack = rospy.Publisher("los/alongtrack",Float32,queue_size=1,tcp_nodelay=True)
-        self.debug_cmd = rospy.Publisher("los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
+        self.setpoint_pub = rospy.Publisher("los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
+        self.corrected_setpoint_pub = rospy.Publisher("los/corrected_setpoint",Twist, queue_size=1,tcp_nodelay=1)
 
         self.reference_pub = rospy.Publisher("los/desired_yaw",Float32,queue_size=1,tcp_nodelay=True)
 
@@ -42,9 +44,10 @@ class LOS:
 
         self.desired_yaw = 0
         self.desired_speed = 0
+        self.correction = Twist()
 
         #Configuration
-        self.los_distance = 8
+        self.los_distance = 40
 
         #Coordinate conversion client
         self.converter_client = GeodeticConverterClient()
@@ -147,11 +150,20 @@ class LOS:
         if self.pose==None:
             #print("publishReferenceCb but no pose yet received, thus ignore")
             return
-        self.reference_pub.publish(Float32(self.desired_yaw))
+        msg_corrected = Twist()
+        msg_corrected.linear.x = self.desired_speed*self.correction.linear.x
+        msg_corrected.angular.z = self.desired_yaw+self.correction.angular.z
+
         msg = Twist()
         msg.linear.x = self.desired_speed
         msg.angular.z = self.desired_yaw
-        self.debug_cmd.publish(msg)
+
+        #self.reference_pub.publish(Float32(msg.angular.z))
+        self.setpoint_pub.publish(msg)
+        self.corrected_setpoint_pub.publish(msg_corrected)
+
+    def correction_cb(self,msg:Twist)->None:
+        self.correction = msg
 
     def calculate_crosstrack_error(self):
         tangential_pose_homogenous = self.tangential_transform@np.array([self.pose.position.x,self.pose.position.y,1]).reshape((3,1))

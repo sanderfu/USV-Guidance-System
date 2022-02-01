@@ -8,7 +8,7 @@
   <arg name="shipname" default="Viknes830" />
 
   <group ns="$(arg shipname)">
-      <arg name="waypoint_file" default="test_waypoints.csv" />
+      <arg name="waypoint_file" default="test_grounding_avoidance.csv" />
       <param name="waypoint_file" value="$(arg waypoint_file)"/>
       <node pkg="usv_simulator"
             name="sim"

@@ -150,7 +150,7 @@ class LOS:
         self.reference_pub.publish(Float32(self.desired_yaw))
         msg = Twist()
         msg.linear.x = self.desired_speed
-        msg.angular.y = self.desired_yaw
+        msg.angular.z = self.desired_yaw
         self.debug_cmd.publish(msg)
 
     def calculate_crosstrack_error(self):

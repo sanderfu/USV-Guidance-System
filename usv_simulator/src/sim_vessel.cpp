@@ -80,5 +80,5 @@ void SimulatedVessel::publishData(){
  */
 void SimulatedVessel::cmdCb(const geometry_msgs::Twist& msg){
     u_d_ = msg.linear.x;
-    psi_d_ = msg.angular.y;
+    psi_d_ = msg.angular.z;
 }

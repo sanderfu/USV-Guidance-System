@@ -43,6 +43,7 @@ namespace ModelLibrary{
             void operator() (const state_type& x, state_type &dxdt, const double /*t*/);
 
             simulatedHorizon simulateHorizon(state_type x_init, double u_d, double psi_d, double T);
+            simulatedHorizon simulateHorizonAdaptive(state_type x_init, double u_d, double psi_d, double T);
             void simulate(state_type& x, double u_d, double psi_d, double T);
         private:
             state_type pose; //x,y,psi

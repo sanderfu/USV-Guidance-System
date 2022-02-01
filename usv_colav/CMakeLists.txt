@@ -36,7 +36,10 @@ cs_add_library(${PROJECT_NAME}
 ############
 # BINARIES #
 ############
-
+cs_add_executable(sb_mpc_node
+  src/sb_mpc_node.cpp
+)
+target_link_libraries(sb_mpc_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
 
 

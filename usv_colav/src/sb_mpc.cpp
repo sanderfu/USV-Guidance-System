@@ -152,9 +152,9 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             }
 
             //TEMPORARY cost func, prioritize small manueuvers
-            cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
-            cost_i += abs(*chi_it/(M_PI/2));
-            cost_i += 10*abs(*p_it-1); 
+            //cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
+            //cost_i += abs(*chi_it/(M_PI/2));
+            //cost_i += 10*abs(*p_it-1); 
 
             
             //Choose action based on minimized cost

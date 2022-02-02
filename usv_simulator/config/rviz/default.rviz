@@ -7,8 +7,10 @@ Panels:
         - /Grid1
         - /TF1/Frames1
         - /usv1
-        - /Waypoints1
-        - /LosVector1
+        - /Ship11
+        - /Ship11/LosVector1
+        - /Ship11/Ship11
+        - /Ship11/Waypoints1
         - /Land1
       Splitter Ratio: 0.5
     Tree Height: 1085
@@ -69,6 +71,8 @@ Visualization Manager:
           Value: true
         map:
           Value: true
+        ship1:
+          Value: true
       Marker Alpha: 1
       Marker Scale: 50
       Name: TF
@@ -79,53 +83,12 @@ Visualization Manager:
         map:
           Viknes830:
             {}
+          ship1:
+            {}
       Update Interval: 0
       Value: true
     - Class: rviz/Group
       Displays:
-        - Class: rviz/Marker
-          Enabled: true
-          Marker Topic: /usv/waypoints
-          Name: Waypoints
-          Namespaces:
-            {}
-          Queue Size: 100
-          Value: true
-        - Angle Tolerance: 0.10000000149011612
-          Class: rviz/Odometry
-          Covariance:
-            Orientation:
-              Alpha: 0.5
-              Color: 255; 255; 127
-              Color Style: Unique
-              Frame: Local
-              Offset: 1
-              Scale: 1
-              Value: true
-            Position:
-              Alpha: 0.30000001192092896
-              Color: 204; 51; 204
-              Scale: 1
-              Value: true
-            Value: true
-          Enabled: true
-          Keep: 40
-          Name: Path
-          Position Tolerance: 20
-          Queue Size: 10
-          Shape:
-            Alpha: 1
-            Axes Length: 1
-            Axes Radius: 0.10000000149011612
-            Color: 255; 25; 0
-            Head Length: 0.30000001192092896
-            Head Radius: 0.10000000149011612
-            Shaft Length: 1
-            Shaft Radius: 0.05000000074505806
-            Value: Arrow
-          Topic: /usv/state
-          Unreliable: false
-          Value: true
         - Alpha: 1
           Class: rviz/RobotModel
           Collision Enabled: false
@@ -147,21 +110,21 @@ Visualization Manager:
           Update Interval: 0
           Value: true
           Visual Enabled: true
-        - Alpha: 1
-          Axes Length: 1
-          Axes Radius: 0.10000000149011612
-          Class: rviz/Pose
-          Color: 255; 25; 0
+        - Class: rviz/Marker
           Enabled: true
-          Head Length: 2
-          Head Radius: 1.5
-          Name: Pose
-          Queue Size: 10
-          Shaft Length: 10
-          Shaft Radius: 0.5
-          Shape: Arrow
-          Topic: /usv/pose
-          Unreliable: false
+          Marker Topic: /Viknes830/los/visualize_waypoints
+          Name: Waypoints
+          Namespaces:
+            waypoints: true
+          Queue Size: 100
+          Value: true
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: /Viknes830/los/visualize_vector
+          Name: LosVector
+          Namespaces:
+            los_vector: true
+          Queue Size: 100
           Value: true
         - Class: rviz/Marker
           Enabled: true
@@ -175,6 +138,14 @@ Visualization Manager:
       Name: usv
     - Class: rviz/Group
       Displays:
+        - Class: rviz/Marker
+          Enabled: true
+          Marker Topic: ship1/los/visualize_vector
+          Name: LosVector
+          Namespaces:
+            {}
+          Queue Size: 100
+          Value: true
         - Alpha: 1
           Class: rviz/RobotModel
           Collision Enabled: false
@@ -185,73 +156,27 @@ Visualization Manager:
             Expand Link Details: false
             Expand Tree: false
             Link Tree Style: Links in Alphabetic Order
+            ship1:
+              Alpha: 1
+              Show Axes: false
+              Show Trail: false
+              Value: true
           Name: Ship1
-          Robot Description: obstacles/ship1/robot_description
+          Robot Description: ship1/robot_description
           TF Prefix: ""
           Update Interval: 0
           Value: true
           Visual Enabled: true
         - Class: rviz/Marker
           Enabled: true
-          Marker Topic: /obstacles/ship1/waypoints
-          Name: Ship1Markers
+          Marker Topic: /ship1/los/visualize_waypoints
+          Name: Waypoints
           Namespaces:
             {}
           Queue Size: 100
           Value: true
-        - Angle Tolerance: 0.10000000149011612
-          Class: rviz/Odometry
-          Covariance:
-            Orientation:
-              Alpha: 0.5
-              Color: 255; 255; 127
-              Color Style: Unique
-              Frame: Local
-              Offset: 1
-              Scale: 1
-              Value: true
-            Position:
-              Alpha: 0.30000001192092896
-              Color: 204; 51; 204
-              Scale: 1
-              Value: true
-            Value: true
-          Enabled: true
-          Keep: 40
-          Name: Ship1Pose
-          Position Tolerance: 20
-          Queue Size: 10
-          Shape:
-            Alpha: 1
-            Axes Length: 1
-            Axes Radius: 0.10000000149011612
-            Color: 255; 25; 0
-            Head Length: 0.30000001192092896
-            Head Radius: 0.10000000149011612
-            Shaft Length: 1
-            Shaft Radius: 0.05000000074505806
-            Value: Arrow
-          Topic: /obstacles/ship1/state
-          Unreliable: false
-          Value: true
       Enabled: true
       Name: Ship1
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /Viknes830/los/visualize_waypoints
-      Name: Waypoints
-      Namespaces:
-        waypoints: true
-      Queue Size: 100
-      Value: true
-    - Class: rviz/Marker
-      Enabled: true
-      Marker Topic: /Viknes830/los/visualize_vector
-      Name: LosVector
-      Namespaces:
-        los_vector: true
-      Queue Size: 100
-      Value: true
     - Backface: false
       Border: false
       Border Color: 25; 255; 0
@@ -294,7 +219,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 1115.3011474609375
+      Distance: 268.2562255859375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -312,7 +237,7 @@ Visualization Manager:
       Near Clip Distance: 0.009999999776482582
       Pitch: 1.5697963237762451
       Target Frame: Viknes830
-      Yaw: 3.0134429931640625
+      Yaw: 2.993443012237549
     Saved: ~
 Window Geometry:
   Displays:

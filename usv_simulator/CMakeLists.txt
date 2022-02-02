@@ -22,6 +22,7 @@ find_library(gdal_LIBRARIES
 cs_add_library(${PROJECT_NAME}
   src/sim_vessel.cpp
   src/sim_land.cpp
+  src/sim_tracker.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -52,6 +53,11 @@ cs_add_executable(sim_vessel_node
   src/sim_vessel_node.cpp
 )
 target_link_libraries(sim_vessel_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+
+cs_add_executable(sim_tracker_node
+  src/sim_tracker_node.cpp
+)
+target_link_libraries(sim_tracker_node ${PROJECT_NAME})
 
 
 

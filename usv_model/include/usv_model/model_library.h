@@ -45,6 +45,9 @@ namespace ModelLibrary{
             simulatedHorizon simulateHorizon(state_type x_init, double u_d, double psi_d, double T);
             simulatedHorizon simulateHorizonAdaptive(state_type x_init, double u_d, double psi_d, double T);
             void simulate(state_type& x, double u_d, double psi_d, double T);
+
+            inline double getL() {return L_;}
+            inline double getW() {return W_;}
         private:
             state_type pose; //x,y,psi
             state_type twist; //u,v,r
@@ -106,9 +109,11 @@ namespace ModelLibrary{
 
     class LinearObstacleShip{
         public:
-            LinearObstacleShip(state_type x_init, double length, double width);
+            LinearObstacleShip(double length, double width);
             void operator()(const state_type& x, state_type &dxdt, const double /*t*/);
-            simulatedHorizon simulate(state_type x_init, size_t steps, double T);
+            simulatedHorizon simulateHorizon(state_type x_init, double T);
+            inline double getL() {return length_;}
+            inline double getW() {return width_;}
         private:
             double length_;
             double width_;

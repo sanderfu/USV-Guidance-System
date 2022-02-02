@@ -10,9 +10,21 @@
 #include "tf/tf.h"
 #include "visualization_msgs/Marker.h"
 #include "geotf/geodetic_converter.h"
+#include "usv_simulator/obstacle.h"
+#include "map"
 
 static const double DEG2RAD = M_PI/180.0f;
 static const double RAD2DEG = 180.0f/M_PI;
+
+void rot2d(double yaw, Eigen::Vector2d &res);
+
+struct obstacleVessel{
+    obstacleVessel(double length, double width) : model_(length, width) {}
+    int id;
+    ros::Time latest_observation_;
+    ModelLibrary::LinearObstacleShip model_;
+    state_type latest_obstacle_state_;
+};
 
 class SimulationBasedMPC{
     public:
@@ -22,6 +34,7 @@ class SimulationBasedMPC{
         ros::Subscriber dynamic_obstacles_sub_;
         ros::Subscriber odom_sub_;
         ros::Subscriber los_setpoint_sub_;
+        ros::Subscriber obstacle_sub_;
         ros::Publisher correction_pub_;
         ros::Timer main_loop_timer_;
         MapServiceClient map_client_;
@@ -35,16 +48,18 @@ class SimulationBasedMPC{
 
         void odomCb(const nav_msgs::Odometry& odom);
         void losSetpointSub(const geometry_msgs::Twist& msg);
+        void obstacleCb(const usv_simulator::obstacle& msg);
         void mainLoop(const ros::TimerEvent& e);
 
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
-        double costFnc(double P_ca, double Chi_ca, int k);
+        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, ModelLibrary::simulatedHorizon& obstacle_horizon, double P_ca, double Chi_ca, int k);
         double Delta_P(double P_ca);
         double Delta_Chi(double Chi_ca);
 
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
-
+        std::map<int,obstacleVessel*> obstacle_vessels_;
+      
         double Chi_ca_last_;
 		double P_ca_last_;
 

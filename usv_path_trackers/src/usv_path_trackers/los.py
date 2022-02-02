@@ -45,6 +45,7 @@ class LOS:
         self.desired_yaw = 0
         self.desired_speed = 0
         self.correction = Twist()
+        self.correction.linear.x = 1
 
         #Configuration
         self.los_distance = 40

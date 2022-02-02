@@ -144,11 +144,11 @@ void LinearObstacleShip::operator()(const state_type& x, state_type &dxdt, const
   double u = x[3];
   double v = x[4];
   double r = x[5];
-  
-  double r11 = cos(x_init_[2]);
-  double r12 = -sin(x_init_[2]);
-  double r21 = sin(x_init_[2]);
-  double r22 = cos(x_init_[2]);
+
+  double r11 = cos(x[2]);
+  double r12 = -sin(x[2]);
+  double r21 = sin(x[2]);
+  double r22 = cos(x[2]);
 
   dxdt[0] = r11*u + r12*v;
   dxdt[1] = r21*u + r22*v;

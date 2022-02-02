@@ -5,7 +5,8 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
 
     SimulationBasedMPC mpc(nh);
-    ros::MultiThreadedSpinner spinner(3);
-    spinner.spin();
+    ros::spin();
+    //ros::MultiThreadedSpinner spinner(3);
+    //spinner.spin();
 
 }

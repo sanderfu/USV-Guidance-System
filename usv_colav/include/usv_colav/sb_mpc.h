@@ -19,7 +19,7 @@ static const double RAD2DEG = 180.0f/M_PI;
 void rot2d(double yaw, Eigen::Vector2d &res);
 
 struct obstacleVessel{
-    obstacleVessel(double length, double width) : model_(length, width) {}
+    obstacleVessel(state_type init,double length, double width) : model_(length, width), latest_obstacle_state_(init), latest_observation_(ros::Time::now()){}
     int id;
     ros::Time latest_observation_;
     ModelLibrary::LinearObstacleShip model_;

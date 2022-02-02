@@ -74,7 +74,24 @@ void SimulationBasedMPC::losSetpointSub(const geometry_msgs::Twist& msg){
 }
 
 void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
-    return;
+    state_type state(6);
+    state[0]=msg.odom.pose.pose.position.x;
+    state[1]=msg.odom.pose.pose.position.y;
+    tf::Quaternion q;
+    tf::quaternionMsgToTF(msg.odom.pose.pose.orientation,q);
+    tf::Matrix3x3 mat(q);
+    double roll, pitch, yaw;
+    mat.getRPY(roll,pitch,yaw);
+    state[2]=yaw;
+    state[3]=msg.odom.twist.twist.linear.x;
+    state[4]=msg.odom.twist.twist.linear.y;
+    state[5]=msg.odom.twist.twist.angular.z;
+    if(obstacle_vessels_.find(msg.id)==obstacle_vessels_.end()){
+        obstacle_vessels_[msg.id] = new obstacleVessel(state,5,2);
+    }else{
+        obstacle_vessels_[msg.id]->latest_obstacle_state_ = state;
+        obstacle_vessels_[msg.id]->latest_observation_ = ros::Time::now();
+    }
 }
 
 void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_corr_best){
@@ -89,7 +106,9 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     std::map<int,ModelLibrary::simulatedHorizon> obstacles_horizon;
     for(auto obst_it=obstacle_vessels_.begin(); obst_it!=obstacle_vessels_.end(); obst_it++){
         std::map<int,ModelLibrary::simulatedHorizon>::iterator it = obstacles_horizon.begin();
-        obstacles_horizon.insert (it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
+        state_type test = obst_it->second->latest_obstacle_state_;
+        obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60);
+        obstacles_horizon.insert(it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
     }
 
     for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){

@@ -36,6 +36,13 @@
             output="screen">
       </node>
 
+      <node pkg="usv_colav"
+            name="sb_mpc"
+            type="sb_mpc_node"
+            respawn="false"
+            output="screen">
+      </node>
+
       <node pkg="rviz"
         type="rviz"
         name="rviz"

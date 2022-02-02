@@ -3,7 +3,6 @@
 SimulationBasedMPC::SimulationBasedMPC(const ros::NodeHandle& nh) : 
 nh_(nh),
 map_client_(&nh_),
-geodetic_client_(&nh_),
 T_(300.0), 				// 150.0  //300
 DT_(0.5), 				//   0.05 // 0.5
 P_(1), 					//   1.0
@@ -23,17 +22,17 @@ K_DCHI_SB_(0.9),		//   0.9
 K_DCHI_P_(1.2)			//   1.2
 {
     ROS_INFO_STREAM("SB_MPC started, waiting for first odometry and LOS setpoint from USV");
-    latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("/Viknes830/odom",nh_);
-    latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("/Viknes830/los/setpoint",nh_);
-    ROS_INFO_STREAM("Odometry received");
+    latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
+    latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
+    ROS_INFO_STREAM("Odometry and LOS setpoint received");
 
     geo_converter_.addFrameByEPSG("WGS84",4326);
     geo_converter_.addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
 
-    correction_pub_ = nh_.advertise<geometry_msgs::Twist>("/colav/correction",1,false);
+    correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
 
-    odom_sub_ = nh_.subscribe("/Viknes830/odom",1,&SimulationBasedMPC::odomCb,this);
-    los_setpoint_sub_ = nh_.subscribe("/Viknes830/los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
+    odom_sub_ = nh_.subscribe("odom",1,&SimulationBasedMPC::odomCb,this);
+    los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives

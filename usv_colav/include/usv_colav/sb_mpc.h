@@ -25,7 +25,6 @@ class SimulationBasedMPC{
         ros::Publisher correction_pub_;
         ros::Timer main_loop_timer_;
         MapServiceClient map_client_;
-        geotf::GeodeticConverterClient geodetic_client_;
 
         geotf::GeodeticConverter geo_converter_;
 

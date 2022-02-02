@@ -2,7 +2,7 @@
 
 int main(int argc, char** argv) {
     ros::init(argc,argv,"sp_mpc_node");
-    ros::NodeHandle nh("sp_mpc_node");
+    ros::NodeHandle nh;
 
     SimulationBasedMPC mpc(nh);
     ros::MultiThreadedSpinner spinner(3);

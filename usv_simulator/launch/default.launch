@@ -3,14 +3,18 @@
   <!--<arg name="vessel_param_file" default="$(find usv_simulator)/config/parameters/viknes.yaml" />-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
   <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
-  <arg name="initial_state" default="[0.0, 0.0, 0.78, 0.0,0.,0.]" />
+  <arg name="initial_position_usv" default="[-73.9729143,40.5620484,0]" />
+  <arg name="initial_position_obstacle" default="[-73.9729143,40.5620484,0]" />
   <arg name="use_vo" default="False" />
   <arg name="use_sb_mpc" default="True" />
   <arg name="shipname" default="Viknes830" />
 
+  <include file="$(find usv_map)/launch/default.launch"/>
+
   <group ns="$(arg shipname)">
       <arg name="waypoint_file" default="test_grounding_avoidance.csv" />
       <param name="waypoint_file" value="$(arg waypoint_file)"/>
+      <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
       <node pkg="usv_simulator"
             name="sim"
             type="sim_vessel_node"
@@ -54,6 +58,7 @@
    <group ns="ship1">
       <arg name="waypoint_file" default="test_grounding_avoidance.csv" />
       <param name="waypoint_file" value="$(arg waypoint_file)"/>
+      <param name="initial_position" type="yaml" value = "$(arg initial_position_obstacle)"/>
       <node pkg="usv_simulator"
             name="sim"
             type="sim_vessel_node"
@@ -96,8 +101,6 @@
             respawn="false"
             output="screen">
       </node>
-
-  <include file="$(find usv_map)/launch/default.launch"/>
 
   <!--<group if="$(arg use_vo)">
     <node pkg="asv_ctrl_vo"

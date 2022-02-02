@@ -5,6 +5,10 @@
 #include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/Vector3.h"
 #include "nav_msgs/Odometry.h"
+#include "usv_map/geotf_ros.h"
+#include "ros/ros.h"
+#include "ros/package.h"
+#include "vector"
 
 #include <chrono>
 /**
@@ -13,7 +17,7 @@
  */
 class SimulatedVessel{
     public:
-        SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init);
+        SimulatedVessel(const ros::NodeHandle& nh);
     private:
         state_type x_;
         ModelLibrary::Viknes830 vessel_model_;
@@ -28,6 +32,8 @@ class SimulatedVessel{
         ros::Publisher noise_pub_;
         ros::Subscriber cmd_sub_;
         ros::Timer loop_timer_;
+
+        geotf::GeodeticConverterClient geo_converter_;
 
         double u_d_;
         double psi_d_;

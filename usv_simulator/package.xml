@@ -24,6 +24,7 @@
   <depend>roslib</depend>
   <depend>geotf</depend>
   <depend>nav_msgs</depend>
+  <depend>usv_map</depend>
   <depend>message_generation</depend>
   <depend>message_runtime</depend>
   <test_depend>rosunit</test_depend>

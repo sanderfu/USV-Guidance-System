@@ -1,8 +1,20 @@
 # include "usv_simulator/sim_vessel.h"
 
-SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh, state_type& x_init ) : nh_(nh){
+SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), geo_converter_(&nh_), x_(6){
+    std::vector<double> global_position_vec;
+    if(!nh_.getParam("initial_position",global_position_vec)){
+        ROS_ERROR_STREAM("Failed to load initial position parameter");
+    }
+    Eigen::Vector3d global_initial_position(global_position_vec.data());
+    Eigen::Vector3d local_initial_position;
+    while(!geo_converter_.convert("WGS84",global_initial_position,"global_enu",local_initial_position));
 
-    x_ = x_init;
+    x_[0] = local_initial_position(0);
+    x_[1] = local_initial_position(1);
+    x_[2] = 0;
+    x_[3] = 0;
+    x_[4] = 0;
+    x_[5] = 0;
     update_frequency_ = 30;
     vessel_name_ = ros::this_node::getNamespace().substr(1,ros::this_node::getNamespace().size()-1);
     u_d_ = 0;

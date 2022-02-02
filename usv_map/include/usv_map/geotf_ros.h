@@ -20,7 +20,7 @@ class GeodeticConverterServer : GeodeticConverter {
 class GeodeticConverterClient {
     public:
         GeodeticConverterClient(ros::NodeHandle* nh);
-        void convert(std::string from_frame, Eigen::Vector3d& from_point, std::string to_frame, Eigen::Vector3d& to_point);
+        bool convert(std::string from_frame, Eigen::Vector3d& from_point, std::string to_frame, Eigen::Vector3d& to_point);
         void addFrame(std::string name, double lon, double lat, double alt);
     private:
         ros::NodeHandle* nh_;

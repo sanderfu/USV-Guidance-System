@@ -64,15 +64,29 @@ K_DCHI_P_(1.2)			//   1.2
     path_viz_.scale.x = 2.5;
 
 }
-
+/**
+ * @brief Callback when receiving odometry from vessel on which the SBMPC is running.
+ * 
+ * @param odom Odometry message
+ */
 void SimulationBasedMPC::odomCb(const nav_msgs::Odometry& odom){
     latest_odom_ = odom;
 }
 
+/**
+ * @brief Callback when receiving LOS setpoints from vessel on which the SBMPC is running.
+ * 
+ * @param msg Twist message (linear.x=speed setpoint, angular.z=yaw setpoint)
+ */
 void SimulationBasedMPC::losSetpointSub(const geometry_msgs::Twist& msg){
     latest_los_setpoint_ = msg;
 }
 
+/**
+ * @brief Callback when receiving obstacle from obstacle tracking system on vessel on which the SBMPC is running
+ * 
+ * @param msg Obstacle message (custom message type)
+ */
 void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
     state_type state(6);
     state[0]=msg.odom.pose.pose.position.x;
@@ -94,6 +108,12 @@ void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
     }
 }
 
+/**
+ * @brief Calculate the lowest-cost control offsets for speed and yaw.
+ * 
+ * @param u_corr_best Best speed correction (multiplier) (-1,0,0.5,1)
+ * @param psi_corr_best Best yaw correction  
+ */
 void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_corr_best){
     double cost = INFINITY;
     double cost_k = 0.0;
@@ -175,7 +195,14 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
 	Chi_ca_last_ = psi_corr_best;
 }
 
- void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
+/**
+ * @brief The main loop of the SBMPC. 
+ * 
+ * @details Called periodically by designated timer. Calculates best offset from latest available information and pulishes this offset.
+ * 
+ * @param e TimerEveent parameter, currently not used.
+ */
+void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     double u_os, psi_os;
     ros::Time start = ros::Time::now();
     getBestControlOffset(u_os,psi_os);
@@ -189,7 +216,18 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     ROS_INFO_STREAM("Getting offset took: " << (stop-start).toSec() << " [s]");
 }
 
-
+/**
+ * @brief Cost function to avoid other vessels in COLREG compliant manner. Calculate cost for a given obstacle vessel horizon.
+ * 
+ * @remark This cost function is from https://github.com/olesot/ros_asv_system
+ * 
+ * @param usv_horizon The simulated horizon for the ownship
+ * @param obstacle_horizon The simulated horizon for an obstacle ship
+ * @param P_ca Speed correction candidate giving simulated ownship horizon (multiplier)
+ * @param Chi_ca Yaw correction giving simulated ownship horizon
+ * @param k ID of obstacle ship
+ * @return double Cost of action candidate.
+ */
 double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,ModelLibrary::simulatedHorizon& obstacle_horizon, double P_ca, double Chi_ca, int k)
 {
 	double dist, phi, psi_o, phi_o, psi_rel, R, C, k_coll, d_safe_i;
@@ -299,41 +337,45 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 		if (H0 > H1){
 			H1 = H0;  // Maximizing the cost with regards to time
 		}
-                // CALL INTERSECT SERVICE HERE
-                // STORE TO H3 IF NEW VAL IS HIGHER
-                /*
-                map_srv.request.pos.x = asv->x(k);
-                map_srv.request.pos.y = asv->y(k);
-                if(!map_cli.call(map_srv))
-                {
-                        ROS_ERROR("Error calling intersect service");
-                }
-                if(map_srv.response.intersects){
-                        H3 = 100;
-                }*/
 	}
 
 	H2 = K_P_*(1-P_ca) + K_CHI_*pow(Chi_ca,2) + Delta_P(P_ca) + Delta_Chi(Chi_ca);
 	cost =  H1 + H2 + H3;
 
 	// Print H1 and H2 for P==X
-//	ROS_DEBUG_COND_NAMED(P_ca == 0.5,"Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
-//	ROS_DEBUG_COND_NAMED(k == 2 , "Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
-//	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","Chi: " << Chi_ca*RAD2DEG << "  \tSB " << sb << "\tCR " << cr << "\tHO " << ho << "\tOT " << ot);
-	// Print H1 and H2 for all P
-//	ROS_DEBUG_NAMED("Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
-	// Print mu_1 and mu_2
-//	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","Chi: " << Chi_ca*RAD2DEG << "  \tSB " << mu_1  << " CR " << mu_2 << " OT " << mu_3);
-//	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","psi_o: "<<psi_o*RAD2DEG<<"\tpsi_s: "<<psi_s*RAD2DEG);
+    //	ROS_DEBUG_COND_NAMED(P_ca == 0.5,"Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
+    //	ROS_DEBUG_COND_NAMED(k == 2 , "Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
+    //	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","Chi: " << Chi_ca*RAD2DEG << "  \tSB " << sb << "\tCR " << cr << "\tHO " << ho << "\tOT " << ot);
+    // Print H1 and H2 for all P
+    //	ROS_DEBUG_NAMED("Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
+    // Print mu_1 and mu_2
+    //	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","Chi: " << Chi_ca*RAD2DEG << "  \tSB " << mu_1  << " CR " << mu_2 << " OT " << mu_3);
+    //	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","psi_o: "<<psi_o*RAD2DEG<<"\tpsi_s: "<<psi_s*RAD2DEG);
 
 	return cost;
 }
 
+/**
+ * @brief Calculation used for cost function to penalize speed correction changes.
+ * 
+ * @remark From: https://github.com/olesot/ros_asv_system
+ * 
+ * @param P_ca Speed multiplier correction candidate
+ * @return double Cost of action candidate
+ */
 double SimulationBasedMPC::Delta_P(double P_ca){
 
 	return K_DP_*std::abs(P_ca_last_ - P_ca);		// 0.5
 }
 
+/**
+ * @brief Calculation used for cost function to penalize yaw correction changes.
+ * 
+ * @remark From: https://github.com/olesot/ros_asv_system
+ * 
+ * @param Chi_ca Yaw correction candidate
+ * @return double Cost of action candidate
+ */
 double SimulationBasedMPC::Delta_Chi(double Chi_ca){
 	double dChi = Chi_ca - Chi_ca_last_;
 	if (dChi > 0){
@@ -353,6 +395,11 @@ void rot2d(double yaw, Eigen::Vector2d &res){
 	res = R*res;
 }
 
+/**
+ * @brief Visualize a SBMPC path
+ * 
+ * @param path The path parametrized as a OGRLineString
+ */
 void SimulationBasedMPC::visualizePath(OGRLineString& path){
     path_viz_.action = visualization_msgs::Marker::ADD;
     geometry_msgs::Point point1;
@@ -382,6 +429,10 @@ void SimulationBasedMPC::visualizePath(OGRLineString& path){
     path_viz_pub_.publish(path_viz_);
 }
 
+/**
+ * @brief Clear visual path from rviz and clear storing vector.
+ * 
+ */
 void SimulationBasedMPC::clearVisualPath(){
     path_viz_.points.clear();
     path_viz_.action = visualization_msgs::Marker::DELETEALL;

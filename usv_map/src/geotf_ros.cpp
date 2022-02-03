@@ -44,16 +44,23 @@ void GeodeticConverterClient::addFrame(std::string name, double lon, double lat,
     }
 }
 
-void GeodeticConverterClient::convert(std::string& from_frame, Eigen::Vector3d& from_vec, std::string& to_frame, Eigen::Vector3d& to_vec){
+bool GeodeticConverterClient::convert(std::string from_frame, Eigen::Vector3d& from_vec, std::string to_frame, Eigen::Vector3d& to_vec){
     usv_map::frame_conversion srv_conv;
     srv_conv.request.from_point = vectorToPoint(from_vec);
     srv_conv.request.from_frame = from_frame;
     srv_conv.request.to_frame = to_frame;
     if(!convert_point_client_.call(srv_conv)){
-        ROS_ERROR_STREAM("Failed to convert coordinates!");
-    } else{
+        ROS_WARN_STREAM("Failed to convert coordinates!");
+        return false;
+    } 
+    /*else{
         std::cout << "Converted to: " << srv_conv.response.to_point.x << " " << srv_conv.response.to_point.y << std::endl;
     }
+    */
+   to_vec(0) = srv_conv.response.to_point.x;
+   to_vec(1) = srv_conv.response.to_point.y;
+   to_vec(2) = srv_conv.response.to_point.z;
+   return true;
 }
 
 Eigen::Vector3d pointToVector(geometry_msgs::Point& point){

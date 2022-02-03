@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>usv_simulator</name>
+  <name>usv_colav</name>
   <version>0.0.1</version>
-  <description>The usv_simulator package</description>
+  <description>The usv_colav package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
@@ -20,13 +20,11 @@
   <depend>roscpp</depend>
   <depend>geometry_msgs</depend>
   <depend>usv_model</depend>
+  <depend>usv_map</depend>
   <depend>tf</depend>
   <depend>roslib</depend>
   <depend>geotf</depend>
-  <depend>nav_msgs</depend>
-  <depend>usv_map</depend>
-  <depend>message_generation</depend>
-  <depend>message_runtime</depend>
+  <depend>usv_simulator</depend>
   <test_depend>rosunit</test_depend>
 
 </package>

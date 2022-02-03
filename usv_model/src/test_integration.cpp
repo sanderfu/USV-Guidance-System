@@ -99,8 +99,8 @@ int main(){
     x_lin_obst[3] = 5;
     x_lin_obst[4] = 0;
     x_lin_obst[5] = 0;
-    ModelLibrary::LinearObstacleShip obst(x_lin_obst,5,2);
-    ModelLibrary::simulatedHorizon sim_hor_obst = obst.simulate(x_lin_obst, 100, 100);
+    ModelLibrary::LinearObstacleShip obst(5,2);
+    ModelLibrary::simulatedHorizon sim_hor_obst = obst.simulateHorizon(x_viknes, 100);
      /* output */
     outfile.open("obst_test.txt");
     for( size_t i=0; i<=sim_hor_obst.steps; i++ )

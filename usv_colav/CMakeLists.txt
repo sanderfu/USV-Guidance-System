@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(usv_simulator)
+project(usv_colav)
 
 find_package(catkin_simple REQUIRED)
 catkin_python_setup()
@@ -20,9 +20,7 @@ find_library(gdal_LIBRARIES
 # LIBRARIES #
 #############
 cs_add_library(${PROJECT_NAME}
-  src/sim_vessel.cpp
-  src/sim_land.cpp
-  src/sim_tracker.cpp
+  src/sb_mpc.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -38,26 +36,10 @@ cs_add_library(${PROJECT_NAME}
 ############
 # BINARIES #
 ############
-
-#cs_add_executable(dynamic_planner_node
-#  src/dynamic_planner_node.cpp
-#)
-#target_link_libraries(dynamic_planner_node ${PROJECT_NAME} graph_builder)
-
-cs_add_executable(sim_land_node
-  src/sim_land_node.cpp
+cs_add_executable(sb_mpc_node
+  src/sb_mpc_node.cpp
 )
-target_link_libraries(sim_land_node ${PROJECT_NAME} ${gdal_LIBRARIES})
-
-cs_add_executable(sim_vessel_node
-  src/sim_vessel_node.cpp
-)
-target_link_libraries(sim_vessel_node ${PROJECT_NAME} ${gdal_LIBRARIES})
-
-cs_add_executable(sim_tracker_node
-  src/sim_tracker_node.cpp
-)
-target_link_libraries(sim_tracker_node ${PROJECT_NAME})
+target_link_libraries(sb_mpc_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
 
 
@@ -69,7 +51,7 @@ cs_export()
 
 ## Install python nodes
 #set(py_nodes
-#  mesh_node
+#  static_mission_planner_node
 #)
 
 foreach(py_node IN LISTS py_nodes)

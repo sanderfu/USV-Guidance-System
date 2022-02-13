@@ -19,8 +19,10 @@ int main(int argc, char** argv){
     GDALDataset* ds = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
 
     ros::NodeHandle nh("~testQT");
-    QuadtreeROS quadtree(nh,point_lower,point_upper,ds);
+    QuadtreeROS quadtree(nh,point_lower,point_upper,ds,false);
+    quadtree.load("quadtree");
     quadtree.visualize();
+    //quadtree.save();
 
     ros::spin();
 

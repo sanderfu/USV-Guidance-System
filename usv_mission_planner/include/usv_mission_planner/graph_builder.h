@@ -1,13 +1,13 @@
 #pragma once
 
 #include "ros/ros.h"
+#include "ros/package.h"
 #include "gdal/ogrsf_frmts.h"
 #include "planner_common/graph_manager.h"
 #include "vector"
 #include "queue"
 #include <unordered_map>
 
-#include "ros/ros.h"
 #include "visualization_msgs/Marker.h"
 #include "geotf/geodetic_converter.h"
 
@@ -41,9 +41,13 @@ class Region{
 
 class Quadtree{
     public:
-        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds);
+        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately=true);
         void setStart(Vertex* s);
         void setGoal(Vertex* g);
+
+        void save();
+        void load(const std::string& tree_name);
+
     protected:
         GDALDataset* ds_;
         GraphManager* gm_;
@@ -62,7 +66,7 @@ class Quadtree{
 
 class QuadtreeROS : public Quadtree{
     public:
-        QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds);
+        QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately=true);
         void visualize();
     private:
         geotf::GeodeticConverter geo_converter_;

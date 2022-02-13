@@ -87,14 +87,14 @@ double Region::getOccupiedRatio(){
     return occupied_area/total_area;
 }
 
-Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds): 
+Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately): 
     ds_(ds),
     lower_left_(lower_left),
     upper_right_(upper_right){
     gm_ = new GraphManager;
 
     std::cout << "Start building quadtree" << std::endl;
-    build();
+    if (build_immediately) build();
     std::cout << "Quadtree built" << std::endl;
 }
 
@@ -132,6 +132,21 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
         frame_points[regionEdge::E].push_back(StateVec(region->upper_right_.getX(),y,0,0));
     }
     return frame_points;
+}
+
+void Quadtree::save(){
+    std::string path = ros::package::getPath("usv_mission_planner");
+    path.append("/data/quadtrees/quadtree");
+    std::cout << path << std::endl;
+    gm_->saveGraph(path);
+}
+
+void Quadtree::load(const std::string& tree_name){
+    std::string path = ros::package::getPath("usv_mission_planner");
+    path.append("/data/quadtrees/");
+    path.append(tree_name);
+    std::cout << path << std::endl;
+    gm_->loadGraph(path);
 }
 
 void Quadtree::build(){
@@ -186,9 +201,9 @@ void Quadtree::build(){
 
 }
 
-QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds):
+QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds,bool build_immediately):
 nh_(nh),
-Quadtree(lower_left,upper_right,ds){
+Quadtree(lower_left,upper_right,ds,build_immediately){
     vertex_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_vertices",1,true);
     edge_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_edges",1,true);
 

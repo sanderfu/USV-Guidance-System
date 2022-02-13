@@ -16,13 +16,14 @@ find_library(gdal_LIBRARIES
   gdal
 )
 
+find_package (GeographicLib REQUIRED)
+
 #############
 # LIBRARIES #
 #############
-#cs_add_library(${PROJECT_NAME}
-#  src/sim_vessel.cpp
-#  src/sim_land.cpp
-#)
+cs_add_library(${PROJECT_NAME}
+  src/graph_builder.cpp
+)
 
 #add_library(graph_builder src/graph_builder.cpp)
 #target_compile_options(graph_builder PRIVATE ${OpenMP_FLAGS})
@@ -37,7 +38,10 @@ find_library(gdal_LIBRARIES
 ############
 # BINARIES #
 ############
-
+cs_add_executable(test_graph_builder
+  src/test_graph_builder.cpp
+)
+target_link_libraries(test_graph_builder ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
 
 

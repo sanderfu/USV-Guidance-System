@@ -23,6 +23,7 @@
   <depend>tf</depend>
   <depend>roslib</depend>
   <depend>geotf</depend>
+  <depend>planner_common</depend>
   <test_depend>rosunit</test_depend>
 
 </package>

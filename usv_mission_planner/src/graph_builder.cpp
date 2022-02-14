@@ -115,9 +115,11 @@ void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evalu
 
 std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Region* region){
     std::unordered_map<regionEdge,std::vector<StateVec>> frame_points;
-    int divisor = 4;
+    int divisor = 1;
     //Determine points for south edge and north edge
-    for (float x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor){
+    int counter = 0;
+    for (double x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor){
+        counter+=1;
         //South
         frame_points[regionEdge::S].push_back(StateVec(x,region->lower_left_.getY(),0,0));
         //North
@@ -125,7 +127,7 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
     }
 
     //Determine points for west and east edge
-    for (float y=region->lower_left_.getY(); y<=region->upper_right_.getY();y+=region->getHeight()/divisor){
+    for (double y=region->lower_left_.getY(); y<=region->upper_right_.getY();y+=region->getHeight()/divisor){
         //West
         frame_points[regionEdge::W].push_back(StateVec(region->lower_left_.getX(),y,0,0));
         //East
@@ -134,11 +136,34 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
     return frame_points;
 }
 
-void Quadtree::save(){
+void Quadtree::save(const std::string& tree_name){
     std::string path = ros::package::getPath("usv_mission_planner");
-    path.append("/data/quadtrees/quadtree");
-    std::cout << path << std::endl;
-    gm_->saveGraph(path);
+    path.append("/data/quadtrees/"+tree_name+"/");
+    //Save graph
+
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directory(path);
+    }
+
+    std::string graph_path = path+tree_name;
+    std::cout << graph_path << std::endl;
+    gm_->saveGraph(graph_path);
+
+    //Save for post-mission visualization
+    std::string viz_path = path+tree_name+".csv";
+    std::ofstream viz_path_file(viz_path);
+    viz_path_file << "u_lon,u_lat,v_lon,v_lat,edge_cost\n";
+    for(auto edge_it = gm_->edge_map_.begin(); edge_it!=gm_->edge_map_.end();edge_it++){
+        Vertex* u = gm_->getVertex((*edge_it).first);
+        for (auto vertex_it=(*edge_it).second.begin(); vertex_it!=(*edge_it).second.end(); vertex_it++){
+            Vertex* v = gm_->getVertex((*vertex_it).first);
+            viz_path_file << u->state.x() << "," << u->state.y() << "," << v->state.x() << "," << v->state.y() << "," << (*vertex_it).second <<"\n";
+        }
+    }
+    viz_path_file.close();
+
+
+
 }
 
 void Quadtree::load(const std::string& tree_name){
@@ -158,10 +183,10 @@ void Quadtree::build(){
         regions_to_evaluate.pop();
 
         double occupied_ratio = current_region->getOccupiedRatio();
-        if (occupied_ratio>0.95 || current_region->getArea()<pow(10,-7)){
+        if (occupied_ratio>0.99 || current_region->getArea()<pow(10,-7)){
             //Region is definitely occupied, discard it
             continue;
-        } else if(occupied_ratio<0.005 ){
+        } else if(occupied_ratio<0.001 ){
             //Area is free, add vertecies
             std::unordered_map<regionEdge,std::vector<StateVec>> frame_points = getFramePoints(current_region);
             Vertex* corner;
@@ -171,7 +196,6 @@ void Quadtree::build(){
                         corner = new Vertex(gm_->generateVertexID(),*state_it);
                         current_region->vertices.push_back(corner);
                         gm_->addVertex(corner);
-                        //addVisualVertex(corner);
                     } else{
                         current_region->vertices.push_back(corner);
                     }
@@ -189,7 +213,6 @@ void Quadtree::build(){
                     //TODO: Wrong to use Euler here to weight the edge, must uuse geodetic distance!
                     float distance = sqrt(pow((*it_vert_a)->state.x()-(*it_vert_b)->state.x(),2)+pow((*it_vert_a)->state.y()-(*it_vert_b)->state.y(),2));
                     gm_->addEdge(*it_vert_a,*it_vert_b,distance);
-                    //addVisualEdge(*it_vert_a,*it_vert_b);
                 }
             }
         } else{

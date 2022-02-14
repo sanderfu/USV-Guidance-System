@@ -10,6 +10,9 @@
 
 #include "visualization_msgs/Marker.h"
 #include "geotf/geodetic_converter.h"
+#include <iostream>
+#include <fstream>
+#include <boost/filesystem.hpp>
 
 enum regionEdge{
     N,S,E,W
@@ -45,7 +48,7 @@ class Quadtree{
         void setStart(Vertex* s);
         void setGoal(Vertex* g);
 
-        void save();
+        void save(const std::string& tree_name);
         void load(const std::string& tree_name);
 
     protected:

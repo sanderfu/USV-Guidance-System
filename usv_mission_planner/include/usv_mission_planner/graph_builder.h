@@ -5,25 +5,45 @@
 #include "gdal/ogrsf_frmts.h"
 #include "planner_common/graph_manager.h"
 #include "vector"
+#include "numeric"
 #include "queue"
 #include <unordered_map>
+#include <omp.h>
+
 
 #include "visualization_msgs/Marker.h"
 #include "geotf/geodetic_converter.h"
 #include <iostream>
 #include <fstream>
-#include <boost/filesystem.hpp>
 
 enum regionEdge{
     N,S,E,W
 };
+
+enum childRegion{
+    NW, NE, SW, SE
+};
+
+
+typedef struct {
+    //Overall info
+    double build_time;
+
+    std::vector<double> splitRegion_time;
+    std::vector<double> getOccupiedArea_time;
+
+    //
+    //ros::Time get_frame_points_start;
+    //ros::Time get_frame_points_end;
+    //float get_frame_points_total_time;
+} quadtree_benchmark_t;
 
 class Region{
     public:
         Region(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds);
         Region(double lon_lower, double lat_lower, double lon_upper, double lat_upper, GDALDataset* ds);
         Region* getChildRegionContaining(double lon, double lat);
-        void addChild(Region* child_region_ptr);
+        void addChild(Region* child_region_ptr, childRegion child_region);
 
         double getWidth();
         double getHeight();
@@ -33,8 +53,9 @@ class Region{
 
         OGRPoint lower_left_;
         OGRPoint upper_right_;
+        OGRPoint centroid_;
 
-        std::vector<Region*> children;
+        std::unordered_map<childRegion, Region*> children;
         std::vector<Vertex*> vertices;
     private:
         GDALDataset* ds_;
@@ -48,6 +69,8 @@ class Quadtree{
         void setStart(Vertex* s);
         void setGoal(Vertex* g);
 
+        Region* getLeafRegionContaining(double lon, double lat);
+
         void save(const std::string& tree_name);
         void load(const std::string& tree_name);
 
@@ -58,6 +81,9 @@ class Quadtree{
 
         OGRPoint lower_left_;
         OGRPoint upper_right_;
+
+        //Benchmark
+        quadtree_benchmark_t benchmark_data_;
 
         std::unordered_map<regionEdge,std::vector<StateVec>> getFramePoints(Region* region);
         void build();
@@ -74,6 +100,7 @@ class QuadtreeROS : public Quadtree{
     private:
         geotf::GeodeticConverter geo_converter_;
         ros::NodeHandle nh_;
+
         ros::Publisher vertex_marker_pub_;
         ros::Publisher edge_marker_pub_;
 

@@ -18,6 +18,9 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds):
         ROS_ERROR_STREAM("Region polygon not valid");
     }
 
+    //Store region center
+    region_polygon_.Centroid(&centroid_);
+
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
 }
 
@@ -56,21 +59,51 @@ double Region::getArea(){
 
 double Region::getOccupiedArea(){
     OGRFeature* feat;
-    double total_area;
-    while((feat = comparison_layer_->GetNextFeature()) != NULL){
-        OGRGeometry *geom = feat->GetGeometryRef();
-        total_area += region_polygon_.Intersection(geom)->toPolygon()->get_Area();
+    double total_area = 0;
+
+    std::vector<OGRGeometry*> geometries_to_check;
+
+    while((feat = comparison_layer_->GetNextFeature()) != NULL){   
+        geometries_to_check.push_back(feat->GetGeometryRef());
     }
+
+    #pragma omp parallel for reduction(+:total_area)
+        for(auto geom_it = geometries_to_check.begin(); geom_it<geometries_to_check.end();geom_it++){
+            total_area += region_polygon_.Intersection(*geom_it)->toPolygon()->get_Area(); 
+        }
     return total_area;
 }
 
 Region* Region::getChildRegionContaining(double lon, double lat){
-    //TODO
-    return nullptr;
+    if (children.size()==0){
+        return this;
+    }
+    if (lon<=centroid_.getX()){
+        //Left side
+        if (lat<=centroid_.getY()){
+            //LL
+            return children[childRegion::SW];
+        } else{
+            //UL
+            return children[childRegion::NW];
+        }
+    }else{
+        //Right side
+        if(lat<=centroid_.getX()){
+            //LR
+            return children[childRegion::SE];
+        } else{
+            //UR
+            return children[childRegion::NE];
+        }
+    }
+
+
+
 }
 
-void Region::addChild(Region* child_region_ptr){
-    children.push_back(child_region_ptr);
+void Region::addChild(Region* child_region_ptr, childRegion child_region){
+    children[child_region]=child_region_ptr;
 }
 
 double Region::getWidth(){
@@ -92,30 +125,38 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, b
     lower_left_(lower_left),
     upper_right_(upper_right){
     gm_ = new GraphManager;
-
-    std::cout << "Start building quadtree" << std::endl;
+    ros::Time start = ros::Time::now();
     if (build_immediately) build();
-    std::cout << "Quadtree built" << std::endl;
+    ros::Time end = ros::Time::now();
+    benchmark_data_.build_time = ros::Duration(end-start).toSec();
+    std::cout << "Quadtree built, benchmark data: " << std::endl;
+    std::cout << "Buildtime total: " << benchmark_data_.build_time << std::endl;
+    std::cout << "Regions: " << benchmark_data_.splitRegion_time.size()*4 << std::endl;
+    std::cout << "Region build time total: " << std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0) << std::endl;
+    std::cout << "Get occupancy of region total: " << std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0) << std::endl;
 }
 
 void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate){
+    ros::Time start = ros::Time::now();
     // Calculate NW region
-    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,ds_));
+    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,ds_),childRegion::NW);
     //Calculate NE region
-    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,ds_));
+    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,ds_),childRegion::NE);
     //Calculate SW region
-    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,ds_));
+    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,ds_),childRegion::SW);
     //Calculate SE region
-    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,ds_));
+    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,ds_),childRegion::SE);
     //Add child regions for evaluation
-    for(std::vector<Region *>::iterator it = region->children.begin(); it!=region->children.end(); it++){
-        regions_to_evaluate.push(*it);
+    for(std::unordered_map<childRegion,Region *>::iterator it = region->children.begin(); it!=region->children.end(); it++){
+        regions_to_evaluate.push((*it).second);
     }
+    ros::Time end = ros::Time::now();
+    benchmark_data_.splitRegion_time.push_back(ros::Duration(end-start).toSec());
 }
 
 std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Region* region){
     std::unordered_map<regionEdge,std::vector<StateVec>> frame_points;
-    int divisor = 1;
+    int divisor = 2;
     //Determine points for south edge and north edge
     int counter = 0;
     for (double x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor){
@@ -174,6 +215,16 @@ void Quadtree::load(const std::string& tree_name){
     gm_->loadGraph(path);
 }
 
+Region* Quadtree::getLeafRegionContaining(double lon, double lat){
+    Region* current = tree_root_;
+    Region* prev = nullptr;
+    while(current!=prev){
+        prev = current;
+        current = current->getChildRegionContaining(lon,lat);
+    }
+    return current;
+}
+
 void Quadtree::build(){
     std::queue<Region*> regions_to_evaluate;
     tree_root_ = new Region(lower_left_,upper_right_,ds_);
@@ -181,9 +232,16 @@ void Quadtree::build(){
     while(!regions_to_evaluate.empty()){
         Region* current_region = regions_to_evaluate.front();
         regions_to_evaluate.pop();
+        if(current_region->getArea()<pow(10,-7)){
+            continue;
+        }
 
+        ros::Time start = ros::Time::now();
         double occupied_ratio = current_region->getOccupiedRatio();
-        if (occupied_ratio>0.99 || current_region->getArea()<pow(10,-7)){
+        ros::Time end = ros::Time::now();
+        benchmark_data_.getOccupiedArea_time.push_back(ros::Duration(end-start).toSec());
+        
+        if (occupied_ratio>0.99){
             //Region is definitely occupied, discard it
             continue;
         } else if(occupied_ratio<0.001 ){

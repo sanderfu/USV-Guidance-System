@@ -5,10 +5,10 @@ int main(int argc, char** argv){
     ros::init(argc,argv,"test_quad");
     
     OGRPoint point_lower;
-    const char* wkt_lower = "POINT(-73.95690 40.53364)";
+    const char* wkt_lower = "POINT(-74.02424 40.49976)";
 
     OGRPoint point_upper;
-    const char* wkt_upper = "POINT(-73.93398 40.56666)";
+    const char* wkt_upper = "POINT(-73.72605 40.64929)";
     
     point_lower.importFromWkt(&wkt_lower);
     point_upper.importFromWkt(&wkt_upper);
@@ -20,9 +20,10 @@ int main(int argc, char** argv){
 
     ros::NodeHandle nh("~testQT");
     QuadtreeROS quadtree(nh,point_lower,point_upper,ds);
+    std::cout << "Sizeof quadtree: " << sizeof(quadtree) << std::endl;
     //quadtree.load("quadtree");
     quadtree.visualize();
-    quadtree.testGetRegion(-73.944971,40.546511);
+    //quadtree.testGetRegion(-73.944971,40.546511);
     quadtree.save("quadtree");
 
     ros::spin();

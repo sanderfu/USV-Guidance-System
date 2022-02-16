@@ -24,7 +24,6 @@ enum childRegion{
     NW, NE, SW, SE
 };
 
-
 typedef struct {
     //Overall info
     double build_time;
@@ -60,7 +59,7 @@ class Region{
     private:
         GDALDataset* ds_;
         OGRLayer* comparison_layer_;
-        OGRPolygon region_polygon_;
+        OGRPolygon* region_polygon_;
 };
 
 class Quadtree{
@@ -80,6 +79,7 @@ class Quadtree{
     protected:
         GDALDataset* ds_;
         GraphManager* gm_;
+
         Region* tree_root_;
 
         OGRPoint lower_left_;

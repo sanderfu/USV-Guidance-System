@@ -11,69 +11,78 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds):
     tmp.addPoint(upper_right.getX(),lower_left.getY());
     tmp.addPoint(&lower_left);
 
-    region_polygon_.addRingDirectly(new OGRLinearRing(&tmp));
+    region_polygon_ = new OGRPolygon;
+    region_polygon_->addRingDirectly(new OGRLinearRing(&tmp));
 
-    if(!region_polygon_.IsValid())
+    if(!region_polygon_->IsValid())
     {
         ROS_ERROR_STREAM("Region polygon not valid");
     }
 
     //Store region center
-    region_polygon_.Centroid(&centroid_);
+    region_polygon_->Centroid(&centroid_);
 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
 }
 
 Region::Region(double lon_lower, double lat_lower, double width, double height, GDALDataset* ds){
-    OGRPoint lower_left;
-    lower_left.setX(lon_lower);
-    lower_left.setY(lat_lower);
+    lower_left_.setX(lon_lower);
+    lower_left_.setY(lat_lower);
 
-    OGRPoint upper_right;
-    upper_right.setX(lon_lower+width);
-    upper_right.setY(lat_lower+height);
-
-    lower_left_ = lower_left;
-    upper_right_= upper_right;
+    upper_right_.setX(lon_lower+width);
+    upper_right_.setY(lat_lower+height);
 
     OGRLinearRing tmp;
-    tmp.addPoint(&lower_left);
-    tmp.addPoint(lower_left.getX(),upper_right.getY());
-    tmp.addPoint(&upper_right);
-    tmp.addPoint(upper_right.getX(),lower_left.getY());
-    tmp.addPoint(&lower_left);
+    tmp.addPoint(lon_lower,lat_lower);
+    tmp.addPoint(lon_lower,lat_lower+height);
+    tmp.addPoint(lon_lower+width,lat_lower+height);
+    tmp.addPoint(lon_lower+width,lat_lower);
+    tmp.addPoint(lon_lower,lat_lower);
 
-    region_polygon_.addRingDirectly(new OGRLinearRing(&tmp));
+    region_polygon_ = new OGRPolygon;
+    region_polygon_->addRingDirectly(new OGRLinearRing(&tmp));
 
-    if(!region_polygon_.IsValid())
+    if(!region_polygon_->IsValid())
     {
         ROS_ERROR_STREAM("Region polygon not valid");
     }
 
     //Store region center
-    region_polygon_.Centroid(&centroid_);
+    region_polygon_->Centroid(&centroid_);
 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
 }
 
 double Region::getArea(){
-    return region_polygon_.get_Area();
+    if(region_polygon_==nullptr){
+        ROS_ERROR_STREAM("Region::getArea() called with nullptr");
+    }
+    return region_polygon_->get_Area();
 }
 
 double Region::getOccupiedArea(){
+
+    if(region_polygon_==nullptr){
+        ROS_ERROR_STREAM("Region::getOccupiedArea() called with nullptr");
+    }
+
     OGRFeature* feat;
     double total_area = 0;
 
     std::vector<OGRGeometry*> geometries_to_check;
+    std::vector<OGRFeature*> related_features;
 
-    while((feat = comparison_layer_->GetNextFeature()) != NULL){   
-        geometries_to_check.push_back(feat->GetGeometryRef());
+    while((feat = comparison_layer_->GetNextFeature()) != NULL){
+        geometries_to_check.push_back(feat->GetGeometryRef()); 
+        related_features.push_back(feat);
     }
 
     #pragma omp parallel for reduction(+:total_area)
-        for(auto geom_it = geometries_to_check.begin(); geom_it<geometries_to_check.end();geom_it++){
-            total_area += region_polygon_.Intersection(*geom_it)->toPolygon()->get_Area(); 
+        for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){
+            total_area += region_polygon_->Intersection(*geom_it)->toPolygon()->get_Area(); 
+            OGRFeature::DestroyFeature(related_features[geom_it-geometries_to_check.begin()]);  
         }
+    
     return total_area;
 }
 
@@ -101,11 +110,14 @@ Region* Region::getChildRegionContaining(double lon, double lat){
         }
     }
 
-
-
 }
 
 void Region::addChild(Region* child_region_ptr, childRegion child_region){
+    if (region_polygon_!=nullptr){
+        //region_polygon_->empty();
+        OGRGeometryFactory::destroyGeometry(region_polygon_);
+        region_polygon_=nullptr;
+    }
     children[child_region]=child_region_ptr;
 }
 
@@ -131,12 +143,14 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, b
     ros::Time start = ros::Time::now();
     if (build_immediately) build();
     ros::Time end = ros::Time::now();
+
     benchmark_data_.build_time = ros::Duration(end-start).toSec();
     std::cout << "Quadtree built, benchmark data: " << std::endl;
     std::cout << "Buildtime total: " << benchmark_data_.build_time << std::endl;
     std::cout << "Regions: " << benchmark_data_.splitRegion_time.size()*4 << std::endl;
     std::cout << "Region build time total: " << std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0) << std::endl;
     std::cout << "Get occupancy of region total: " << std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0) << std::endl;
+    std::cout << "Size of tree root: " << sizeof(tree_root_) << std::endl;
 }
 
 void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate){
@@ -245,7 +259,7 @@ void Quadtree::build(){
         ros::Time end = ros::Time::now();
         benchmark_data_.getOccupiedArea_time.push_back(ros::Duration(end-start).toSec());
         
-        if (occupied_ratio>0.99){
+        if (occupied_ratio==1.0){
             //Region is definitely occupied, discard it
             continue;
         } else if(occupied_ratio<0.001 ){
@@ -329,7 +343,12 @@ void QuadtreeROS::testGetRegion(double lon, double lat){
     test_point_.pose.position.y = point_enu.y();
     test_point_pub_.publish(test_point_);
 
+    ros::Time start = ros::Time::now();
     Region* child = getLeafRegionContaining(lon,lat);
+    ros::Time end = ros::Time::now();
+    std::cout << "Finding child leaf took: " << ros::Duration(end-start).toSec() << std::endl;
+
+
     highlightRegion(child);   
 }
 
@@ -344,15 +363,15 @@ void QuadtreeROS::initializeMarkers(){
     vertex_marker_.pose.position.y = 0.0;
     vertex_marker_.pose.position.z = 0.0;
     
-    vertex_marker_.color.r = 0.0f;
+    vertex_marker_.color.r = 1.0f;
     vertex_marker_.color.g = 0.0f;
-    vertex_marker_.color.b = 1.0f;
+    vertex_marker_.color.b = 0.0f;
     vertex_marker_.color.a = 0.5;
 
     // Scale unit is meters
-    vertex_marker_.scale.x = 0.25;
-    vertex_marker_.scale.y = 0.25;
-    vertex_marker_.scale.z = 0.25;
+    vertex_marker_.scale.x = 0.35;
+    vertex_marker_.scale.y = 0.35;
+    vertex_marker_.scale.z = 0.35;
 
     vertex_marker_.pose.orientation.w = 1.0;
     vertex_marker_.id = 0;

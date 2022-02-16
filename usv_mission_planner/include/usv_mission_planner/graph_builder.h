@@ -39,8 +39,8 @@ typedef struct {
 
 class Region{
     public:
-        Region(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds);
-        Region(double lon_lower, double lat_lower, double lon_upper, double lat_upper, GDALDataset* ds);
+        Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds);
+        Region(double lon_lower, double lat_lower, double lon_upper, double lat_upper, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds);
         Region* getChildRegionContaining(double lon, double lat);
         void addChild(Region* child_region_ptr, childRegion child_region);
 
@@ -49,17 +49,27 @@ class Region{
         double getOccupiedRatio();
         double getOccupiedArea();
         double getArea();
+        double getDepth();
+        int getID();
+        int getParentID();
+        childRegion getOwnRegion();
 
         OGRPoint lower_left_;
         OGRPoint upper_right_;
         OGRPoint centroid_;
+
+        OGRPolygon* region_polygon_;
 
         std::unordered_map<childRegion, Region*> children;
         std::vector<Vertex*> vertices;
     private:
         GDALDataset* ds_;
         OGRLayer* comparison_layer_;
-        OGRPolygon* region_polygon_;
+
+        int depth_;
+        int id_;
+        int parent_id_;
+        childRegion own_region_;
 };
 
 class Quadtree{
@@ -85,12 +95,15 @@ class Quadtree{
         OGRPoint lower_left_;
         OGRPoint upper_right_;
 
+        int region_id_=0;
+
         //Benchmark
         quadtree_benchmark_t benchmark_data_;
 
         std::unordered_map<regionEdge,std::vector<StateVec>> getFramePoints(Region* region);
         void build();
 
+        int generateRegionID();
         void splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate);
         Region* findLeafRegionContaining(StateVec& pos);
         void setCustomVertex(Vertex* s);

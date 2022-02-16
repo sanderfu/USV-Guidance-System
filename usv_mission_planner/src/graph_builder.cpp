@@ -50,6 +50,9 @@ Region::Region(double lon_lower, double lat_lower, double width, double height, 
         ROS_ERROR_STREAM("Region polygon not valid");
     }
 
+    //Store region center
+    region_polygon_.Centroid(&centroid_);
+
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
 }
 
@@ -89,7 +92,7 @@ Region* Region::getChildRegionContaining(double lon, double lat){
         }
     }else{
         //Right side
-        if(lat<=centroid_.getX()){
+        if(lat<=centroid_.getY()){
             //LR
             return children[childRegion::SE];
         } else{
@@ -156,7 +159,7 @@ void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evalu
 
 std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Region* region){
     std::unordered_map<regionEdge,std::vector<StateVec>> frame_points;
-    int divisor = 2;
+    int divisor = 1;
     //Determine points for south edge and north edge
     int counter = 0;
     for (double x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor){
@@ -219,6 +222,7 @@ Region* Quadtree::getLeafRegionContaining(double lon, double lat){
     Region* current = tree_root_;
     Region* prev = nullptr;
     while(current!=prev){
+        region_sequence_.push_back(current);
         prev = current;
         current = current->getChildRegionContaining(lon,lat);
     }
@@ -287,6 +291,8 @@ nh_(nh),
 Quadtree(lower_left,upper_right,ds,build_immediately){
     vertex_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_vertices",1,true);
     edge_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_edges",1,true);
+    region_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/highlight_region",1,true);
+    test_point_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/test_point",1,true);
 
     geo_converter_.addFrameByEPSG("WGS84",4326);
     geo_converter_.addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
@@ -314,6 +320,19 @@ void QuadtreeROS::visualize(){
     publishVisualGraph();
 }
 
+void QuadtreeROS::testGetRegion(double lon, double lat){
+
+    Eigen::Vector3d point_geo(lon,lat,0);
+    Eigen::Vector3d point_enu;
+    geo_converter_.convert("WGS84",point_geo,"global_enu",&point_enu);
+    test_point_.pose.position.x = point_enu.x();
+    test_point_.pose.position.y = point_enu.y();
+    test_point_pub_.publish(test_point_);
+
+    Region* child = getLeafRegionContaining(lon,lat);
+    highlightRegion(child);   
+}
+
 void QuadtreeROS::initializeMarkers(){
     vertex_marker_.header.frame_id = "map";
     vertex_marker_.header.stamp = ros::Time::now();
@@ -328,7 +347,7 @@ void QuadtreeROS::initializeMarkers(){
     vertex_marker_.color.r = 0.0f;
     vertex_marker_.color.g = 0.0f;
     vertex_marker_.color.b = 1.0f;
-    vertex_marker_.color.a = 1.0;
+    vertex_marker_.color.a = 0.5;
 
     // Scale unit is meters
     vertex_marker_.scale.x = 0.25;
@@ -340,6 +359,19 @@ void QuadtreeROS::initializeMarkers(){
 
     edge_marker_ = vertex_marker_;
     edge_marker_.type = visualization_msgs::Marker::LINE_LIST;
+
+    region_marker_ = edge_marker_;
+    region_marker_.color.b = 0.0f;
+    region_marker_.color.g = 1.0f;
+    region_marker_.scale.x = 1;
+    region_marker_.scale.y = 1;
+    region_marker_.scale.z = 1;
+
+    test_point_ = edge_marker_;
+    test_point_.type = visualization_msgs::Marker::SPHERE;
+    test_point_.scale.x = 10;
+    test_point_.scale.y = 10;
+    test_point_.scale.z = 10;
 }
 
 void QuadtreeROS::addVisualVertex(Eigen::Vector3d& vertex) {
@@ -365,6 +397,65 @@ void QuadtreeROS::addVisualEdge(Eigen::Vector3d& from_vertex, Eigen::Vector3d& t
     edge_marker_.points.push_back(point);
 }
 
+void QuadtreeROS::highlightRegion(Region* region){
+    region_marker_.points.clear();
+    double lon_SW = region->lower_left_.getX();
+    double lat_SW = region->lower_left_.getY();
+
+    double lon_NW = region->lower_left_.getX();
+    double lat_NW = region->upper_right_.getY();
+
+    double lon_SE = region->upper_right_.getX();
+    double lat_SE = region->lower_left_.getY();
+
+    double lon_NE = region->upper_right_.getX();
+    double lat_NE = region->upper_right_.getY();
+    std::cout << "SW: " << lon_SW << " " << lat_SW << std::endl;
+    std::cout << "NW: " << lon_NW << " " << lat_NW << std::endl;
+    std::cout << "SE: " << lon_SE << " " << lat_SE << std::endl;
+    std::cout << "NE: " << lon_NE << " " << lat_NE << std::endl;
+
+    Eigen::Vector3d SW_geo(lon_SW,lat_SW,0);
+    Eigen::Vector3d NW_geo(lon_NW,lat_NW,0);
+    Eigen::Vector3d SE_geo(lon_SE,lat_SE,0);
+    Eigen::Vector3d NE_geo(lon_NE,lat_NE,0);
+
+    Eigen::Vector3d SW_enu;
+    Eigen::Vector3d NW_enu;
+    Eigen::Vector3d SE_enu;
+    Eigen::Vector3d NE_enu;
+
+    geo_converter_.convert("WGS84",SW_geo,"global_enu",&SW_enu);
+    geo_converter_.convert("WGS84",NW_geo,"global_enu",&NW_enu);
+    geo_converter_.convert("WGS84",SE_geo,"global_enu",&SE_enu);
+    geo_converter_.convert("WGS84",NE_geo,"global_enu",&NE_enu);
+
+    geometry_msgs::Point point;
+    point.x = SW_enu.x();
+    point.y = SW_enu.y();
+    region_marker_.points.push_back(point);
+
+    point.x = NW_enu.x();
+    point.y = NW_enu.y();
+    region_marker_.points.push_back(point);
+    region_marker_.points.push_back(point);
+
+    point.x = NE_enu.x();
+    point.y = NE_enu.y();
+    region_marker_.points.push_back(point);
+    region_marker_.points.push_back(point);
+
+    point.x = SE_enu.x();
+    point.y = SE_enu.y();
+    region_marker_.points.push_back(point);
+    region_marker_.points.push_back(point);
+
+    point.x = SW_enu.x();
+    point.y = SW_enu.y();
+    region_marker_.points.push_back(point);
+
+    region_marker_pub_.publish(region_marker_);
+}
 
 
 

@@ -22,6 +22,7 @@ int main(int argc, char** argv){
     QuadtreeROS quadtree(nh,point_lower,point_upper,ds);
     //quadtree.load("quadtree");
     quadtree.visualize();
+    quadtree.testGetRegion(-73.944971,40.546511);
     quadtree.save("quadtree");
 
     ros::spin();

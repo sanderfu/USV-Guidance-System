@@ -34,6 +34,6 @@ int main(int argc, char** argv){
     ros::Time done_save = ros::Time::now();
     std::cout << "Time to save: " << ros::Duration(done_save-start_save).toSec() << std::endl;
 
-    //ros::spin();
+    ros::spin();
 
 }

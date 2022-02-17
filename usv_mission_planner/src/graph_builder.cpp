@@ -239,7 +239,6 @@ void Quadtree::save(const std::string& tree_name){
     }
 
     std::string graph_path = path+tree_name;
-    std::cout << graph_path << std::endl;
     gm_->saveGraph(graph_path);
 
     //Save for post-mission visualization
@@ -256,16 +255,21 @@ void Quadtree::save(const std::string& tree_name){
     viz_path_file.close();
 
     //Save quadtree
-    GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("SQLite");
-    if(driver==NULL){
+    GDALDriver* driver_memory = GetGDALDriverManager()->GetDriverByName("Memory");
+    GDALDriver* driver_sqlite = GetGDALDriverManager()->GetDriverByName("SQLite");
+    if(driver_memory==NULL){
+        ROS_ERROR_STREAM("Unable to find Memory driver");
+        return;
+    }
+    if(driver_sqlite==NULL){
         ROS_ERROR_STREAM("Unable to find SQLite driver");
         return;
     }
 
     std::string quadtree_path = path+"quadtree.sqlite";
-    GDALDataset* quadtree_ds = driver->Create(quadtree_path.c_str(),0,0,0,GDT_Unknown,NULL);
+    GDALDataset* quadtree_ds = driver_memory->Create("in_mem",0,0,0,GDT_Unknown,NULL);
     if(quadtree_ds==NULL){
-        ROS_ERROR_STREAM("Creation of output file failed");
+        ROS_ERROR_STREAM("Creation of in-memory dataset failed");
         return;
     }
 
@@ -273,6 +277,7 @@ void Quadtree::save(const std::string& tree_name){
     regions_to_save.push(tree_root_);
     std::string layer_name_prefix = "depth_";
     std::string layer_name;
+    OGRLayer* test_layer;
     while(regions_to_save.size()!=0){
         Region* current = regions_to_save.front();
         regions_to_save.pop();
@@ -296,7 +301,16 @@ void Quadtree::save(const std::string& tree_name){
         }
         OGRFeature::DestroyFeature(feature);
     }
-    ROS_INFO_STREAM("Done saving Quadtree");
+    GDALDataset* quadtree_ds_store = driver_sqlite->Create(quadtree_path.c_str(),0,0,0,GDT_Unknown,NULL);
+    if(quadtree_ds_store==NULL){
+        ROS_ERROR_STREAM("Creation of SQLite database failed");
+        return;
+    }
+
+    for (int i=0; i<quadtree_ds->GetLayerCount(); i++){
+        quadtree_ds_store->CopyLayer(quadtree_ds->GetLayer(i),quadtree_ds->GetLayer(i)->GetName());
+    }
+    ROS_INFO_STREAM("Quadtree saved succesfully");
 }
 
 void Quadtree::load(const std::string& tree_name){
@@ -316,7 +330,6 @@ void Quadtree::load(const std::string& tree_name){
     while(current_depth<=max_depth){
         OGRFeature* feat;
         layer_name = "depth_"+std::to_string(current_depth);
-        std::cout << layer_name << std::endl;
         while((feat = ds_->GetLayerByName(layer_name.c_str())->GetNextFeature()) != NULL){
             //Determine parent
             if(feat->GetFieldAsInteger64("id")==feat->GetFieldAsInteger64("parent")){
@@ -367,6 +380,7 @@ void Quadtree::load(const std::string& tree_name){
 
 
     }
+    ROS_INFO_STREAM("Quadtree loaded succesfully");
     
 }
 

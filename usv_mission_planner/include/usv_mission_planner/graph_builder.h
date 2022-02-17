@@ -16,6 +16,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "GeographicLib/Geodesic.hpp"
+
 enum regionEdge{
     N,S,E,W
 };
@@ -97,6 +99,8 @@ class Quadtree{
         OGRPoint upper_right_;
 
         int region_id_=0;
+
+        GeographicLib::Geodesic geod_;
 
         //Benchmark
         quadtree_benchmark_t benchmark_data_;

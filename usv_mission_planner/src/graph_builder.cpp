@@ -169,7 +169,8 @@ Region* Region::getChildRegion(childRegion region_position){
 Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately): 
     ds_(ds),
     lower_left_(lower_left),
-    upper_right_(upper_right){
+    upper_right_(upper_right),
+    geod_(GeographicLib::Geodesic::WGS84()){
     gm_ = new GraphManager;
     ros::Time start = ros::Time::now();
     if (build_immediately) build();
@@ -439,7 +440,14 @@ void Quadtree::build(){
                     if(gm_->edge_map_[(*it_vert_a)->id].find((*it_vert_b)->id)!=gm_->edge_map_[(*it_vert_a)->id].end()) continue;
 
                     //TODO: Wrong to use Euler here to weight the edge, must uuse geodetic distance!
-                    float distance = sqrt(pow((*it_vert_a)->state.x()-(*it_vert_b)->state.x(),2)+pow((*it_vert_a)->state.y()-(*it_vert_b)->state.y(),2));
+
+                    double distance;
+                    double lon_a = (*it_vert_a)->state.x();
+                    double lat_a = (*it_vert_a)->state.y();
+                    double lon_b = (*it_vert_b)->state.x();
+                    double lat_b = (*it_vert_b)->state.y();
+                    geod_.Inverse(lat_a,lon_a,lat_b,lon_b,distance);
+                    distance=abs(distance);
                     gm_->addEdge(*it_vert_a,*it_vert_b,distance);
                 }
             }

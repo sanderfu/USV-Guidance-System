@@ -12,16 +12,6 @@ if(OPENMP_FOUND)
   set(OpenMP_LIBS gomp)
 endif()
 
-add_library(graph_builder src/graph_builder.cpp)
-target_compile_options(graph_builder PRIVATE ${OpenMP_FLAGS})
-add_dependencies(graph_builder ${catkin_EXPORTED_TARGETS})
-target_link_libraries(graph_builder ${catkin_LIBRARIES} ${OpenMP_LIBS})
-install(TARGETS graph_builder
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
 find_library(gdal_LIBRARIES
   gdal
 )
@@ -31,27 +21,28 @@ find_package (GeographicLib REQUIRED)
 #############
 # LIBRARIES #
 #############
-#cs_add_library(${PROJECT_NAME}
-#  src/graph_builder.cpp
-#)
+add_library(region src/region.cpp)
+target_compile_options(region PRIVATE ${OpenMP_FLAGS})
+add_dependencies(region ${catkin_EXPORTED_TARGETS})
+target_link_libraries(region ${catkin_LIBRARIES} ${OpenMP_LIBS})
+install(TARGETS region
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
-#add_library(graph_builder src/graph_builder.cpp)
-#target_compile_options(graph_builder PRIVATE ${OpenMP_FLAGS})
-#add_dependencies(graph_builder ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(graph_builder ${catkin_LIBRARIES} ${OpenMP_LIBS})
-#install(TARGETS graph_builder
-#  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#)
+cs_add_library(${PROJECT_NAME}
+  src/quadtree.cpp
+)
+target_link_libraries(${PROJECT_NAME} region)
 
 ############
 # BINARIES #
 ############
-cs_add_executable(test_graph_builder
-  src/test_graph_builder.cpp
+cs_add_executable(test_quadtree
+  src/test_quadtree.cpp
 )
-target_link_libraries(test_graph_builder graph_builder ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
+target_link_libraries(test_quadtree ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
 
 

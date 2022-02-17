@@ -1,7 +1,7 @@
 <launch>
     <node pkg="usv_mission_planner"
         name="test_quadtree"
-        type="test_graph_builder"
+        type="test_quadtree"
         respawn="false"
         output="screen"
         launch-prefix="">

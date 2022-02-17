@@ -1,31 +1,27 @@
 #pragma once
 
+//Dependencies for quadtree
 #include "ros/ros.h"
 #include "ros/package.h"
+#include "usv_mission_planner/region.h"
 #include "gdal/ogrsf_frmts.h"
 #include "planner_common/graph_manager.h"
 #include "vector"
-#include "numeric"
 #include "queue"
-#include <unordered_map>
-#include <omp.h>
-
-
-#include "visualization_msgs/Marker.h"
-#include "geotf/geodetic_converter.h"
-#include <iostream>
-#include <fstream>
-
+#include "unordered_map"
+#include "omp.h"
 #include "GeographicLib/Geodesic.hpp"
+#include "geotf/geodetic_converter.h"
+#include "iostream"
+#include "fstream"
 
-enum regionEdge{
-    N,S,E,W
-};
+//Dependencies for quadtree RVIZ visualization
+#include "visualization_msgs/Marker.h"
 
-enum childRegion{
-    NW, NE, SW, SE
-};
-
+/**
+ * @brief Container for all benchmarking data
+ * 
+ */
 typedef struct {
     //Overall info
     double build_time;
@@ -33,61 +29,23 @@ typedef struct {
     std::vector<double> splitRegion_time;
     std::vector<double> getOccupiedArea_time;
 
-    //
-    //ros::Time get_frame_points_start;
-    //ros::Time get_frame_points_end;
-    //float get_frame_points_total_time;
 } quadtree_benchmark_t;
 
-class Region{
-    public:
-        Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds);
-        Region(double lon_lower, double lat_lower, double lon_upper, double lat_upper, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds);
-        Region* getChildRegionContaining(double lon, double lat);
-        void addChild(Region* child_region_ptr, childRegion child_region);
-
-        double getWidth();
-        double getHeight();
-        double getOccupiedRatio();
-        double getOccupiedArea();
-        double getArea();
-        int getDepth();
-        int getID();
-        int getParentID();
-        childRegion getOwnRegion();
-        Region* getChildRegion(childRegion region_position);
-
-        OGRPoint lower_left_;
-        OGRPoint upper_right_;
-        OGRPoint centroid_;
-
-        OGRPolygon* region_polygon_;
-
-        std::unordered_map<childRegion, Region*> children;
-        std::vector<Vertex*> vertices;
-    private:
-        GDALDataset* ds_;
-        OGRLayer* comparison_layer_;
-
-        int depth_;
-        int id_;
-        int parent_id_;
-        childRegion own_region_;
-};
-
+/**
+ * @brief Class for building, using, loading and saving regional (framed)
+ * quadtree.
+ * 
+ */
 class Quadtree{
     public:
         Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately=true);
+        
         void setStart(Vertex* s);
         void setGoal(Vertex* g);
-
         Region* getLeafRegionContaining(double lon, double lat);
 
         void save(const std::string& tree_name);
         void load(const std::string& tree_name);
-
-        //Debug
-        std::vector<Region*> region_sequence_;
 
     protected:
         GDALDataset* ds_;
@@ -112,6 +70,9 @@ class Quadtree{
         void splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate);
         Region* findLeafRegionContaining(StateVec& pos);
         void setCustomVertex(Vertex* s);
+
+        //Debug
+        std::vector<Region*> region_sequence_;
 };
 
 class QuadtreeROS : public Quadtree{

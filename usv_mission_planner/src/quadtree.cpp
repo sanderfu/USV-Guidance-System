@@ -1,171 +1,13 @@
-#include "usv_mission_planner/graph_builder.h"
+#include "usv_mission_planner/quadtree.h"
 
-Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds):
-    ds_(ds),
-    lower_left_(lower_left),
-    upper_right_(upper_right),
-    depth_(depth),
-    id_(id),
-    parent_id_(parent_id){
-    OGRLinearRing tmp;
-    tmp.addPoint(&lower_left);
-    tmp.addPoint(lower_left.getX(),upper_right.getY());
-    tmp.addPoint(&upper_right);
-    tmp.addPoint(upper_right.getX(),lower_left.getY());
-    tmp.addPoint(&lower_left);
-
-    region_polygon_ = new OGRPolygon;
-    region_polygon_->addRingDirectly(new OGRLinearRing(&tmp));
-
-    if(!region_polygon_->IsValid())
-    {
-        ROS_ERROR_STREAM("Region polygon not valid");
-    }
-
-    //Store region center
-    region_polygon_->Centroid(&centroid_);
-
-    comparison_layer_ = ds->GetLayerByName("collision_dissolved");
-}
-
-Region::Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds){
-    depth_ = depth;
-    id_ = id;
-    parent_id_ = parent_id;
-    own_region_ = own_region;
-    
-    lower_left_.setX(lon_lower);
-    lower_left_.setY(lat_lower);
-
-    upper_right_.setX(lon_lower+width);
-    upper_right_.setY(lat_lower+height);
-
-    OGRLinearRing tmp;
-    tmp.addPoint(lon_lower,lat_lower);
-    tmp.addPoint(lon_lower,lat_lower+height);
-    tmp.addPoint(lon_lower+width,lat_lower+height);
-    tmp.addPoint(lon_lower+width,lat_lower);
-    tmp.addPoint(lon_lower,lat_lower);
-
-    region_polygon_ = new OGRPolygon;
-    region_polygon_->addRingDirectly(new OGRLinearRing(&tmp));
-
-    if(!region_polygon_->IsValid())
-    {
-        ROS_ERROR_STREAM("Region polygon not valid");
-    }
-
-    //Store region center
-    region_polygon_->Centroid(&centroid_);
-
-    comparison_layer_ = ds->GetLayerByName("collision_dissolved");
-}
-
-int Region::getDepth(){
-    return depth_;
-}
-
-double Region::getArea(){
-    if(region_polygon_==nullptr){
-        ROS_ERROR_STREAM("Region::getArea() called with nullptr");
-    }
-    return region_polygon_->get_Area();
-}
-
-double Region::getOccupiedArea(){
-
-    if(region_polygon_==nullptr){
-        ROS_ERROR_STREAM("Region::getOccupiedArea() called with nullptr");
-    }
-
-    OGRFeature* feat;
-    double total_area = 0;
-
-    std::vector<OGRGeometry*> geometries_to_check;
-    std::vector<OGRFeature*> related_features;
-
-    while((feat = comparison_layer_->GetNextFeature()) != NULL){
-        geometries_to_check.push_back(feat->GetGeometryRef()); 
-        related_features.push_back(feat);
-    }
-
-    #pragma omp parallel for reduction(+:total_area)
-        for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){
-            total_area += region_polygon_->Intersection(*geom_it)->toPolygon()->get_Area(); 
-            OGRFeature::DestroyFeature(related_features[geom_it-geometries_to_check.begin()]);  
-        }
-    
-    return total_area;
-}
-
-Region* Region::getChildRegionContaining(double lon, double lat){
-    if (children.size()==0){
-        return this;
-    }
-    if (lon<=centroid_.getX()){
-        //Left side
-        if (lat<=centroid_.getY()){
-            //LL
-            return children[childRegion::SW];
-        } else{
-            //UL
-            return children[childRegion::NW];
-        }
-    }else{
-        //Right side
-        if(lat<=centroid_.getY()){
-            //LR
-            return children[childRegion::SE];
-        } else{
-            //UR
-            return children[childRegion::NE];
-        }
-    }
-
-}
-
-void Region::addChild(Region* child_region_ptr, childRegion child_region){
-    /*
-    if (region_polygon_!=nullptr){
-        //region_polygon_->empty();
-        OGRGeometryFactory::destroyGeometry(region_polygon_);
-        region_polygon_=nullptr;
-    }
-    */
-    
-    children[child_region]=child_region_ptr;
-}
-
-double Region::getWidth(){
-    return upper_right_.getX()-lower_left_.getX();
-}
-
-double Region::getHeight(){
-    return upper_right_.getY()-lower_left_.getY();
-}
-
-double Region::getOccupiedRatio(){
-    double total_area = getArea();
-    double occupied_area = getOccupiedArea();
-    return occupied_area/total_area;
-}
-
-int Region::getID(){
-    return id_;
-}
-
-int Region::getParentID(){
-    return parent_id_;
-}
-
-childRegion Region::getOwnRegion(){
-    return own_region_;
-}
-
-Region* Region::getChildRegion(childRegion region_position){
-    return children[region_position];
-}
-
+/**
+ * @brief Construct a new Quadtree object
+ * 
+ * @param lower_left The lower left point defining the region in which the quadtree is to be built.
+ * @param upper_right The upper right point defining the region in which the quadtree is to be built.
+ * @param ds The dataset containing the map we build the Quadtree w.r.t. 
+ * @param build_immediately If true, build the quadtree. If false, dont.
+ */
 Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately): 
     ds_(ds),
     lower_left_(lower_left),
@@ -185,51 +27,11 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, b
     std::cout << "Size of tree root: " << sizeof(tree_root_) << std::endl;
 }
 
-int Quadtree::generateRegionID(){
-    return region_id_++;
-}
-
-void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate){
-    ros::Time start = ros::Time::now();
-    // Calculate NW region
-    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NW,ds_),childRegion::NW);
-    //Calculate NE region
-    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NE,ds_),childRegion::NE);
-    //Calculate SW region
-    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SW,ds_),childRegion::SW);
-    //Calculate SE region
-    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SE,ds_),childRegion::SE);
-    //Add child regions for evaluation
-    for(std::unordered_map<childRegion,Region *>::iterator it = region->children.begin(); it!=region->children.end(); it++){
-        regions_to_evaluate.push((*it).second);
-    }
-    ros::Time end = ros::Time::now();
-    benchmark_data_.splitRegion_time.push_back(ros::Duration(end-start).toSec());
-}
-
-std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Region* region){
-    std::unordered_map<regionEdge,std::vector<StateVec>> frame_points;
-    int divisor = 1;
-    //Determine points for south edge and north edge
-    int counter = 0;
-    for (double x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor){
-        counter+=1;
-        //South
-        frame_points[regionEdge::S].push_back(StateVec(x,region->lower_left_.getY(),0,0));
-        //North
-        frame_points[regionEdge::N].push_back(StateVec(x,region->upper_right_.getY(),0,0));
-    }
-
-    //Determine points for west and east edge
-    for (double y=region->lower_left_.getY(); y<=region->upper_right_.getY();y+=region->getHeight()/divisor){
-        //West
-        frame_points[regionEdge::W].push_back(StateVec(region->lower_left_.getX(),y,0,0));
-        //East
-        frame_points[regionEdge::E].push_back(StateVec(region->upper_right_.getX(),y,0,0));
-    }
-    return frame_points;
-}
-
+/**
+ * @brief Save the quadtree for later loading or post-mission visualization.
+ * 
+ * @param tree_name What the quadtree should be saved as (will overwrite any previous stored tree witht his name)
+ */
 void Quadtree::save(const std::string& tree_name){
     std::string path = ros::package::getPath("usv_mission_planner");
     path.append("/data/quadtrees/"+tree_name+"/");
@@ -314,10 +116,13 @@ void Quadtree::save(const std::string& tree_name){
     ROS_INFO_STREAM("Quadtree saved succesfully");
 }
 
+/**
+ * @brief Load a saved quadtree.
+ * 
+ * @param tree_name Nam eof the saved quadtree. If a non-existent quadtree is named, the code will crash hard!
+ */
 void Quadtree::load(const std::string& tree_name){
-    std::string path = ros::package::getPath("usv_mission_planner");
-    path.append("/data/quadtrees/");
-    path.append(tree_name+"/");
+    std::string path = ros::package::getPath("usv_mission_planner")+"/data/quadtrees/"+tree_name+"/";
     std::string graph_path = path + tree_name;
     gm_->loadGraph(graph_path);
 
@@ -378,13 +183,17 @@ void Quadtree::load(const std::string& tree_name){
         }
         OGRFeature::DestroyFeature(feat);
         current_depth++;   
-
-
     }
     ROS_INFO_STREAM("Quadtree loaded succesfully");
-    
 }
 
+/**
+ * @brief For a given point, find the leaf region containing the point.
+ * 
+ * @param lon Point longitude
+ * @param lat Point latitude
+ * @return Region* Leaf region pointer
+ */
 Region* Quadtree::getLeafRegionContaining(double lon, double lat){
     Region* current = tree_root_;
     Region* prev = nullptr;
@@ -396,6 +205,74 @@ Region* Quadtree::getLeafRegionContaining(double lon, double lat){
     return current;
 }
 
+/**
+ * @brief Generate a unique region ID
+ * 
+ * @return int generated ID
+ */
+int Quadtree::generateRegionID(){
+    return region_id_++;
+}
+
+/**
+ * @brief Split a region into four children and add these children to the evaluation queue.
+ * 
+ * @details The child is created on the Heap with pointer stored by the parent.
+ * 
+ * @param region Parent region to split into four quadrants.
+ * @param regions_to_evaluate Queue reference where children should be added.
+ */
+void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate){
+    ros::Time start = ros::Time::now();
+    // Calculate NW region
+    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NW,ds_),childRegion::NW);
+    //Calculate NE region
+    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NE,ds_),childRegion::NE);
+    //Calculate SW region
+    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SW,ds_),childRegion::SW);
+    //Calculate SE region
+    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SE,ds_),childRegion::SE);
+    //Add child regions for evaluation
+    for(std::unordered_map<childRegion,Region *>::iterator it = region->children.begin(); it!=region->children.end(); it++){
+        regions_to_evaluate.push((*it).second);
+    }
+    ros::Time end = ros::Time::now();
+    benchmark_data_.splitRegion_time.push_back(ros::Duration(end-start).toSec());
+}
+
+/**
+ * @brief For a given region, get vertex positions for each edge of the region.
+ * 
+ * @param region The region pointer.
+ * @return std::unordered_map<regionEdge,std::vector<StateVec>> the Vertex positions
+ */
+std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Region* region){
+    std::unordered_map<regionEdge,std::vector<StateVec>> frame_points;
+    int divisor = 1;
+    //Determine points for south edge and north edge
+    int counter = 0;
+    for (double x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor){
+        counter+=1;
+        //South
+        frame_points[regionEdge::S].push_back(StateVec(x,region->lower_left_.getY(),0,0));
+        //North
+        frame_points[regionEdge::N].push_back(StateVec(x,region->upper_right_.getY(),0,0));
+    }
+
+    //Determine points for west and east edge
+    for (double y=region->lower_left_.getY(); y<=region->upper_right_.getY();y+=region->getHeight()/divisor){
+        //West
+        frame_points[regionEdge::W].push_back(StateVec(region->lower_left_.getX(),y,0,0));
+        //East
+        frame_points[regionEdge::E].push_back(StateVec(region->upper_right_.getX(),y,0,0));
+    }
+    return frame_points;
+}
+
+/**
+ * @brief Build the Quadtree
+ * 
+ */
 void Quadtree::build(){
     std::queue<Region*> regions_to_evaluate;
     tree_root_ = new Region(lower_left_,upper_right_,0,generateRegionID(),0,childRegion::NW,ds_);

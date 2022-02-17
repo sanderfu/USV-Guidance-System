@@ -5,7 +5,8 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
     lower_left_(lower_left),
     upper_right_(upper_right),
     depth_(depth),
-    id_(id){
+    id_(id),
+    parent_id_(parent_id){
     OGRLinearRing tmp;
     tmp.addPoint(&lower_left);
     tmp.addPoint(lower_left.getX(),upper_right.getY());
@@ -60,7 +61,7 @@ Region::Region(double lon_lower, double lat_lower, double width, double height, 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
 }
 
-double Region::getDepth(){
+int Region::getDepth(){
     return depth_;
 }
 
@@ -159,6 +160,10 @@ int Region::getParentID(){
 
 childRegion Region::getOwnRegion(){
     return own_region_;
+}
+
+Region* Region::getChildRegion(childRegion region_position){
+    return children[region_position];
 }
 
 Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately): 
@@ -277,13 +282,13 @@ void Quadtree::save(const std::string& tree_name){
             layer = quadtree_ds->CreateLayer(layer_name.c_str(),nullptr,wkbPolygon);
             layer->CreateField(new OGRFieldDefn("parent",OGRFieldType::OFTInteger64));
             layer->CreateField(new OGRFieldDefn("id",OGRFieldType::OFTInteger64));
-            //layer->CreateField("own_region");
+            layer->CreateField(new OGRFieldDefn("region",OGRFieldType::OFTInteger64));
         }
         OGRFeature* feature = OGRFeature::CreateFeature(layer->GetLayerDefn());
         feature->SetGeometry(current->region_polygon_);
         feature->SetField("parent",current->getParentID());
         feature->SetField("id",current->getID());
-        //feature->SetField("own_region",static_cast<int>(current->getOwnRegion()));
+        feature->SetField("region",static_cast<int>(current->getOwnRegion()));
         layer->CreateFeature(feature);
 
         for(auto child_it = current->children.begin(); child_it!=current->children.end(); child_it++){
@@ -297,24 +302,72 @@ void Quadtree::save(const std::string& tree_name){
 void Quadtree::load(const std::string& tree_name){
     std::string path = ros::package::getPath("usv_mission_planner");
     path.append("/data/quadtrees/");
-    path.append(tree_name);
-    std::cout << path << std::endl;
-    gm_->loadGraph(path);
+    path.append(tree_name+"/");
+    std::string graph_path = path + tree_name;
+    gm_->loadGraph(graph_path);
 
     //Load regions
-    /*
     std::string quadtree_path = path+"quadtree.sqlite";
     ds_ = (GDALDataset*) GDALOpenEx(quadtree_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     int max_depth = ds_->GetLayerCount()-1;
     int current_depth = 0;
+    std::string layer_name;
+    std::unordered_map<int,Region*> parent_lookup;
     while(current_depth<=max_depth){
         OGRFeature* feat;
-        while((feat = ds_->GetLayerByName("depth_"+std::to_string(current_depth))->GetNextFeature()) != NULL){
+        layer_name = "depth_"+std::to_string(current_depth);
+        std::cout << layer_name << std::endl;
+        while((feat = ds_->GetLayerByName(layer_name.c_str())->GetNextFeature()) != NULL){
+            //Determine parent
+            if(feat->GetFieldAsInteger64("id")==feat->GetFieldAsInteger64("parent")){
+                //Tree root
+                //Determine lower left and upper right
+                OGRLineString* boundary = feat->GetGeometryRef()->getBoundary()->toLineString();
+                OGRPoint point;
+                int num_points = boundary->getNumPoints();
+                //Points loded as saved LL->UL->UR->LR->LL (zero-indexed)
+                boundary->getPoint(0,&lower_left_);
+                boundary->getPoint(2,&upper_right_);
 
+                tree_root_ = new Region(lower_left_,upper_right_,current_depth,generateRegionID(),0,childRegion::NW,ds_);
+                
+                //Add region to parent_lookup 
+                parent_lookup[tree_root_->getID()]=tree_root_;
+            } else{
+                Region* parent = parent_lookup[feat->GetFieldAsInteger64("parent")];
+                switch (static_cast<childRegion>(feat->GetFieldAsInteger64("region")))
+                {
+                case childRegion::NW:
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::NW,ds_),childRegion::NW);
+                    break;
+                case childRegion::NE:
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::NE,ds_),childRegion::NE);
+                    break;
+                case childRegion::SW:
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::SW,ds_),childRegion::SW);
+                    break;
+                case childRegion::SE:
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::SE,ds_),childRegion::SE);
+                    break;
+                default:
+                    ROS_ERROR_STREAM("Region type not recognized!");
+                    break;
+                }
+                //Add child to parent map
+                parent_lookup[parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")))->getID()]=parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")));
+
+                if (parent->children.size()==4){
+                    //All 4 children added, remove from map
+                    parent_lookup.erase(parent->getID());
+                }
+            }
         }
-        current_depth++;
+        OGRFeature::DestroyFeature(feat);
+        current_depth++;   
+
+
     }
-    */
+    
 }
 
 Region* Quadtree::getLeafRegionContaining(double lon, double lat){

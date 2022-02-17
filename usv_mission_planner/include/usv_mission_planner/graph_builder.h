@@ -49,10 +49,11 @@ class Region{
         double getOccupiedRatio();
         double getOccupiedArea();
         double getArea();
-        double getDepth();
+        int getDepth();
         int getID();
         int getParentID();
         childRegion getOwnRegion();
+        Region* getChildRegion(childRegion region_position);
 
         OGRPoint lower_left_;
         OGRPoint upper_right_;

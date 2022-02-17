@@ -415,13 +415,13 @@ void Quadtree::build(){
         if (occupied_ratio==1.0){
             //Region is definitely occupied, discard it
             continue;
-        } else if(occupied_ratio<0.001 ){
+        } else if(occupied_ratio==0 ){
             //Area is free, add vertecies
             std::unordered_map<regionEdge,std::vector<StateVec>> frame_points = getFramePoints(current_region);
             Vertex* corner;
             for (auto side_it = frame_points.begin(); side_it!=frame_points.end(); side_it++){
                 for (auto state_it = (*side_it).second.begin(); state_it != (*side_it).second.end(); state_it++){
-                    if (!gm_->getNearestVertexInRange(&(*state_it),0.0001,&corner)){
+                    if (!gm_->getNearestVertexInRange(&(*state_it),0.000001,&corner)){
                         corner = new Vertex(gm_->generateVertexID(),*state_it);
                         current_region->vertices.push_back(corner);
                         gm_->addVertex(corner);

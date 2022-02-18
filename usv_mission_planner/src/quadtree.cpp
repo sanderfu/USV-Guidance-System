@@ -205,6 +205,10 @@ Region* Quadtree::getLeafRegionContaining(double lon, double lat){
     return current;
 }
 
+GraphManager* Quadtree::getGraphManager(){
+    return gm_;
+}
+
 /**
  * @brief Generate a unique region ID
  * 
@@ -267,6 +271,30 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
         frame_points[regionEdge::E].push_back(StateVec(region->upper_right_.getX(),y,0,0));
     }
     return frame_points;
+}
+
+void Quadtree::setCustomVertex(Vertex* s){
+    Region* leaf_region = getLeafRegionContaining(s->state.x(),s->state.y());
+
+    gm_->addVertex(s);
+    for(auto leaf_vertex_it=leaf_region->vertices.begin(); leaf_vertex_it!=leaf_region->vertices.end(); leaf_vertex_it++){
+        double distance;
+        geod_.Inverse(s->state.y(),s->state.x(),(*leaf_vertex_it)->state.y(),(*leaf_vertex_it)->state.x(),distance);
+        distance = abs(distance);
+        gm_->addEdge(s,*leaf_vertex_it,distance);
+    }
+}
+
+void Quadtree::setStart(double lon, double lat){
+    Vertex* s = new Vertex(gm_->generateVertexID(),StateVec(lon,lat,0,0));
+    setCustomVertex(s);
+    return;
+}
+
+void Quadtree::setGoal(double lon,double lat){
+    Vertex* g = new Vertex(gm_->generateVertexID(),StateVec(lon,lat,0,0));
+    setCustomVertex(g);
+    return;
 }
 
 /**

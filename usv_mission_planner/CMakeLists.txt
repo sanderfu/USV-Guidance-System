@@ -33,6 +33,7 @@ install(TARGETS region
 
 cs_add_library(${PROJECT_NAME}
   src/quadtree.cpp
+  src/astar.cpp
 )
 target_link_libraries(${PROJECT_NAME} region)
 

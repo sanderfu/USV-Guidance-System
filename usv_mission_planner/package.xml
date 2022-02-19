@@ -24,6 +24,7 @@
   <depend>roslib</depend>
   <depend>geotf</depend>
   <depend>planner_common</depend>
+  <depend>usv_map</depend>
   <test_depend>rosunit</test_depend>
 
 </package>

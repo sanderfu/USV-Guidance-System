@@ -120,7 +120,7 @@ simulatedHorizon Viknes830::simulateHorizon(state_type x_init, double u_d, doubl
     return sim_hor;
 }
 
-simulatedHorizon Viknes830::simulateHorizonAdaptive(state_type x_init, double u_d, double psi_d, double T){
+simulatedHorizon Viknes830::simulateHorizonAdaptive(state_type& x_init, double u_d, double psi_d, double T){
     simulatedHorizon sim_hor;
     this->u_d = u_d;
     this->psi_d = psi_d;

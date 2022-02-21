@@ -32,7 +32,7 @@ MapServiceServer::MapServiceServer(const ros::NodeHandle& nh) : nh_(nh){
  * @return false If function call failed for any reason.
  */
 bool MapServiceServer::intersects(usv_map::intersect::Request& req, usv_map::intersect::Response& res){
-    OGRLayer* layer;
+    OGRLayer* layer; 
     switch(static_cast<IntersectType>(req.intersect_type)){
     case IntersectType::COLLISION:
         layer = ds_->GetLayerByName("collision_dissolved");
@@ -44,6 +44,7 @@ bool MapServiceServer::intersects(usv_map::intersect::Request& req, usv_map::int
         ROS_ERROR_STREAM("Invalid LayerType");
         return false;
     }
+
     OGRGeometry* input_geom;
     switch (static_cast<OGRwkbGeometryType>(req.geom_type))
     {
@@ -67,15 +68,18 @@ bool MapServiceServer::intersects(usv_map::intersect::Request& req, usv_map::int
         return false;
     }
     layer->ResetReading();
-    OGRFeature* feat;
-    while(( feat = layer->GetNextFeature())!=NULL){
-        OGRGeometry *geom = feat->GetGeometryRef();
+    res.intersects=false;
+    while(( feat_ = layer->GetNextFeature())!=NULL){
+        OGRGeometry* geom = feat_->GetGeometryRef();
         if(input_geom->Intersects(geom)){
             res.intersects=true;
-            return true;
+            break;
         }
+        OGRFeature::DestroyFeature(feat_);
     }
-    res.intersects=false;
+    
+    OGRFeature::DestroyFeature(feat_);
+    OGRGeometryFactory::destroyGeometry(input_geom);
     return true;
 }
 

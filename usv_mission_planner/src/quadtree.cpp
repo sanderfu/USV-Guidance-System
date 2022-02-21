@@ -157,16 +157,16 @@ void Quadtree::load(const std::string& tree_name){
                 switch (static_cast<childRegion>(feat->GetFieldAsInteger64("region")))
                 {
                 case childRegion::NW:
-                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::NW,ds_),childRegion::NW);
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NW,ds_),childRegion::NW);
                     break;
                 case childRegion::NE:
-                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::NE,ds_),childRegion::NE);
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NE,ds_),childRegion::NE);
                     break;
                 case childRegion::SW:
-                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::SW,ds_),childRegion::SW);
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SW,ds_),childRegion::SW);
                     break;
                 case childRegion::SE:
-                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::SE,ds_),childRegion::SE);
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SE,ds_),childRegion::SE);
                     break;
                 default:
                     ROS_ERROR_STREAM("Region type not recognized!");
@@ -197,7 +197,7 @@ void Quadtree::load(const std::string& tree_name){
 Region* Quadtree::getLeafRegionContaining(double lon, double lat){
     Region* current = tree_root_;
     Region* prev = nullptr;
-    while(current!=prev){
+    while(current!=prev && current!=nullptr){
         region_sequence_.push_back(current);
         prev = current;
         current = current->getChildRegionContaining(lon,lat);
@@ -413,7 +413,9 @@ void QuadtreeROS::testGetRegion(double lon, double lat){
     ros::Time end = ros::Time::now();
     std::cout << "Finding child leaf took: " << ros::Duration(end-start).toSec() << std::endl;
 
-
+    if (child==nullptr){
+        return;
+    }
     highlightRegion(child);   
 }
 

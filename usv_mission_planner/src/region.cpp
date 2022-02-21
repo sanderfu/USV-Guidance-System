@@ -225,7 +225,8 @@ Region* Region::getChildRegion(childRegion region_position){
  */
 Region* Region::getChildRegionContaining(double lon, double lat){
     if (children.size()==0){
-        return this;
+        if(lon>=lower_left_.getX() && lon<=upper_right_.getX() && lat>=lower_left_.getY() && lat<=upper_right_.getY()) return this;
+        else return nullptr;
     }
     if (lon<=centroid_.getX()){
         //Left side
@@ -259,5 +260,5 @@ Region* Region::getChildRegionContaining(double lon, double lat){
  * @param child_region The child region position relative to parent centroid.
  */
 void Region::addChild(Region* child_region_ptr, childRegion child_region){
-    children[child_region]=child_region_ptr;
+    children.insert(std::make_pair(child_region,child_region_ptr));
 }

@@ -18,6 +18,8 @@ class MapServiceServer {
         
         std::string db_path_;
         GDALDataset* ds_;
+
+        OGRFeature* feat_;
 };
 
 class MapServiceClient {

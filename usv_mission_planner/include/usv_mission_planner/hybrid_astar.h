@@ -48,6 +48,7 @@ class HybridAStar{
         extendedVertex* v_close_;
 
         std::vector<extendedVertex*> path_;
+        OGRLineString spline_;
 
         int vertex_id_=0;
         int generateVertexID();

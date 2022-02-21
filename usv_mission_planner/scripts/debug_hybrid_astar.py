@@ -72,8 +72,8 @@ def main():
     exporation_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/debug.csv"
     exporation_df = pd.read_csv(exporation_path)
     ax.scatter(exporation_df["lon"],exporation_df["lat"])
-    for i in range(0,len(exporation_df["lon"])):
-        ax.annotate(exporation_df["id"][i],(exporation_df["lon"][i],exporation_df["lat"][i]))
+    #for i in range(0,len(exporation_df["lon"])):
+    #    ax.annotate(exporation_df["id"][i],(exporation_df["lon"][i],exporation_df["lat"][i]))
 
 
     #Plot path

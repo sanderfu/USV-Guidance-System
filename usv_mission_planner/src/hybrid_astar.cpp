@@ -228,7 +228,7 @@ double HybridAStar::getDistance(StateVec* u, StateVec* v){
 
 bool HybridAStar::collision(ModelLibrary::simulatedHorizon& sim_hor){
     //Check for collision
-    OGRLineString path;
+    spline_.empty();
     Eigen::Vector3d point_local;
     Eigen::Vector3d point_global;
     for(auto hor_it = sim_hor.state.begin(); hor_it!=sim_hor.state.end();hor_it++){
@@ -236,10 +236,10 @@ bool HybridAStar::collision(ModelLibrary::simulatedHorizon& sim_hor){
         point_local(1) = hor_it->at(1);
         point_local(2) = 0;
         geo_converter_.convert("start_enu",point_local,"WGS84",&point_global);
-        path.addPoint(point_global(0),point_global(1));
+        spline_.addPoint(point_global(0),point_global(1));
     }
-
-    if (map_client_->collision(&path)){
+    
+    if (map_client_->collision(&spline_)){
         //Path from current vertex to candidate collides with land, do not add the candidate to the open vertex list
         return true;
     } else{

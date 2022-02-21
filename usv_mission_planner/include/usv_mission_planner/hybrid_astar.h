@@ -4,18 +4,26 @@
 #include "usv_mission_planner/quadtree.h"
 #include "GeographicLib/Geodesic.hpp"
 #include "geotf/geodetic_converter.h"
-#include "usv_mission_planner/priority_queue.h"
 #include "vector"
 #include "usv_map/map_service.h"
 #include "unordered_map"
+#include <iostream>
+#include "usv_mission_planner/flexible_priority_queue.h"
+#include "usv_mission_planner/priority_queue.h"
 
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
-        vertex = new Vertex(id,StateVec(state[0],state[1],0,state[2]));
+        id_ = id;
+        pose = new StateVec(state[0],state[1],0,state[2]);
         twist = new Eigen::Vector3d(state[3],state[4],state[5]);
     }
-    Vertex* vertex;
+    int id_;
+    StateVec* pose;
     Eigen::Vector3d* twist;
+    ~extendedVertex(){
+        delete pose;
+        delete twist;    
+    }
 };
 
 class HybridAStar{
@@ -44,9 +52,13 @@ class HybridAStar{
         int vertex_id_=0;
         int generateVertexID();
 
-        double getDistance(Vertex* u, Vertex* v);
+        double getDistance(StateVec* u, StateVec* v);
         bool collision(ModelLibrary::simulatedHorizon& sim_hor);
         std::vector<extendedVertex*> reconstructPath(std::unordered_map<extendedVertex*, extendedVertex*>& came_from);
+
+        double SSA(double angle){
+            return fmod(angle+M_PI,2*M_PI) - M_PI;
+        }
 
 };
 

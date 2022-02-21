@@ -75,6 +75,10 @@ def main():
     for i in range(0,len(exporation_df["lon"])):
         ax.annotate(exporation_df["id"][i],(exporation_df["lon"][i],exporation_df["lat"][i]))
 
+
+    path_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/path.csv"
+    path_df = pd.read_csv(path_path)
+    ax.plot(path_df["lon"],path_df["lat"],color="red")
     plt.autoscale(enable=True, axis="both", tight=None)
     plt.show()
 

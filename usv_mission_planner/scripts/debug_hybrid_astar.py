@@ -69,12 +69,6 @@ def main():
     #Plot exploration Hybrid A*
     ax.scatter(-73.972908,40.523693,color="r")
     ax.scatter(-73.974206,40.542943,color="g")
-    exporation_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/debug.csv"
-    exporation_df = pd.read_csv(exporation_path)
-    ax.scatter(exporation_df["lon"],exporation_df["lat"])
-    #for i in range(0,len(exporation_df["lon"])):
-    #    ax.annotate(exporation_df["id"][i],(exporation_df["lon"][i],exporation_df["lat"][i]))
-
 
     #Plot path
     path_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/path.csv"
@@ -100,6 +94,21 @@ def main():
     frontier_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/frontier.csv"
     frontier_df = pd.read_csv(frontier_path)
     ax.scatter(frontier_df["lon"],frontier_df["lat"],color="blue")
+
+    #Plot vertices outside quadtree
+    outside_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/outside_quadtree.csv"
+    outside_df = pd.read_csv(outside_path)
+    ax.scatter(outside_df["lon"],outside_df["lat"],color="yellow",marker="+")
+
+    #Plot quadtree
+    quadtree_path = rospack.get_path('usv_mission_planner')+"/data/quadtrees/test_quadtree/test_quadtree.csv"
+    quadtree_df = pd.read_csv(quadtree_path)
+    lines = []
+    for index,row in quadtree_df.iterrows():
+        line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
+        lines.append(line)
+    lc = mc.LineCollection(lines, linewidths=0.1)
+    ax.add_collection(lc)
 
     plt.autoscale(enable=True, axis="both", tight=None)
     plt.show()

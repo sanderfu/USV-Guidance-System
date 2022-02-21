@@ -50,16 +50,26 @@ class HybridAStar{
         std::vector<extendedVertex*> path_;
         OGRLineString spline_;
 
+        std::unordered_map<extendedVertex*, extendedVertex*> came_from_;
+        std::unordered_map<extendedVertex*, double> cost_so_far_;
+        std::vector<extendedVertex*> closed_; 
+        PriorityQueue<extendedVertex*,double> frontier_;
+
         int vertex_id_=0;
         int generateVertexID();
 
         double getDistance(StateVec* u, StateVec* v);
         bool collision(ModelLibrary::simulatedHorizon& sim_hor);
-        std::vector<extendedVertex*> reconstructPath(std::unordered_map<extendedVertex*, extendedVertex*>& came_from);
+        std::vector<extendedVertex*> reconstructPath();
 
         double SSA(double angle){
             return fmod(angle+M_PI,2*M_PI) - M_PI;
         }
+
+        //Debug tools
+        std::vector<std::pair<double,double>> points_outside_quadtree_;
+        void saveDataContainers();
+        void dumpSearchBenchmark();
 
 };
 

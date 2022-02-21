@@ -24,18 +24,24 @@ void HybridAStar::setGoal(double lon, double lat, double yaw){
 void HybridAStar::search(){
     std::unordered_map<extendedVertex*, extendedVertex*> came_from;
     std::unordered_map<extendedVertex*, double> cost_so_far;
+    std::vector<extendedVertex*> closed; 
     //FlexiblePriorityQueue<extendedVertex> frontier;
     PriorityQueue<extendedVertex*,double> frontier;
     frontier.put(v_start_,0);
     came_from[v_start_] = v_start_;
     cost_so_far[v_start_] = 0;
 
-    std::vector<double> heading_candidates = {-M_PI/3,-M_PI/6,0,-M_PI/6,M_PI/3};
+    std::vector<double> heading_candidates = {-M_PI/6,0,M_PI/6};
 
     std::string path = ros::package::getPath("usv_mission_planner");
     path.append("/data/debug/hybrid_astar/");
 
     std::string debug_file_path = path+"debug.csv";
+    std::string closed_file_path = path+"closed.csv";
+    std::string came_from_file_path = path+"came_from.csv";
+    std::string explored_file_path = path+"explored_file.csv";
+    std::string frontier_file_path = path+"frontier.csv";
+
 
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directory(path);
@@ -43,8 +49,24 @@ void HybridAStar::search(){
 
     std::ofstream debug_file(debug_file_path);
     debug_file << "lon,lat,psi,u,v,r,id\n";
+
+    std::ofstream closed_file(closed_file_path);
+    closed_file << "lon,lat,psi,u,v,r,id\n";
+
+    std::ofstream came_from_file(came_from_file_path);
+    came_from_file << "lon_from,lat_from,psi_from,lon_to,lat_to,psi_to\n";
+
+    std::ofstream explored_file(explored_file_path);
+    explored_file << "lon,lat,psi,u,v,r,id\n";
+
+    std::ofstream frontier_file(frontier_file_path);
+    frontier_file << "lon,lat,psi,u,v,r,id\n";
+
+
+
     while(!frontier.empty()){
         extendedVertex* current = frontier.get();
+        closed.push_back(current);
         debug_file << current->pose->x() << "," << current->pose->y() << "," << current->pose->w() << "," << current->twist->x() << "," << current->twist->y() << "," << current->twist->z() << "," << current->id_ << "\n";
         //std::cout << "Distance to goal from current: " << getDistance(current->pose,v_goal_->pose) << std::endl;
         //std::cout << "Continue with enter" << std::endl;
@@ -59,8 +81,32 @@ void HybridAStar::search(){
         }
 
         if(!ros::ok()){
-            ROS_WARN_STREAM("Stopping prematurely");
+            std::cout << "Stopping prematurely" << std::endl;
             debug_file.close();
+
+            std::cout << "Creating debug files" << std::endl;
+            for (auto came_from_it = came_from.begin(); came_from_it!=came_from.end(); came_from_it++){
+                extendedVertex* from = (*came_from_it).second;
+                extendedVertex* to = (*came_from_it).first;
+                came_from_file<<from->pose->x()<<","<<from->pose->y()<<","<<from->pose->w()<<","<<to->pose->x()<<","<<to->pose->y()<<","<<to->pose->w()<<"\n";
+                explored_file<<to->pose->x()<<","<<to->pose->y()<<","<<to->pose->w()<<","<<to->twist->x()<<","<<to->twist->y()<<","<<to->twist->z()<<","<<to->id_<<"\n";
+            }
+
+            while(!frontier.empty()){
+                extendedVertex* v = frontier.get();
+                frontier_file<<v->pose->x()<<","<<v->pose->y()<<","<<v->pose->w()<<","<<v->twist->x()<<","<<v->twist->y()<<","<<v->twist->z()<<","<<v->id_<<"\n";
+            }
+
+            for(auto closed_it=closed.begin(); closed_it!=closed.end();closed_it++){
+                extendedVertex* v = (*closed_it);
+                closed_file<<v->pose->x()<<","<<v->pose->y()<<","<<v->pose->w()<<","<<v->twist->x()<<","<<v->twist->y()<<","<<v->twist->z()<<","<<v->id_<<"\n";
+
+            }
+            came_from_file.close();
+            explored_file.close();
+            closed_file.close();
+            frontier_file.close();
+            std::cout << "Debug files saved" << std::endl;
             exit(1);
         }
 
@@ -71,7 +117,7 @@ void HybridAStar::search(){
             geo_converter_.convert("WGS84",pos_wgs,"start_enu",&pos_enu);
             state_type candidate_state = {pos_enu.x(),pos_enu.y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
 
-            ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,*heading_candidate_it+current->pose->w(),30);
+            ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,*heading_candidate_it+current->pose->w(),60);
 
             //Check for collision, if exists do not add state to open vertices
             if(collision(sim_hor)) continue;
@@ -83,6 +129,25 @@ void HybridAStar::search(){
             state_type candidate_state_wgs = {candidate_wgs.x(),candidate_wgs.y(),candidate_state[2],candidate_state[3],candidate_state[4],candidate_state[5]};
             extendedVertex* next = new extendedVertex(generateVertexID(),candidate_state_wgs);
 
+
+            //If vertex sufficiently simiar has been closed, go to next candidate
+            double closed_distance_check;
+            bool next_closed =false;
+            /*
+            for(auto closed_it = closed.begin(); closed_it!=closed.end(); closed_it++){
+                geod_.Inverse((*closed_it)->pose->y(),(*closed_it)->pose->x(),next->pose->y(),next->pose->x(),closed_distance_check);
+                if(closed_distance_check<25){
+                    delete next;
+                    next_closed=true;
+                    break;
+                }
+            }
+            if (next_closed){
+                continue;
+            }
+            */
+
+
             double new_cost = cost_so_far[current] + getDistance(current->pose,next->pose);
 
             //Find most similar node prdviously explored (if exists)
@@ -90,7 +155,7 @@ void HybridAStar::search(){
             bool explored = false;
             for(auto vertex_it=cost_so_far.begin(); vertex_it!=cost_so_far.end();vertex_it++){
                 geod_.Inverse((*vertex_it).first->pose->y(),(*vertex_it).first->pose->x(),next->pose->y(),next->pose->x(),distance_check);
-                if (distance_check<25){ //&& abs(SSA((*vertex_it).first->pose->w()-next->pose->w()))<M_PI/12){
+                if (distance_check<25){// && abs(SSA((*vertex_it).first->pose->w()-next->pose->w()))<M_PI/9){
                     explored=true;
                     delete next;
                     next = (*vertex_it).first;
@@ -100,25 +165,6 @@ void HybridAStar::search(){
             if(!explored || new_cost<cost_so_far[next]){
                 cost_so_far[next]=new_cost;
                 double priority = new_cost + getDistance(next->pose,v_goal_->pose); //+ heuristic(next->state,v_goal_->state);
-
-                //Check if exists in priority queue, if new pririty better add
-                /*
-                double distance_check;
-                std::map<extendedVertex*,pri_key_t>* latest_key_ = frontier.getCurrentPriority();
-                for(auto key_it = latest_key_->begin();key_it!=latest_key_->end();key_it++){
-                    geod_.Inverse((*key_it).first->pose->y(),(*key_it).first->pose->x(),next->pose->y(),next->pose->x(),distance_check);
-                    if (distance_check<25){
-                        if (priority<(*key_it).second.first){
-                            ROS_INFO_STREAM("New candidate better");
-                            came_from[(*key_it).first]=current;
-                            frontier.push((*key_it).first,std::make_pair(priority,0));
-                            delete next;
-                            continue;
-                        }
-                    }
-                }
-                */
-
                 frontier.put(next,priority);
                 came_from[next]=current;
             }
@@ -126,6 +172,8 @@ void HybridAStar::search(){
     }
     path_ = reconstructPath(came_from);
 
+
+    ////// Debugging purposes ///////
     std::string debug_path_file_path = path+"path.csv";
 
     if(!boost::filesystem::exists(path)){
@@ -140,6 +188,32 @@ void HybridAStar::search(){
         debug_path_file << (*path_it)->pose->x() << "," << (*path_it)->pose->y() << std::endl;
     }
     debug_path_file.close();
+
+    ROS_INFO_STREAM("Creating debug files");
+    for (auto came_from_it = came_from.begin(); came_from_it!=came_from.end(); came_from_it++){
+        extendedVertex* from = (*came_from_it).second;
+        extendedVertex* to = (*came_from_it).first;
+        came_from_file<<from->pose->x()<<","<<from->pose->y()<<","<<from->pose->w()<<","<<to->pose->x()<<","<<to->pose->y()<<","<<to->pose->w()<<"\n";
+        explored_file<<to->pose->x()<<","<<to->pose->y()<<","<<to->pose->w()<<","<<to->twist->x()<<","<<to->twist->y()<<","<<to->twist->z()<<","<<to->id_<<"\n";
+    }
+
+    for(auto closed_it=closed.begin(); closed_it!=closed.end();closed_it++){
+        extendedVertex* v = (*closed_it);
+        closed_file<<v->pose->x()<<","<<v->pose->y()<<","<<v->pose->w()<<","<<v->twist->x()<<","<<v->twist->y()<<","<<v->twist->z()<<","<<v->id_<<"\n";
+
+    }
+
+    while(!frontier.empty()){
+        extendedVertex* v = frontier.get();
+        frontier_file<<v->pose->x()<<","<<v->pose->y()<<","<<v->pose->w()<<","<<v->twist->x()<<","<<v->twist->y()<<","<<v->twist->z()<<","<<v->id_<<"\n";
+    }
+
+    ROS_INFO_STREAM("Debug files saved");
+    came_from_file.close();
+    explored_file.close();
+    closed_file.close();
+    frontier_file.close();
+
 }
 
 int HybridAStar::generateVertexID(){

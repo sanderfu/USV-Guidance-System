@@ -76,11 +76,35 @@ def main():
         ax.annotate(exporation_df["id"][i],(exporation_df["lon"][i],exporation_df["lat"][i]))
 
 
+    #Plot path
     path_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/path.csv"
     path_df = pd.read_csv(path_path)
     ax.plot(path_df["lon"],path_df["lat"],color="red")
+
+    #Plot came-from line segments
+    came_from_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/came_from.csv"
+    came_from_df = pd.read_csv(came_from_path)
+    lines = []
+    for index,row in came_from_df.iterrows():
+        line = [(row["lon_from"],row["lat_from"]),(row["lon_to"],row["lat_to"])]
+        lines.append(line)
+    lc = mc.LineCollection(lines, linewidths=0.1)
+    ax.add_collection(lc)
+
+    #Plot closed
+    closed_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/closed.csv"
+    closed_df = pd.read_csv(closed_path)
+    ax.scatter(closed_df["lon"],closed_df["lat"],color="grey")
+
+    #Plot unexplored
+    frontier_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/frontier.csv"
+    frontier_df = pd.read_csv(frontier_path)
+    ax.scatter(frontier_df["lon"],frontier_df["lat"],color="blue")
+
     plt.autoscale(enable=True, axis="both", tight=None)
     plt.show()
+
+
 
 
 main()

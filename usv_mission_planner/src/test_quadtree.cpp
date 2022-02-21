@@ -52,7 +52,7 @@ int main(int argc, char** argv){
     ROS_INFO_STREAM("Sleep done");
     HybridAStarROS hybrid_astar(hybrid_astar_nh,&quadtree,&viknes,&map_client);
     hybrid_astar.setStart(-73.972908,40.523693,0);
-    hybrid_astar.setGoal(-73.974206,40.542943,0);
+    hybrid_astar.setGoal(-73.918452,40.568992,0);
     hybrid_astar.search();
 
     std::vector<extendedVertex*> hybrid_path = hybrid_astar.getPath();

@@ -91,12 +91,14 @@ void Quadtree::save(const std::string& tree_name){
             layer->CreateField(new OGRFieldDefn("parent",OGRFieldType::OFTInteger64));
             layer->CreateField(new OGRFieldDefn("id",OGRFieldType::OFTInteger64));
             layer->CreateField(new OGRFieldDefn("region",OGRFieldType::OFTInteger64));
+            layer->CreateField(new OGRFieldDefn("is_leaf",OGRFieldType::OFTInteger64));
         }
         OGRFeature* feature = OGRFeature::CreateFeature(layer->GetLayerDefn());
         feature->SetGeometry(current->region_polygon_);
         feature->SetField("parent",current->getParentID());
         feature->SetField("id",current->getID());
         feature->SetField("region",static_cast<int>(current->getOwnRegion()));
+        feature->SetField("is_leaf",static_cast<int>(current->is_leaf_));
         layer->CreateFeature(feature);
 
         for(auto child_it = current->children.begin(); child_it!=current->children.end(); child_it++){
@@ -174,7 +176,7 @@ void Quadtree::load(const std::string& tree_name){
                 }
                 //Add child to parent map
                 parent_lookup[parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")))->getID()]=parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")));
-
+                parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")))->is_leaf_=static_cast<bool>(feat->GetFieldAsInteger64("is_leaf"));
                 if (parent->children.size()==4){
                     //All 4 children added, remove from map
                     parent_lookup.erase(parent->getID());
@@ -322,6 +324,7 @@ void Quadtree::build(){
             continue;
         } else if(occupied_ratio==0 ){
             //Area is free, add vertecies
+            current_region->is_leaf_=true;
             std::unordered_map<regionEdge,std::vector<StateVec>> frame_points = getFramePoints(current_region);
             Vertex* corner;
             for (auto side_it = frame_points.begin(); side_it!=frame_points.end(); side_it++){
@@ -414,6 +417,7 @@ void QuadtreeROS::testGetRegion(double lon, double lat){
     std::cout << "Finding child leaf took: " << ros::Duration(end-start).toSec() << std::endl;
 
     if (child==nullptr){
+        ROS_INFO_STREAM("Not covered by leaf");
         return;
     }
     highlightRegion(child);   

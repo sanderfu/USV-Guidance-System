@@ -98,7 +98,7 @@ def main():
     #Plot vertices outside quadtree
     outside_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/outside_quadtree.csv"
     outside_df = pd.read_csv(outside_path)
-    ax.scatter(outside_df["lon"],outside_df["lat"],color="yellow",marker="+")
+    ax.scatter(outside_df["lon"],outside_df["lat"],color="red",marker="x")
 
     #Plot quadtree
     quadtree_path = rospack.get_path('usv_mission_planner')+"/data/quadtrees/test_quadtree/test_quadtree.csv"

@@ -7,10 +7,12 @@ int main(int argc, char** argv){
     ros::init(argc,argv,"test_quad");
     
     OGRPoint point_lower;
-    const char* wkt_lower = "POINT(-73.98275 40.50820)";
+    //const char* wkt_lower = "POINT(-73.98275 40.50820)";
+    const char* wkt_lower = "POINT(-74.02454 40.49856)";
 
     OGRPoint point_upper;
-    const char* wkt_upper = "POINT(-73.90424 40.58268)";
+    //const char* wkt_upper = "POINT(-73.90424 40.58268)";
+    const char* wkt_upper = "POINT(-73.72638 40.64910)";
     
     point_lower.importFromWkt(&wkt_lower);
     point_upper.importFromWkt(&wkt_upper);
@@ -42,6 +44,7 @@ int main(int argc, char** argv){
     std::cout << "Path length: " << path.size() << std::endl;
     astar.visualize();
     */
+    ROS_INFO_STREAM("Start Hybrid A*");
     ros::NodeHandle hybrid_astar_nh("~HybridAStarROS");
     ModelLibrary::Viknes830 viknes;
     MapServiceClient map_client(&hybrid_astar_nh);
@@ -59,14 +62,14 @@ int main(int argc, char** argv){
     
     /*
     ros::Time start_save = ros::Time::now();
-    quadtree.save("test_quadtree");
+    quadtree.save("test_quadtree_small");
     ros::Time done_save = ros::Time::now();
     std::cout << "Time to save: " << ros::Duration(done_save-start_save).toSec() << std::endl;
     */
 
     quadtree.visualize();
     double lon, lat;
-    quadtree.testGetRegion(-73.9276,40.5626);
+    quadtree.testGetRegion(-73.9463705,40.5437815);
     /*
     while(true && ros::ok()){
         std::cout << "lon: " << std::endl;

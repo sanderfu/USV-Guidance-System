@@ -29,6 +29,9 @@ void HybridAStar::search(){
 
     std::vector<double> heading_candidates = {-M_PI/6,0,M_PI/6};
     std::vector<double> collision_time;
+    std::vector<double> leaf_time;
+    std::vector<double> enu_to_wgs_time;
+    std::vector<double> simulate_time;
     Region* current_region;
     Region* candidate_region;
 
@@ -56,21 +59,29 @@ void HybridAStar::search(){
             Eigen::Vector3d pos_enu;
             geo_converter_.convert("WGS84",pos_wgs,"start_enu",&pos_enu);
             state_type candidate_state = {pos_enu.x(),pos_enu.y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
-            ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,*heading_candidate_it+current->pose->w(),120);
+            ros::Time start_sim = ros::Time::now();
+            ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,*heading_candidate_it+current->pose->w(),90);
+            ros::Time end_sim = ros::Time::now();
+            simulate_time.push_back(ros::Duration(end_sim-start_sim).toSec());
 
             Eigen::Vector3d candidate_enu(candidate_state[0],candidate_state[1],0);
             Eigen::Vector3d candidate_wgs;
+            ros::Time start_conv = ros::Time::now();
             geo_converter_.convert("start_enu",candidate_enu,"WGS84",&candidate_wgs);
+            ros::Time end_conv = ros::Time::now();
+            enu_to_wgs_time.push_back(ros::Duration(end_conv-start_conv).toSec());
 
             //If in same region as last time, cant possibly be collision
+            ros::Time start_leaf_search = ros::Time::now();
             candidate_region = tree_->getLeafRegionContaining(candidate_wgs.x(),candidate_wgs.y());
+            ros::Time end_leaf_search = ros::Time::now();
+            leaf_time.push_back(ros::Duration(end_leaf_search-start_leaf_search).toSec());
             if (candidate_region==nullptr){
                 points_outside_quadtree_.push_back(std::make_pair(candidate_wgs.x(),candidate_wgs.y()));
             }   
 
             //If candidate region is nullptr, definitely path into land, no need to check for detailed collision
             if(candidate_region==nullptr){
-                ROS_INFO_STREAM("Candidate collides with land");
                 continue;
             }
 
@@ -132,9 +143,10 @@ void HybridAStar::search(){
 
     //Benchmark info:
     ROS_INFO_STREAM("Search took: " << ros::Duration(end_search-start_search).toSec());
+    ROS_INFO_STREAM("Check for leaf " << leaf_time.size() << " times. Total time spent: " << std::accumulate(leaf_time.begin(),leaf_time.end(),0.0));
     ROS_INFO_STREAM("Check for collision " << collision_time.size() << " times. Total time spent: " << std::accumulate(collision_time.begin(),collision_time.end(),0.0));
-
-
+    ROS_INFO_STREAM("Simulate " << simulate_time.size() << " times. Total time spent: " << std::accumulate(simulate_time.begin(),simulate_time.end(),0.0));
+    ROS_INFO_STREAM("ENU to WGS " << enu_to_wgs_time.size() << " times. Total time spent: " << std::accumulate(enu_to_wgs_time.begin(),enu_to_wgs_time.end(),0.0));
 }
 
 int HybridAStar::generateVertexID(){

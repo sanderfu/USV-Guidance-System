@@ -176,7 +176,18 @@ void Quadtree::load(const std::string& tree_name){
                 }
                 //Add child to parent map
                 parent_lookup[parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")))->getID()]=parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")));
-                parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")))->is_leaf_=static_cast<bool>(feat->GetFieldAsInteger64("is_leaf"));
+                Region* child = parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")));
+                child->is_leaf_=static_cast<bool>(feat->GetFieldAsInteger64("is_leaf"));
+                if(child->is_leaf_){
+                    std::unordered_map<regionEdge,std::vector<StateVec>> frame_states = getFramePoints(parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region"))));
+                    Vertex* tmp;
+                    for(auto frame_state_it=frame_states.begin(); frame_state_it!=frame_states.end(); frame_state_it++){
+                        for(auto state_it=(*frame_state_it).second.begin(); state_it!=(*frame_state_it).second.end(); state_it++){
+                            gm_->getNearestVertex(&(*state_it),&tmp);
+                            child->vertices.push_back(tmp);
+                        }
+                    }
+                }
                 if (parent->children.size()==4){
                     //All 4 children added, remove from map
                     parent_lookup.erase(parent->getID());

@@ -7,12 +7,12 @@ int main(int argc, char** argv){
     ros::init(argc,argv,"test_quad");
     
     OGRPoint point_lower;
-    //const char* wkt_lower = "POINT(-73.98275 40.50820)";
-    const char* wkt_lower = "POINT(-74.02454 40.49856)";
+    const char* wkt_lower = "POINT(-73.98275 40.50820)";
+    //const char* wkt_lower = "POINT(-74.02454 40.49856)";
 
     OGRPoint point_upper;
-    //const char* wkt_upper = "POINT(-73.90424 40.58268)";
-    const char* wkt_upper = "POINT(-73.72638 40.64910)";
+    const char* wkt_upper = "POINT(-73.90424 40.58268)";
+    //const char* wkt_upper = "POINT(-73.72638 40.64910)";
     
     point_lower.importFromWkt(&wkt_lower);
     point_upper.importFromWkt(&wkt_upper);
@@ -25,25 +25,31 @@ int main(int argc, char** argv){
     ros::NodeHandle nh("~testQT");
     QuadtreeROS quadtree(nh,point_lower,point_upper,ds,false);
     
+    
     ros::Time start_load = ros::Time::now();
     quadtree.load("test_quadtree");
     ros::Time done_load = ros::Time::now();
     std::cout << "Time to load: " << ros::Duration(done_load-start_load).toSec() << std::endl;
+    
 
-    //quadtree.setStart(-74.00305,40.54273);
-    //quadtree.setGoal(-73.94537,40.55109);
+    quadtree.setStart(-73.944286,40.536814);
+    quadtree.setGoal(-73.918452,40.568992);
+    quadtree.visualize();
 
-    /*
     ros::NodeHandle astar_nh("~AStarROS");
     AStarROS astar(astar_nh,quadtree.getGraphManager());
-    astar.setStart(-74.00305,40.54273);
-    astar.setGoal(-73.94537,40.55109);
+    astar.setStart(-73.944286,40.536814);
+    astar.setGoal(-73.873919,40.591176);
+    ros::Time start_astar = ros::Time::now();
     astar.search();
+    ros::Time end_astar = ros::Time::now();
+    ROS_INFO_STREAM("AStar search took " << ros::Duration(end_astar-start_astar).toSec());
+    
 
     std::vector<Vertex*> path = astar.getPath();
     std::cout << "Path length: " << path.size() << std::endl;
     astar.visualize();
-    */
+    
     ROS_INFO_STREAM("Start Hybrid A*");
     ros::NodeHandle hybrid_astar_nh("~HybridAStarROS");
     ModelLibrary::Viknes830 viknes;
@@ -52,13 +58,14 @@ int main(int argc, char** argv){
     ros::Duration(1).sleep();
     ROS_INFO_STREAM("Sleep done");
     HybridAStarROS hybrid_astar(hybrid_astar_nh,&quadtree,&viknes,&map_client);
-    hybrid_astar.setStart(-73.972908,40.523693,0);
-    hybrid_astar.setGoal(-73.918452,40.568992,0);
+    hybrid_astar.setStart(-73.944286,40.536814,0);
+    hybrid_astar.setGoal(-73.849189,40.642581,0);
     hybrid_astar.search();
 
     std::vector<extendedVertex*> hybrid_path = hybrid_astar.getPath();
     std::cout << "Path length: " << hybrid_path.size() << std::endl;
     hybrid_astar.visualize();
+    
     
     /*
     ros::Time start_save = ros::Time::now();
@@ -69,7 +76,7 @@ int main(int argc, char** argv){
 
     quadtree.visualize();
     double lon, lat;
-    quadtree.testGetRegion(-73.9463705,40.5437815);
+    quadtree.testGetRegion(-73.944286,40.536814);
     /*
     while(true && ros::ok()){
         std::cout << "lon: " << std::endl;

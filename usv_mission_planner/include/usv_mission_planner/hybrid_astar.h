@@ -10,6 +10,7 @@
 #include <iostream>
 #include "usv_mission_planner/flexible_priority_queue.h"
 #include "usv_mission_planner/priority_queue.h"
+#include "usv_mission_planner/astar.h"
 
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
@@ -41,6 +42,7 @@ class HybridAStar{
         MapServiceClient* map_client_;
 
         Quadtree* tree_;
+        AStar* grid_search_alg_;
         ModelLibrary::Viknes830* vessel_model_;
 
         extendedVertex* v_start_;
@@ -55,10 +57,13 @@ class HybridAStar{
         std::vector<extendedVertex*> closed_; 
         PriorityQueue<extendedVertex*,double> frontier_;
 
+        std::unordered_map<Region*, double> grid_distance_lookup_;
+
         int vertex_id_=0;
         int generateVertexID();
 
         double getDistance(StateVec* u, StateVec* v);
+        double getGridDistance(StateVec* u, StateVec* v);
         bool collision(ModelLibrary::simulatedHorizon& sim_hor);
         std::vector<extendedVertex*> reconstructPath();
 

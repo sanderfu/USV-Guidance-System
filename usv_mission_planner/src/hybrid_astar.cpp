@@ -4,7 +4,8 @@ HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, 
 tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
-map_client_(map_client){
+map_client_(map_client),
+grid_search_alg_(new AStar(tree->getGraphManager())){
 
     //Set up geo converter
     geo_converter_.addFrameByEPSG("WGS84",4326);
@@ -32,6 +33,7 @@ void HybridAStar::search(){
     std::vector<double> leaf_time;
     std::vector<double> enu_to_wgs_time;
     std::vector<double> simulate_time;
+    std::vector<double> heuristic_time;
     Region* current_region;
     Region* candidate_region;
 
@@ -60,7 +62,7 @@ void HybridAStar::search(){
             geo_converter_.convert("WGS84",pos_wgs,"start_enu",&pos_enu);
             state_type candidate_state = {pos_enu.x(),pos_enu.y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
             ros::Time start_sim = ros::Time::now();
-            ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,*heading_candidate_it+current->pose->w(),90);
+            ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,*heading_candidate_it+current->pose->w(),60);
             ros::Time end_sim = ros::Time::now();
             simulate_time.push_back(ros::Duration(end_sim-start_sim).toSec());
 
@@ -76,12 +78,10 @@ void HybridAStar::search(){
             candidate_region = tree_->getLeafRegionContaining(candidate_wgs.x(),candidate_wgs.y());
             ros::Time end_leaf_search = ros::Time::now();
             leaf_time.push_back(ros::Duration(end_leaf_search-start_leaf_search).toSec());
-            if (candidate_region==nullptr){
-                points_outside_quadtree_.push_back(std::make_pair(candidate_wgs.x(),candidate_wgs.y()));
-            }   
 
             //If candidate region is nullptr, definitely path into land, no need to check for detailed collision
             if(candidate_region==nullptr){
+                points_outside_quadtree_.push_back(std::make_pair(candidate_wgs.x(),candidate_wgs.y()));
                 continue;
             }
 
@@ -131,7 +131,10 @@ void HybridAStar::search(){
 
             if(!explored || new_cost<cost_so_far_[next]){
                 cost_so_far_[next]=new_cost;
-                double priority = new_cost + getDistance(next->pose,v_goal_->pose); //+ heuristic(next->state,v_goal_->state);
+                ros::Time start_heuristic = ros::Time::now();
+                double priority = new_cost + std::max(getDistance(next->pose,v_goal_->pose),getGridDistance(next->pose,v_goal_->pose)); //+ heuristic(next->state,v_goal_->state);
+                ros::Time end_heuristic = ros::Time::now();
+                heuristic_time.push_back(ros::Duration(end_heuristic-start_heuristic).toSec());
                 frontier_.put(next,priority);
                 came_from_[next]=current;
             }
@@ -147,6 +150,7 @@ void HybridAStar::search(){
     ROS_INFO_STREAM("Check for collision " << collision_time.size() << " times. Total time spent: " << std::accumulate(collision_time.begin(),collision_time.end(),0.0));
     ROS_INFO_STREAM("Simulate " << simulate_time.size() << " times. Total time spent: " << std::accumulate(simulate_time.begin(),simulate_time.end(),0.0));
     ROS_INFO_STREAM("ENU to WGS " << enu_to_wgs_time.size() << " times. Total time spent: " << std::accumulate(enu_to_wgs_time.begin(),enu_to_wgs_time.end(),0.0));
+    ROS_INFO_STREAM("Calculate heuristic " << heuristic_time.size() << " times. Total time spent: " << std::accumulate(heuristic_time.begin(),heuristic_time.end(),0.0));
 }
 
 int HybridAStar::generateVertexID(){
@@ -157,6 +161,39 @@ double HybridAStar::getDistance(StateVec* u, StateVec* v){
     double distance;
     geod_.Inverse(u->y(),u->x(),v->y(),v->x(),distance);
     return abs(distance);
+}
+
+double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
+    //Check if roughly this start->goal config has been checked before
+
+    Region* current = tree_->getLeafRegionContaining(u->x(),u->y());
+    auto grid_lookup_it = grid_distance_lookup_.find(current);
+    if (grid_lookup_it!=grid_distance_lookup_.end()){
+        return (*grid_lookup_it).second;
+    }
+
+    tree_->setStart(current->centroid_.getX(),current->centroid_.getY());
+    tree_->setGoal(v->x(),v->y());
+
+
+
+    grid_search_alg_->setStart(current->centroid_.getX(),current->centroid_.getY());
+    grid_search_alg_->setGoal(v->x(),v->y());
+    grid_search_alg_->search();
+    std::vector<Vertex*> shortest_path = grid_search_alg_->getPath();
+    double spline_distance=0;
+    double total_distance=0;
+    for(int i=0; i<shortest_path.size()-1; i++){
+        geod_.Inverse(shortest_path[i]->state.y(),shortest_path[i]->state.x(),shortest_path[i+1]->state.y(),shortest_path[i+1]->state.x(),spline_distance);
+        total_distance+=spline_distance;
+    }
+    double distance_u_v = 0;
+    double distance_centroid_v = 0;
+    geod_.Inverse(u->y(),u->x(),v->y(),v->x(),distance_u_v);
+    geod_.Inverse(current->centroid_.getY(),current->centroid_.getX(),v->y(),v->x(),distance_centroid_v);
+    double difference = abs(distance_u_v)-abs(distance_centroid_v);
+    grid_distance_lookup_.insert(std::make_pair(current,total_distance+difference));
+    return total_distance+difference;
 }
 
 bool HybridAStar::collision(ModelLibrary::simulatedHorizon& sim_hor){

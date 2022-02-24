@@ -25,7 +25,7 @@ bool AStar::search(){
 
         //Early exit
         if (current==v_goal_){
-            ROS_INFO_STREAM("Early exit");
+            //ROS_INFO_STREAM("Early exit");
             break;
         }
 

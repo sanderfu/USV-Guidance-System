@@ -1,3 +1,5 @@
+#pragma once
+
 #include "planner_common/graph_manager.h"
 #include "usv_mission_planner/priority_queue.h"
 #include "GeographicLib/Geodesic.hpp"

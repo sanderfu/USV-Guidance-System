@@ -35,6 +35,8 @@ class HybridAStar{
         void search();
 
         std::vector<extendedVertex*> getPath();
+
+        double getDistanceToRegionBoundary(extendedVertex* current, Region* current_region,double heading);
     
     protected:
         geotf::GeodeticConverter geo_converter_;

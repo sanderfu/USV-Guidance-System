@@ -79,7 +79,7 @@ class QuadtreeROS : public Quadtree{
     public:
         QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately=true);
         void visualize();
-        void testGetRegion(double lon, double lat);
+        Region* testGetRegion(double lon, double lat);
     private:
         geotf::GeodeticConverter geo_converter_;
         ros::NodeHandle nh_;

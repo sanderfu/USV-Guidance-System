@@ -413,7 +413,7 @@ void QuadtreeROS::visualize(){
     publishVisualGraph();
 }
 
-void QuadtreeROS::testGetRegion(double lon, double lat){
+Region* QuadtreeROS::testGetRegion(double lon, double lat){
 
     Eigen::Vector3d point_geo(lon,lat,0);
     Eigen::Vector3d point_enu;
@@ -429,9 +429,10 @@ void QuadtreeROS::testGetRegion(double lon, double lat){
 
     if (child==nullptr){
         ROS_INFO_STREAM("Not covered by leaf");
-        return;
+        return nullptr;
     }
-    highlightRegion(child);   
+    highlightRegion(child);
+    return child;   
 }
 
 void QuadtreeROS::initializeMarkers(){

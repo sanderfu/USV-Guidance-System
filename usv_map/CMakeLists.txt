@@ -65,16 +65,15 @@ cs_add_executable(test_services
 )
 target_link_libraries(test_services ${PROJECT_NAME})
 
-cs_add_executable(test_distance_calc
-  src/test_distance_calc.cpp
-)
-target_link_libraries(test_distance_calc ${GeographicLib_LIBRARIES})
-
 cs_add_executable(test_map_service
   src/test_map_service.cpp
 )
 target_link_libraries(test_map_service ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
+cs_add_executable(test_distance_concept
+  src/test_distance_concept.cpp
+)
+target_link_libraries(test_distance_concept ${gdal_LIBRARIES})
 
 
 ##########

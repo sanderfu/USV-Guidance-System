@@ -53,22 +53,23 @@ int main(int argc, char** argv){
     ROS_INFO_STREAM("Start Hybrid A*");
     ros::NodeHandle hybrid_astar_nh("~HybridAStarROS");
     ModelLibrary::Viknes830 viknes;
-    MapServiceClient map_client(&hybrid_astar_nh);
     ROS_INFO_STREAM("Sleep for 5s waiting for map server");
     ros::Duration(1).sleep();
     ROS_INFO_STREAM("Sleep done");
-    HybridAStarROS hybrid_astar(hybrid_astar_nh,&quadtree,&viknes,&map_client);
-    hybrid_astar.setStart(-73.958809,40.532876,0);
-    hybrid_astar.setGoal(-73.919804,40.568204,0);
+    HybridAStarROS hybrid_astar(hybrid_astar_nh,&quadtree,&viknes);
+    hybrid_astar.setStart(-73.999927,40.590175,-M_PI);
+    hybrid_astar.setGoal(-73.839776,40.641721,0);
     hybrid_astar.search();
+    
 
     std::vector<extendedVertex*> hybrid_path = hybrid_astar.getPath();
     std::cout << "Path length: " << hybrid_path.size() << std::endl;
     hybrid_astar.visualize();
     
+    
     /*
     ros::Time start_save = ros::Time::now();
-    quadtree.save("test_quadtree_small");
+    quadtree.save("test_quadtree_LNDARE");
     ros::Time done_save = ros::Time::now();
     std::cout << "Time to save: " << ros::Duration(done_save-start_save).toSec() << std::endl;
     */

@@ -66,7 +66,6 @@ bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
     }
     
     OGRFeature::DestroyFeature(feat);
-    OGRGeometryFactory::destroyGeometry(input_geom);
     return false;
 }
 

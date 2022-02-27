@@ -29,7 +29,7 @@ struct extendedVertex{
 
 class HybridAStar{
     public:
-        HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapServiceClient* map_client);
+        HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model);
         void setStart(double lon, double lat, double yaw);
         void setGoal(double lon, double lat, double yaw);
         void search();
@@ -41,7 +41,7 @@ class HybridAStar{
     protected:
         geotf::GeodeticConverter geo_converter_;
         GeographicLib::Geodesic geod_;
-        MapServiceClient* map_client_;
+        MapService map_client_;
 
         Quadtree* tree_;
         AStar* grid_search_alg_;
@@ -82,7 +82,7 @@ class HybridAStar{
 
 class HybridAStarROS : public HybridAStar{
     public:
-        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapServiceClient* map_client);
+        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model);
         void visualize();
     private:
         geotf::GeodeticConverter geo_converter_;

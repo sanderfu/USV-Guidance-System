@@ -1,10 +1,9 @@
 #include "usv_mission_planner/hybrid_astar.h"
 
-HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapServiceClient* map_client):
+HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model):
 tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
-map_client_(map_client),
 grid_search_alg_(new AStar(tree->getGraphManager())){
 
     //Set up geo converter
@@ -298,7 +297,7 @@ bool HybridAStar::collision(ModelLibrary::simulatedHorizon& sim_hor){
         spline_.addPoint(point_global(0),point_global(1));
     }
     
-    if (map_client_->collision(&spline_)){
+    if (map_client_.intersects(&spline_,LayerID::COLLISION)){
         //Path from current vertex to candidate collides with land, do not add the candidate to the open vertex list
         return true;
     } else{
@@ -390,9 +389,9 @@ void HybridAStar::saveDataContainers(){
     std::cout << "Debug files saved" << std::endl;
 }
 
-HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapServiceClient* map_client):
+HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model):
 nh_(nh),
-HybridAStar(tree,vessel_model,map_client){
+HybridAStar(tree,vessel_model){
     path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/hybrid_astar/visual_path",1,true);
 
     geo_converter_.addFrameByEPSG("WGS84",4326);

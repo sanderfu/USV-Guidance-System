@@ -73,7 +73,8 @@ target_link_libraries(test_map_service ${PROJECT_NAME} ${GeographicLib_LIBRARIES
 cs_add_executable(test_distance_concept
   src/test_distance_concept.cpp
 )
-target_link_libraries(test_distance_concept ${gdal_LIBRARIES})
+target_compile_options(test_distance_concept PRIVATE ${OpenMP_FLAGS})
+target_link_libraries(test_distance_concept ${PROJECT_NAME} ${gdal_LIBRARIES} ${OpenMP_LIBS})
 
 
 ##########

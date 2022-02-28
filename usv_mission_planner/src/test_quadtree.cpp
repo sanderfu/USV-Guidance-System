@@ -7,12 +7,12 @@ int main(int argc, char** argv){
     ros::init(argc,argv,"test_quad");
     
     OGRPoint point_lower;
-    const char* wkt_lower = "POINT(-73.98275 40.50820)";
-    //const char* wkt_lower = "POINT(-74.02454 40.49856)";
+    //const char* wkt_lower = "POINT(-73.98275 40.50820)";
+    const char* wkt_lower = "POINT(-74.02454 40.49856)";
 
     OGRPoint point_upper;
-    const char* wkt_upper = "POINT(-73.90424 40.58268)";
-    //const char* wkt_upper = "POINT(-73.72638 40.64910)";
+    //const char* wkt_upper = "POINT(-73.90424 40.58268)";
+    const char* wkt_upper = "POINT(-73.72638 40.64910)";
     
     point_lower.importFromWkt(&wkt_lower);
     point_upper.importFromWkt(&wkt_upper);
@@ -31,15 +31,16 @@ int main(int argc, char** argv){
     ros::Time done_load = ros::Time::now();
     std::cout << "Time to load: " << ros::Duration(done_load-start_load).toSec() << std::endl;
     
-
-    quadtree.setStart(-73.958809,40.532876);
-    quadtree.setGoal(-73.919804,40.568204);
+    
+    
+    quadtree.setStart(-73.999927,40.590175);
+    quadtree.setGoal(-73.839776,40.641721);
     quadtree.visualize();
 
     ros::NodeHandle astar_nh("~AStarROS");
     AStarROS astar(astar_nh,quadtree.getGraphManager());
-    astar.setStart(-73.958809,40.532876);
-    astar.setGoal(-73.919804,40.568204);
+    astar.setStart(-73.999927,40.590175);
+    astar.setGoal(-73.839776,40.641721);
     ros::Time start_astar = ros::Time::now();
     astar.search();
     ros::Time end_astar = ros::Time::now();
@@ -50,6 +51,8 @@ int main(int argc, char** argv){
     std::cout << "Path length: " << path.size() << std::endl;
     astar.visualize();
     
+    
+    
     ROS_INFO_STREAM("Start Hybrid A*");
     ros::NodeHandle hybrid_astar_nh("~HybridAStarROS");
     ModelLibrary::Viknes830 viknes;
@@ -58,8 +61,9 @@ int main(int argc, char** argv){
     ROS_INFO_STREAM("Sleep done");
     HybridAStarROS hybrid_astar(hybrid_astar_nh,&quadtree,&viknes);
     hybrid_astar.setStart(-73.999927,40.590175,-M_PI);
-    hybrid_astar.setGoal(-73.839776,40.641721,0);
+    hybrid_astar.setGoal(-73.8443265,40.6415880,0);
     hybrid_astar.search();
+    
     
 
     std::vector<extendedVertex*> hybrid_path = hybrid_astar.getPath();
@@ -67,12 +71,15 @@ int main(int argc, char** argv){
     hybrid_astar.visualize();
     
     
+    
     /*
     ros::Time start_save = ros::Time::now();
-    quadtree.save("test_quadtree_LNDARE");
+    quadtree.save("test_quadtree_2");
     ros::Time done_save = ros::Time::now();
     std::cout << "Time to save: " << ros::Duration(done_save-start_save).toSec() << std::endl;
     */
+    
+    
 
     
     quadtree.visualize();

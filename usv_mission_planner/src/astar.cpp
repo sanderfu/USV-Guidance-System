@@ -13,15 +13,20 @@ void AStar::setGoal(double lon,double lat){
 }
 
 bool AStar::search(){
-    std::unordered_map<Vertex*, Vertex*> came_from;
-    std::unordered_map<Vertex*, double> cost_so_far;
-    PriorityQueue<Vertex*,double> frontier;
-    frontier.put(v_start_,0);
-    came_from[v_start_] = v_start_;
-    cost_so_far[v_start_] = 0;
+    while(!frontier_.empty()){
+        frontier_.get();
+    }
+    came_from_.clear();
+    cost_so_far_.clear();
+    closed_.clear();
 
-    while(!frontier.empty()){
-        Vertex* current = frontier.get();
+    frontier_.put(v_start_,0);
+    came_from_[v_start_] = v_start_;
+    cost_so_far_[v_start_] = 0;
+
+    while(!frontier_.empty()){
+        Vertex* current = frontier_.get();
+        closed_.push_back(current);
 
         //Early exit
         if (current==v_goal_){
@@ -35,19 +40,19 @@ bool AStar::search(){
             if (next==current){
                 continue;
             }
-            
-            double new_cost = cost_so_far[current] + gm_->getEdgeWeight(current->id,next->id);
+            double new_cost = cost_so_far_[current] + gm_->getEdgeWeight(current->id,next->id); //+ 0.001*(1/(100000*map_service_.distance(next->state.x(),next->state.y(),LayerID::COLLISION)));
 
-            if(cost_so_far.find(next) == cost_so_far.end() || new_cost<cost_so_far[next]){
-                cost_so_far[next]=new_cost;
-                double priority = new_cost + heuristic(next->state,v_goal_->state);
-                frontier.put(next,priority);
-                came_from[next]=current;
+            if(cost_so_far_.find(next) == cost_so_far_.end() || new_cost<cost_so_far_[next]){
+                cost_so_far_[next]=new_cost;
+                double priority = cost_so_far_[next] + heuristicEuler(next->state,v_goal_->state);
+                frontier_.put(next,priority);
+                came_from_[next]=current;
             }
         }
         
     }
-    path_ = reconstructPath(came_from);
+    path_ = reconstructPath(came_from_);
+    //saveDataContainers();
     return true;
 }
 
@@ -55,10 +60,19 @@ std::vector<Vertex*> AStar::getPath(){
     return path_;
 }
 
-double AStar::heuristic(const StateVec& state_u, const StateVec& state_v){
+double AStar::heuristicEuler(const StateVec& state_u, const StateVec& state_v){
     double distance;
     geod_.Inverse(state_u.y(),state_u.x(),state_v.y(),state_v.x(),distance);
     return abs(distance);
+}
+
+double AStar::heuristicDiagonal(const StateVec& state_u, const StateVec& state_v){
+    double dx, dy;
+    geod_.Inverse(state_u.y(),state_u.x(),state_u.y(),state_v.x(),dx);
+    dx = abs(dx);
+    geod_.Inverse(state_u.y(),state_u.x(),state_v.y(),state_u.x(),dy);
+    dy = abs(dy);
+    return dx+dy-std::min(dx,dy);
 }
 
 std::vector<Vertex*> AStar::reconstructPath(std::unordered_map<Vertex*, Vertex*>& came_from) {
@@ -71,6 +85,65 @@ std::vector<Vertex*> AStar::reconstructPath(std::unordered_map<Vertex*, Vertex*>
     path.push_back(v_start_); // optional
     std::reverse(path.begin(), path.end());
     return path;
+}
+
+void AStar::saveDataContainers(){
+    std::string path = ros::package::getPath("usv_mission_planner");
+    path.append("/data/debug/astar/");
+
+    std::string found_path_path = path+"path.csv";
+    std::string closed_file_path = path+"closed.csv";
+    std::string came_from_file_path = path+"came_from.csv";
+    std::string explored_file_path = path+"explored_file.csv";
+    std::string frontier_file_path = path+"frontier.csv";
+    std::string points_outside_quadtree_path = path + "outside_quadtree.csv";
+
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directory(path);
+    }
+
+    std::ofstream closed_file(closed_file_path);
+    closed_file << "lon,lat,psi,id\n";
+
+    std::ofstream came_from_file(came_from_file_path);
+    came_from_file << "lon_from,lat_from,psi_from,lon_to,lat_to,psi_to\n";
+
+    std::ofstream explored_file(explored_file_path);
+    explored_file << "lon,lat,psi,id\n";
+
+    std::ofstream frontier_file(frontier_file_path);
+    frontier_file << "lon,lat,psi,id\n";
+
+    std::ofstream path_file(found_path_path);
+    path_file << "lon,lat\n";
+
+    for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
+        path_file << (*path_it)->state.x() << "," << (*path_it)->state.y() << std::endl;
+    }
+
+    std::cout << "Creating debug files" << std::endl;
+    for (auto came_from_it = came_from_.begin(); came_from_it!=came_from_.end(); came_from_it++){
+        Vertex* from = (*came_from_it).second;
+        Vertex* to = (*came_from_it).first;
+        came_from_file<<from->state.x()<<","<<from->state.y()<<","<<from->state.w()<<","<<to->state.x()<<","<<to->state.y()<<","<<to->state.w()<<"\n";
+        explored_file<<to->state.x()<<","<<to->state.y()<<","<<to->state.w()<<","<<to->id<<"\n";
+    }
+
+    while(!frontier_.empty()){
+        Vertex* v = frontier_.get();
+        frontier_file<<v->state.x()<<","<<v->state.y()<<","<<v->state.w()<<","<<v->id<<"\n";
+    }
+
+    for(auto closed_it=closed_.begin(); closed_it!=closed_.end();closed_it++){
+        Vertex* v = (*closed_it);
+        closed_file<<v->state.x()<<","<<v->state.y()<<","<<v->state.w()<<","<<v->id<<"\n";
+    }
+
+    came_from_file.close();
+    explored_file.close();
+    closed_file.close();
+    frontier_file.close();
+    std::cout << "Debug files saved" << std::endl;
 }
 
 AStarROS::AStarROS(ros::NodeHandle& nh, GraphManager* gm):

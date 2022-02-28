@@ -61,7 +61,9 @@ void HybridAStar::search(){
             //Calculate distance to region border
             double heading = *heading_candidate_it+current->pose->w();
             ros::Time start_calc_sim = ros::Time::now();
-            double sim_time = 60; //(getDistanceToRegionBoundary(current,current_region,heading)+5)/3;
+            double sim_time = 60;
+            if(getDistance(current->pose,v_goal_->pose)<100) sim_time=10;
+            //(getDistanceToRegionBoundary(current,current_region,heading)+5)/3;
             ros::Time end_calc_sim = ros::Time::now();
             calc_sim_time.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
             
@@ -121,9 +123,12 @@ void HybridAStar::search(){
             if (next_closed){
                 continue;
             }
+            
+            
 
-
-            double new_cost = cost_so_far_[current] + getDistance(current->pose,next->pose);
+            double distance_to_land = map_client_.distance(next->pose->x(),next->pose->y(),LayerID::COLLISION);
+            double cost_distance = 0*exp(1.1*1000*(0.005-distance_to_land));
+            double new_cost = cost_so_far_[current] + getDistance(current->pose,next->pose) + cost_distance;
 
             //Find most similar node prdviously explored (if exists)
             double distance_check;
@@ -138,7 +143,7 @@ void HybridAStar::search(){
             }
 
             if(!explored || new_cost<cost_so_far_[next]){
-                cost_so_far_[next]=new_cost;
+                cost_so_far_[next]=new_cost-cost_distance;
                 ros::Time start_heuristic = ros::Time::now();
                 double priority = new_cost + std::max(getDistance(next->pose,v_goal_->pose),getGridDistance(next->pose,v_goal_->pose)); //+ heuristic(next->state,v_goal_->state);
                 ros::Time end_heuristic = ros::Time::now();

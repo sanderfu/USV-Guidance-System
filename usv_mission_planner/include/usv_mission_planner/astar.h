@@ -4,6 +4,7 @@
 #include "usv_mission_planner/priority_queue.h"
 #include "GeographicLib/Geodesic.hpp"
 #include "geotf/geodetic_converter.h"
+#include "usv_map/map_service.h"
 
 #include "visualization_msgs/Marker.h"
 
@@ -22,9 +23,18 @@ class AStar{
         GeographicLib::Geodesic geod_;
         Vertex* v_start_;
         Vertex* v_goal_;
+        MapService map_service_;
+        std::unordered_map<Vertex*, Vertex*> came_from_;
+        std::unordered_map<Vertex*, double> cost_so_far_;
+        PriorityQueue<Vertex*,double> frontier_;
+        std::vector<Vertex*> closed_;
+        
 
-        double heuristic(const StateVec& state_u, const StateVec& state_v);
+
+        double heuristicEuler(const StateVec& state_u, const StateVec& state_v);
+        double heuristicDiagonal(const StateVec& state_u, const StateVec& state_v);
         std::vector<Vertex*> reconstructPath(std::unordered_map<Vertex*, Vertex*>& came_from);
+        void saveDataContainers();
 };
 
 class AStarROS : public AStar{

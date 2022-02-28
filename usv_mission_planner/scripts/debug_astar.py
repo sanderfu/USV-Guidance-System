@@ -76,27 +76,23 @@ def main():
     tile_size = 0.0005/2
     colors = plt.cm.get_cmap("viridis",len(np.unique(z_normalized.round(decimals=4)))*2)
     i=0
-    for index,row in tqdm(distance_df.iterrows(), total=distance_df.shape[0]):
-        x,y = row["x_center"], row["y_center"]
-        coords = np.array([[x-tile_size,y-tile_size],[x-tile_size,y+tile_size],[x+tile_size,y+tile_size],[x+tile_size,y-tile_size]])
-        poly:Polygon = Polygon(coords)
-        patch1 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_normalized[index])), alpha=1, zorder=1)
-        ax.add_patch(patch1)
-        i+=1
-        if(i>10000):
-            break
-
-    #Plot exploration Hybrid A*
-    ax.scatter(-73.972908,40.523693,color="r")
-    ax.scatter(-73.974206,40.542943,color="g")
+    #for index,row in tqdm(distance_df.iterrows(), total=distance_df.shape[0]):
+    #    x,y = row["x_center"], row["y_center"]
+    #    coords = np.array([[x-tile_size,y-tile_size],[x-tile_size,y+tile_size],[x+tile_size,y+tile_size],[x+tile_size,y-tile_size]])
+    #    poly:Polygon = Polygon(coords)
+    #    patch1 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_normalized[index])), alpha=1, zorder=1)
+    #    ax.add_patch(patch1)
+    #    i+=1
+    #    if(i>10000):
+    #        break
 
     #Plot path
-    path_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/path.csv"
+    path_path = rospack.get_path('usv_mission_planner')+"/data/debug/astar/path.csv"
     path_df = pd.read_csv(path_path)
     ax.plot(path_df["lon"],path_df["lat"],color="red",zorder=3)
 
     #Plot came-from line segments
-    came_from_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/came_from.csv"
+    came_from_path = rospack.get_path('usv_mission_planner')+"/data/debug/astar/came_from.csv"
     came_from_df = pd.read_csv(came_from_path)
     lines = []
     for index,row in came_from_df.iterrows():
@@ -106,19 +102,15 @@ def main():
     ax.add_collection(lc)
 
     #Plot closed
-    closed_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/closed.csv"
+    closed_path = rospack.get_path('usv_mission_planner')+"/data/debug/astar/closed.csv"
     closed_df = pd.read_csv(closed_path)
     ax.scatter(closed_df["lon"],closed_df["lat"],color="grey",zorder=3)
 
     #Plot unexplored
-    frontier_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/frontier.csv"
+    frontier_path = rospack.get_path('usv_mission_planner')+"/data/debug/astar/frontier.csv"
     frontier_df = pd.read_csv(frontier_path)
     ax.scatter(frontier_df["lon"],frontier_df["lat"],color="blue",zorder=3)
 
-    #Plot vertices outside quadtree
-    outside_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/outside_quadtree.csv"
-    outside_df = pd.read_csv(outside_path)
-    ax.scatter(outside_df["lon"],outside_df["lat"],color="red",marker="x",zorder=3)
 
     #Plot quadtree
     quadtree_path = rospack.get_path('usv_mission_planner')+"/data/quadtrees/test_quadtree/test_quadtree.csv"
@@ -133,8 +125,5 @@ def main():
 
     plt.autoscale(enable=True, axis="both", tight=None)
     plt.show()
-
-
-
 
 main()

@@ -13,8 +13,8 @@ int main(int argc, char** argv){
     
     point_upper.importFromWkt(&wkt_upper);
     
-    std::string db_path_ = ros::package::getPath("voroni");
-    db_path_.append("/data/test_map/check_db.sqlite");
+    std::string db_path_ = ros::package::getPath("usv_simulator");
+    db_path_.append("/maps/check_db_lite.sqlite");
     std::cout << db_path_ << std::endl;
     GDALAllRegister();
     GDALDataset* ds = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
@@ -43,7 +43,7 @@ int main(int argc, char** argv){
     std::string distance_tiles_path = ros::package::getPath("usv_map")+"/data/debug_distance_concept/distance_tiles.csv";
     
     std::ofstream distance_tiles_file(distance_tiles_path);
-    distance_tiles_file << "x_center,y_center,distance\n";
+    distance_tiles_file << "x_center,y_center,distance_obstacle,distance_voronoi,distance_voronoi_field\n";
 
 
     ros::Time start_alt3 = ros::Time::now();
@@ -57,21 +57,32 @@ int main(int argc, char** argv){
 
 
     std::vector<std::pair<double,double>> points_to_check;
-    for(double x=lon_lower_left; x<lon_upper_right; x+=0.00025){
-        for(double y=lat_lower_left; y<lat_upper_right; y+=0.00025){
+    for(double x=lon_lower_left; x<lon_upper_right; x+=0.001){
+        for(double y=lat_lower_left; y<lat_upper_right; y+=0.001){
             points_to_check.push_back(std::make_pair(x,y));
         }
     }
-
-    #pragma omp parallel for
+    std::cout << "Points to check: " << points_to_check.size() << std::endl;
+    //#pragma omp parallel for
+    int i = 0;
     for(auto it=points_to_check.begin();it!=points_to_check.end();it++){
+        if(i%1000==0){
+            std::cout << "Points processed: " << i << std::endl;
+        }
         OGRPoint point;
         point.setX((*it).first);
         point.setY((*it).second);
         //double distance = std::min(multi_layer->GetFeature(0)->GetGeometryRef()->Distance(&point),0.005);
-        double distance= map_client.distance((*it).first,(*it).second,LayerID::COLLISION);
-        #pragma omp critical
-            distance_tiles_file<<(*it).first<<","<<(*it).second<<","<<distance<<"\n";
+        //ros::Time start_distance = ros::Time::now();
+        double distance_voronoi= map_client.distance((*it).first,(*it).second,LayerID::VORONOI,0.001);
+        double distance_obstacle= map_client.distance((*it).first,(*it).second,LayerID::COLLISION);
+
+        double voronoi_field = (1/(1+distance_obstacle))*(distance_voronoi/(distance_voronoi+distance_obstacle))*(pow(distance_obstacle-0.1,2)/pow(0.1,2));
+        //ros::Time stop_distance = ros::Time::now();
+        //std::cout << "Time to check distance: " << ros::Duration(stop_distance-start_distance).toSec() << std::endl;
+        //#pragma omp critical
+            distance_tiles_file<<(*it).first<<","<<(*it).second<<","<<distance_obstacle<<","<<distance_voronoi<<","<<voronoi_field<<"\n";
+        i++;
     }
 
     ros::Time end_alt3 = ros::Time::now();

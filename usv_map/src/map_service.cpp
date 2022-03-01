@@ -18,6 +18,14 @@ MapService::MapService(){
         ros::shutdown();
     }
 
+    std::string voronoi_path = ros::package::getPath("voroni")+"/data/test_map/voronoi.sqlite";
+    GDALDataset* ds_voronoi_ = (GDALDataset*) GDALOpenEx(voronoi_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
+    if( ds_voronoi_ == NULL)
+    {
+        ROS_ERROR_STREAM("MapService: Failed to open voronoi db");
+        ros::shutdown();
+    }
+
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
     ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
     OGRFeature* feat;
@@ -33,6 +41,16 @@ MapService::MapService(){
         multi_feature->SetGeometry(&multi_poly);
         multi_layer->CreateFeature(multi_feature);
     }
+    /*for(auto&& layer: ds_voronoi_->GetLayers()){
+        OGRLayer* voroni_layer = ds_debug->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiLineString);
+        OGRFeature* voroni_feature = OGRFeature::CreateFeature(voroni_layer->GetLayerDefn());
+        voroni_feature->SetGeometry(layer->GetFeature(0)->GetGeometryRef());
+        voroni_layer->CreateFeature(voroni_feature);
+    }
+    */
+    ds_in_mem_->CopyLayer(ds_voronoi_->GetLayerByName("voronoi"),"voronoi");
+
+
 }
 
 bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
@@ -69,7 +87,7 @@ bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
     return false;
 }
 
-double MapService::distance(double lon,double lat,LayerID layer_id){
+double MapService::distance(double lon,double lat,LayerID layer_id,double max_distance){
     OGRLayer* layer;
     switch(layer_id){
     case LayerID::COLLISION:
@@ -78,14 +96,26 @@ double MapService::distance(double lon,double lat,LayerID layer_id){
     case LayerID::CAUTION:
         layer = ds_in_mem_->GetLayerByName("caution_dissolved");
         break;
+    case LayerID::VORONOI:
+        layer = ds_in_mem_->GetLayerByName("voronoi");
+        break;
     default:
         ROS_ERROR_STREAM("Invalid LayerType");
         return false;
     } 
+    if(layer==NULL){
+        ROS_ERROR_STREAM("Unable to load layer");
+        return -1;
+    }
     distance_point_.setX(lon);
     distance_point_.setY(lat);
     OGRFeature* feat = layer->GetFeature(0);
-    double distance = std::min(feat->GetGeometryRef()->Distance(&distance_point_),0.005);
+    if(feat==NULL){
+        ROS_ERROR_STREAM("Unable to get feature");
+        return -1;
+    }
+    double distance = std::min(feat->GetGeometryRef()->Distance(&distance_point_),max_distance);
+    //double distance = feat->GetGeometryRef()->Distance(&distance_point_);
     OGRFeature::DestroyFeature(feat);
     return distance;
 }

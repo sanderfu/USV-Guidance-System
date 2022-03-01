@@ -54,6 +54,8 @@ DARK_GREEN = '#3d5e33'
 def main():
     rospack = rospkg.RosPack()
     figure,ax = plt.subplots(1,1)
+    figure_2,ax_2 = plt.subplots(1,1)
+    figure_3,ax_3 = plt.subplots(1,1)
     #Plot background
     datasource_path = rospack.get_path('voroni')+"/data/test_map/check_db.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
@@ -67,20 +69,51 @@ def main():
         for geom in feat.GetGeometryRef():
             wkt = geom.ExportToWkt()
             poly:Polygon = Polygon(loads(wkt))
+            poly2:Polygon = Polygon(loads(wkt))
+            poly3:Polygon = Polygon(loads(wkt))
             patch1 = PolygonPatch(poly, fc=GREEN, ec=DARK_GREEN, alpha=1, zorder=2)
             ax.add_patch(patch1)
+    
+    #Plot background
+    collision_layer.ResetReading()
+    for feat in collision_layer:
+        for geom in feat.GetGeometryRef():
+            wkt = geom.ExportToWkt()
+            poly:Polygon = Polygon(loads(wkt))
+            poly2:Polygon = Polygon(loads(wkt))
+            poly3:Polygon = Polygon(loads(wkt))
+            patch1 = PolygonPatch(poly, fc=GREEN, ec=DARK_GREEN, alpha=1, zorder=2)
+            ax_2.add_patch(patch1)
 
+    #Plot background
+    collision_layer.ResetReading()
+    for feat in collision_layer:
+        for geom in feat.GetGeometryRef():
+            wkt = geom.ExportToWkt()
+            poly:Polygon = Polygon(loads(wkt))
+            poly2:Polygon = Polygon(loads(wkt))
+            poly3:Polygon = Polygon(loads(wkt))
+            patch1 = PolygonPatch(poly, fc=GREEN, ec=DARK_GREEN, alpha=1, zorder=2)
+            ax_3.add_patch(patch1)
+    
     
 
 
     #Plot distance coloured
     distance_path = rospack.get_path('usv_map')+"/data/debug_distance_concept/distance_tiles.csv"
     distance_df = pd.read_csv(distance_path)
-    z = distance_df["distance"]
+    z = distance_df["distance_voronoi_field"]
     z_normalized = (z-min(z))/(max(z)-min(z))
 
-    tile_size = 0.00025/2
-    colors = plt.cm.get_cmap("viridis",len(np.unique(z_normalized.round(decimals=4)))*2)
+    z_2 = -distance_df["distance_obstacle"]
+    z_2_normalized = (z_2-min(z_2))/(max(z_2)-min(z_2))
+
+    z_3 = distance_df["distance_voronoi"]
+    z_3_normalized = (z_3-min(z_3))/(max(z_3)-min(z_3))
+
+    tile_size = 0.001/2
+    colors = plt.cm.get_cmap("Greys",len(np.unique(z_normalized.round(decimals=4)))*2)
+    i=0
     for index,row in tqdm(distance_df.iterrows(), total=distance_df.shape[0]):
         x,y = row["x_center"], row["y_center"]
         coords = np.array([[x-tile_size,y-tile_size],[x-tile_size,y+tile_size],[x+tile_size,y+tile_size],[x+tile_size,y-tile_size]])
@@ -88,9 +121,24 @@ def main():
         patch1 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_normalized[index])), alpha=1, zorder=1)
         ax.add_patch(patch1)
 
+        patch2 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_2_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_2_normalized[index])), alpha=1, zorder=1)
+        ax_2.add_patch(patch2)
+
+        patch3 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_3_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_3_normalized[index])), alpha=1, zorder=1)
+        ax_3.add_patch(patch3)
+
+        i+=1
+        #if(i>10000):
+        #    break
 
 
-    plt.autoscale(enable=True, axis="both", tight=None)
-    plt.show()
+
+    ax.autoscale(enable=True, axis="both", tight=None)
+    ax_2.autoscale(enable=True, axis="both", tight=None)
+    ax_3.autoscale(enable=True, axis="both", tight=None)
+    figure.savefig(rospack.get_path('usv_map')+"/scripts/voroni_field.pdf")
+    figure_2.savefig(rospack.get_path('usv_map')+"/scripts/distance_obstacle.pdf")
+    figure_3.savefig(rospack.get_path('usv_map')+"/scripts/distance_voronoi.pdf")
+    #plt.show()
 
 main()

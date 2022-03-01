@@ -8,16 +8,17 @@
 #include "usv_map/distance.h"
 #include "unordered_map"
 
-enum LayerID {COLLISION, CAUTION};
+enum LayerID {COLLISION, CAUTION, VORONOI};
 
 class MapService {
     public:
         MapService();
         bool intersects(OGRGeometry* geom, LayerID layer_id);
-        double distance(double lon,double lat,LayerID layer_id);
+        double distance(double lon,double lat,LayerID layer_id,double max_distance=0.01);
     private:
         GDALDataset* ds_;
         GDALDataset* ds_in_mem_;
+
         GDALDriver* driver_mem_;
 
         OGRPoint distance_point_;    

@@ -33,7 +33,7 @@ class AStar{
 
         double heuristicEuler(const StateVec& state_u, const StateVec& state_v);
         double heuristicDiagonal(const StateVec& state_u, const StateVec& state_v);
-        std::vector<Vertex*> reconstructPath(std::unordered_map<Vertex*, Vertex*>& came_from);
+        bool reconstructPath();
         void saveDataContainers();
 };
 

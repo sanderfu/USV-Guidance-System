@@ -27,11 +27,16 @@ bool AStar::search(){
     while(!frontier_.empty()){
         Vertex* current = frontier_.get();
         closed_.push_back(current);
-
         //Early exit
         if (current==v_goal_){
             //ROS_INFO_STREAM("Early exit");
             break;
+        }
+
+        if(!ros::ok()){
+            std::cout << "Stopping A* prematurely" << std::endl;
+            saveDataContainers();
+            exit(1);
         }
 
         std::vector<Vertex*> neighbors;
@@ -51,9 +56,7 @@ bool AStar::search(){
         }
         
     }
-    path_ = reconstructPath(came_from_);
-    //saveDataContainers();
-    return true;
+    return reconstructPath();
 }
 
 std::vector<Vertex*> AStar::getPath(){
@@ -75,16 +78,21 @@ double AStar::heuristicDiagonal(const StateVec& state_u, const StateVec& state_v
     return dx+dy-std::min(dx,dy);
 }
 
-std::vector<Vertex*> AStar::reconstructPath(std::unordered_map<Vertex*, Vertex*>& came_from) {
-    std::vector<Vertex*> path;
+bool AStar::reconstructPath() {
+    path_.clear();
     Vertex* current = v_goal_;
     while (current != v_start_) {
-        path.push_back(current);
-        current = came_from[current];
+        path_.push_back(current);
+        auto came_from_it = came_from_.find(current);
+        if(came_from_it==came_from_.end()){
+            path_.clear();
+            return false;
+        }
+        current = (*came_from_it).second;
     }
-    path.push_back(v_start_); // optional
-    std::reverse(path.begin(), path.end());
-    return path;
+    path_.push_back(v_start_); // optional
+    std::reverse(path_.begin(), path_.end());
+    return true;
 }
 
 void AStar::saveDataContainers(){
@@ -117,11 +125,12 @@ void AStar::saveDataContainers(){
     std::ofstream path_file(found_path_path);
     path_file << "lon,lat\n";
 
+    
+    std::cout << "Creating debug files" << std::endl;
     for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
-        path_file << (*path_it)->state.x() << "," << (*path_it)->state.y() << std::endl;
+        std::cout << (*path_it)->state.x() << "," << (*path_it)->state.y() << std::endl;
     }
 
-    std::cout << "Creating debug files" << std::endl;
     for (auto came_from_it = came_from_.begin(); came_from_it!=came_from_.end(); came_from_it++){
         Vertex* from = (*came_from_it).second;
         Vertex* to = (*came_from_it).first;
@@ -133,12 +142,13 @@ void AStar::saveDataContainers(){
         Vertex* v = frontier_.get();
         frontier_file<<v->state.x()<<","<<v->state.y()<<","<<v->state.w()<<","<<v->id<<"\n";
     }
+    
 
     for(auto closed_it=closed_.begin(); closed_it!=closed_.end();closed_it++){
         Vertex* v = (*closed_it);
         closed_file<<v->state.x()<<","<<v->state.y()<<","<<v->state.w()<<","<<v->id<<"\n";
     }
-
+    
     came_from_file.close();
     explored_file.close();
     closed_file.close();

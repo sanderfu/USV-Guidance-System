@@ -3,6 +3,35 @@
 #include "usv_mission_planner/hybrid_astar.h"
 #include "ros/package.h"
 
+#include "gdal/ogrsf_frmts.h"
+
+void pathToGPX(std::string file_name,std::vector<extendedVertex*>& hybrid_path){
+    std::string gpx_path = ros::package::getPath("usv_mission_planner")+"/data/gpx/"+file_name+".gpx";
+    if(boost::filesystem::exists(gpx_path)){
+        std::cout << "GPX file already exists, deleting" << std::endl;
+        boost::filesystem::remove(gpx_path);
+    }
+
+    GDALDriver* gpx_driver = GetGDALDriverManager()->GetDriverByName("GPX");
+    GDALDataset* gpx_ds = gpx_driver->Create(gpx_path.c_str(),0,0,0,GDT_Unknown,NULL);
+    OGRLayer* gpx_routes_layer = gpx_ds->CreateLayer("routes",OGRSpatialReference::GetWGS84SRS(),wkbLineString);
+    OGRFeature* gpx_route_feature = OGRFeature::CreateFeature(gpx_routes_layer->GetLayerDefn());
+
+    OGRLineString route;
+    OGRPoint route_point;
+    for (auto waypoint: hybrid_path){
+        route_point.setX(waypoint->pose->x());
+        route_point.setY(waypoint->pose->y());
+        route.addPoint(&route_point);
+    }
+    gpx_route_feature->SetGeometry(&route);
+    gpx_routes_layer->CreateFeature(gpx_route_feature);
+
+    gpx_ds->~GDALDataset();
+    std::cout << "Done writing waypoints to gpx " << std::endl;
+
+
+}
 int main(int argc, char** argv){
     ros::init(argc,argv,"test_quad");
     
@@ -25,13 +54,10 @@ int main(int argc, char** argv){
     ros::NodeHandle nh("~testQT");
     QuadtreeROS quadtree(nh,point_lower,point_upper,ds,false);
     
-    
     ros::Time start_load = ros::Time::now();
     quadtree.load("test_quadtree");
     ros::Time done_load = ros::Time::now();
     std::cout << "Time to load: " << ros::Duration(done_load-start_load).toSec() << std::endl;
-    
-    
     
     quadtree.setStart(-73.901701601459521,40.566665718424396);
     quadtree.setGoal(-73.8443265,40.6415880);
@@ -63,14 +89,12 @@ int main(int argc, char** argv){
     hybrid_astar.setStart(-73.999927,40.590175,-M_PI);
     hybrid_astar.setGoal(-73.8443265,40.6415880,0);
     hybrid_astar.search();
-    
-    
 
     std::vector<extendedVertex*> hybrid_path = hybrid_astar.getPath();
     std::cout << "Path length: " << hybrid_path.size() << std::endl;
     hybrid_astar.visualize();
-    
-    
+
+    pathToGPX("test_gpx",hybrid_path);
     
     /*
     ros::Time start_save = ros::Time::now();
@@ -78,24 +102,12 @@ int main(int argc, char** argv){
     ros::Time done_save = ros::Time::now();
     std::cout << "Time to save: " << ros::Duration(done_save-start_save).toSec() << std::endl;
     */
-    
-    
+
+
+
 
     
-    quadtree.visualize();
-    double lon, lat;
-    quadtree.testGetRegion(-73.944286,40.536814);
     
-    /*
-    while(true && ros::ok()){
-        std::cout << "lon: " << std::endl;
-        std::cin >> lon;
-        std::cout << "lat: " << std::endl;
-        std::cin >> lat; 
-        std::cout << lon << " " << lat << std::endl;
-        quadtree.testGetRegion(lon,lat);
-    }
-    */
 
     ros::spin();
 

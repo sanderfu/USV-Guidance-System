@@ -70,11 +70,11 @@ def main():
     #Plot distance coloured
     distance_path = rospack.get_path('usv_map')+"/data/debug_distance_concept/distance_tiles.csv"
     distance_df = pd.read_csv(distance_path)
-    z = distance_df["distance"]
+    z = distance_df["distance_voronoi_field"]
     z_normalized = (z-min(z))/(max(z)-min(z))
 
-    tile_size = 0.0005/2
-    colors = plt.cm.get_cmap("viridis",len(np.unique(z_normalized.round(decimals=4)))*2)
+    tile_size = 0.001/2
+    colors = plt.cm.get_cmap("Greys",len(np.unique(z_normalized.round(decimals=4)))*2)
     i=0
     for index,row in tqdm(distance_df.iterrows(), total=distance_df.shape[0]):
         x,y = row["x_center"], row["y_center"]
@@ -83,12 +83,6 @@ def main():
         patch1 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_normalized[index])), alpha=1, zorder=1)
         ax.add_patch(patch1)
         i+=1
-        if(i>10000):
-            break
-
-    #Plot exploration Hybrid A*
-    ax.scatter(-73.972908,40.523693,color="r")
-    ax.scatter(-73.974206,40.542943,color="g")
 
     #Plot path
     path_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/path.csv"
@@ -106,8 +100,16 @@ def main():
     ax.add_collection(lc)
 
     #Plot closed
+    #plotpause = 0.00001
     closed_path = rospack.get_path('usv_mission_planner')+"/data/debug/hybrid_astar/closed.csv"
     closed_df = pd.read_csv(closed_path)
+    #for index, row in closed_df.iterrows():
+    #    point = ax.scatter(row["lon"],row["lat"],color="grey",zorder=3)
+    #    figure.canvas.draw_idle()
+    #    plt.show(block=False)
+    #    plt.waitforbuttonpress(plotpause)
+    #    point.remove()
+
     ax.scatter(closed_df["lon"],closed_df["lat"],color="grey",zorder=3)
 
     #Plot unexplored
@@ -133,7 +135,6 @@ def main():
 
     plt.autoscale(enable=True, axis="both", tight=None)
     plt.show()
-
 
 
 

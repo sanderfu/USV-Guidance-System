@@ -51,7 +51,7 @@ void HybridAStar::search(){
         }
 
         if(!ros::ok()){
-            std::cout << "Stopping prematurely" << std::endl;
+            std::cout << "Stopping Hybrid A* prematurely" << std::endl;
             saveDataContainers();
             exit(1);
         }
@@ -62,7 +62,14 @@ void HybridAStar::search(){
             double heading = *heading_candidate_it+current->pose->w();
             ros::Time start_calc_sim = ros::Time::now();
             double sim_time = 60;
-            if(getDistance(current->pose,v_goal_->pose)<100) sim_time=10;
+            double prune_distance = 25;
+            bool second_phase = false;
+            double distance = getDistance(current->pose,v_goal_->pose);
+            if(distance<1000){
+                sim_time=30;
+                //prune_distance = 5;
+                second_phase=true;
+            } 
             //(getDistanceToRegionBoundary(current,current_region,heading)+5)/3;
             ros::Time end_calc_sim = ros::Time::now();
             calc_sim_time.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
@@ -108,13 +115,12 @@ void HybridAStar::search(){
             state_type candidate_state_wgs = {candidate_wgs.x(),candidate_wgs.y(),candidate_state[2],candidate_state[3],candidate_state[4],candidate_state[5]};
             extendedVertex* next = new extendedVertex(generateVertexID(),candidate_state_wgs);
 
-
             //If vertex sufficiently simiar has been closed, go to next candidate
             double closed_distance_check;
             bool next_closed =false;
             for(auto closed_it = closed_.begin(); closed_it!=closed_.end(); closed_it++){
                 geod_.Inverse((*closed_it)->pose->y(),(*closed_it)->pose->x(),next->pose->y(),next->pose->x(),closed_distance_check);
-                if(closed_distance_check<25){
+                if(closed_distance_check<prune_distance){
                     delete next;
                     next_closed=true;
                     break;
@@ -123,29 +129,35 @@ void HybridAStar::search(){
             if (next_closed){
                 continue;
             }
-            
-            
-
-            double distance_to_land = map_client_.distance(next->pose->x(),next->pose->y(),LayerID::COLLISION);
-            double cost_distance = 0*exp(1.1*1000*(0.005-distance_to_land));
-            double new_cost = cost_so_far_[current] + getDistance(current->pose,next->pose) + cost_distance;
 
             //Find most similar node prdviously explored (if exists)
             double distance_check;
             bool explored = false;
             for(auto vertex_it=cost_so_far_.begin(); vertex_it!=cost_so_far_.end();vertex_it++){
                 geod_.Inverse((*vertex_it).first->pose->y(),(*vertex_it).first->pose->x(),next->pose->y(),next->pose->x(),distance_check);
-                if (distance_check<25){// && abs(SSA((*vertex_it).first->pose->w()-next->pose->w()))<M_PI/9){
+                if (distance_check<prune_distance){// && abs(SSA((*vertex_it).first->pose->w()-next->pose->w()))<M_PI/9){
                     explored=true;
                     delete next;
                     next = (*vertex_it).first;
                 }
             }
 
-            if(!explored || new_cost<cost_so_far_[next]){
+            double distance_to_land = map_client_.distance(next->pose->x(),next->pose->y(),LayerID::COLLISION);
+            double distance_voronoi = map_client_.distance(next->pose->x(),next->pose->y(),LayerID::VORONOI);
+            double voronoi_field = (0.001/(0.001+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-0.01,2)/pow(0.01,2));
+            double cost_distance = 0.005*100000*voronoi_field;
+            double new_cost = cost_so_far_[current] + getDistance(current->pose,next->pose) + cost_distance;
+            
+
+            if(!explored || new_cost<cost_so_far_[next]+cost_distance){
                 cost_so_far_[next]=new_cost-cost_distance;
                 ros::Time start_heuristic = ros::Time::now();
-                double priority = new_cost + std::max(getDistance(next->pose,v_goal_->pose),getGridDistance(next->pose,v_goal_->pose)); //+ heuristic(next->state,v_goal_->state);
+                double priority = new_cost;
+                if (second_phase){
+                    priority+=getDistance(next->pose,v_goal_->pose);
+                } else{
+                    priority+=std::max(getDistance(next->pose,v_goal_->pose),getGridDistance(next->pose,v_goal_->pose));
+                }
                 ros::Time end_heuristic = ros::Time::now();
                 heuristic_time.push_back(ros::Duration(end_heuristic-start_heuristic).toSec());
                 frontier_.put(next,priority);
@@ -154,6 +166,17 @@ void HybridAStar::search(){
         }
     }
     path_ = reconstructPath();
+    double min_distance_to_land = INFINITY;
+    double accumulated_distance_to_land = 0.0;
+    for(auto path_it = path_.begin(); path_it!=path_.end(); path_it++){
+        double distance_to_land = map_client_.distance((*path_it)->pose->x(),(*path_it)->pose->y(),LayerID::COLLISION);
+        if(distance_to_land<min_distance_to_land){
+            min_distance_to_land = distance_to_land;
+        }
+        accumulated_distance_to_land+=distance_to_land;
+    }
+    ROS_INFO_STREAM("Min. distance to land: " << min_distance_to_land*100000);
+    ROS_INFO_STREAM("Accumulated distance to land: " << accumulated_distance_to_land*100000); 
     ros::Time end_search = ros::Time::now();
     saveDataContainers();
 
@@ -277,7 +300,11 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
 
     grid_search_alg_->setStart(current->centroid_.getX(),current->centroid_.getY());
     grid_search_alg_->setGoal(v->x(),v->y());
-    grid_search_alg_->search();
+    bool search_successful = grid_search_alg_->search();
+    if(!search_successful){
+        //Due to fundamental bug in quadtree builder, the search will in very rare cases be unsuccessful.
+        return -1;
+    }
     std::vector<Vertex*> shortest_path = grid_search_alg_->getPath();
     double spline_distance=0;
     double total_distance=0;

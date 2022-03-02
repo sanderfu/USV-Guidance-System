@@ -33,14 +33,14 @@ int main(int argc, char** argv){
     
     
     
-    quadtree.setStart(-73.999927,40.590175);
-    quadtree.setGoal(-73.839776,40.641721);
+    quadtree.setStart(-73.901701601459521,40.566665718424396);
+    quadtree.setGoal(-73.8443265,40.6415880);
     quadtree.visualize();
 
     ros::NodeHandle astar_nh("~AStarROS");
     AStarROS astar(astar_nh,quadtree.getGraphManager());
-    astar.setStart(-73.999927,40.590175);
-    astar.setGoal(-73.839776,40.641721);
+    astar.setStart(-73.901701601459521,40.566665718424396);
+    astar.setGoal(-73.8443265,40.6415880);
     ros::Time start_astar = ros::Time::now();
     astar.search();
     ros::Time end_astar = ros::Time::now();

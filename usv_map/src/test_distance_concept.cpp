@@ -74,10 +74,10 @@ int main(int argc, char** argv){
         point.setY((*it).second);
         //double distance = std::min(multi_layer->GetFeature(0)->GetGeometryRef()->Distance(&point),0.005);
         //ros::Time start_distance = ros::Time::now();
-        double distance_voronoi= map_client.distance((*it).first,(*it).second,LayerID::VORONOI,0.001);
+        double distance_voronoi= map_client.distance((*it).first,(*it).second,LayerID::VORONOI);
         double distance_obstacle= map_client.distance((*it).first,(*it).second,LayerID::COLLISION);
 
-        double voronoi_field = (1/(1+distance_obstacle))*(distance_voronoi/(distance_voronoi+distance_obstacle))*(pow(distance_obstacle-0.1,2)/pow(0.1,2));
+        double voronoi_field = (0.001/(0.001+distance_obstacle))*(distance_voronoi/(distance_voronoi+distance_obstacle))*(pow(distance_obstacle-0.01,2)/pow(0.01,2));
         //ros::Time stop_distance = ros::Time::now();
         //std::cout << "Time to check distance: " << ros::Duration(stop_distance-start_distance).toSec() << std::endl;
         //#pragma omp critical

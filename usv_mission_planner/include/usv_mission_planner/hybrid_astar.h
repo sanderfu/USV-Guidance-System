@@ -12,6 +12,7 @@
 #include "usv_mission_planner/priority_queue.h"
 #include "usv_mission_planner/astar.h"
 
+enum kSearchPhase{kInitial, kPrecision};
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
         id_ = id;
@@ -61,21 +62,43 @@ class HybridAStar{
 
         std::unordered_map<Region*, double> grid_distance_lookup_;
 
+        //Tuning parameters
+        double default_sim_time_;
+        double second_phase_distance_;
+        double second_phase_sim_time_;
+        double prune_radius_;
+
         int vertex_id_=0;
         int generateVertexID();
+        std::vector<extendedVertex*> reconstructPath();
 
         double getDistance(StateVec* u, StateVec* v);
         double getGridDistance(StateVec* u, StateVec* v);
-        bool collision(ModelLibrary::simulatedHorizon& sim_hor);
-        std::vector<extendedVertex*> reconstructPath();
+        std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
+        bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
+        double heuristic(extendedVertex* current,extendedVertex* next,double new_cost,kSearchPhase search_phase);
 
         double SSA(double angle){
             return fmod(angle+M_PI,2*M_PI) - M_PI;
         }
 
+        double determineSimulationTime(double distance);
+        kSearchPhase determineSearchPhase(double distance);
+        ModelLibrary::simulatedHorizon simulateVessel(state_type& state, double heading_candidate, double sim_time);
+        bool similarClosed(state_type& state);
+
         //Debug tools
         std::vector<std::pair<double,double>> points_outside_quadtree_;
         void saveDataContainers();
+
+        //Benchmark tools
+        ros::Time start_search_;
+        ros::Time end_search_;
+        std::vector<double> collision_time_;
+        std::vector<double> leaf_time_;
+        std::vector<double> simulate_time_;
+        std::vector<double> heuristic_time_;
+        std::vector<double> calc_sim_time_;
         void dumpSearchBenchmark();
 
 };

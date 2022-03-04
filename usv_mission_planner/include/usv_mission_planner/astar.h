@@ -17,6 +17,7 @@ class AStar{
 
         //For visualization/debugging
         std::vector<Vertex*> getPath();
+        void saveDataContainers();
     protected:
         std::vector<Vertex*> path_;
         GraphManager* gm_;
@@ -31,10 +32,9 @@ class AStar{
         
 
 
-        double heuristicEuler(const StateVec& state_u, const StateVec& state_v);
+        double heuristicDirect(const StateVec& state_u, const StateVec& state_v);
         double heuristicDiagonal(const StateVec& state_u, const StateVec& state_v);
         bool reconstructPath();
-        void saveDataContainers();
 };
 
 class AStarROS : public AStar{

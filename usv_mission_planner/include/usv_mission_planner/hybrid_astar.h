@@ -64,9 +64,11 @@ class HybridAStar{
 
         //Tuning parameters
         double default_sim_time_;
-        double second_phase_distance_;
-        double second_phase_sim_time_;
-        double prune_radius_;
+        double precision_phase_distance_;
+        double precision_phase_sim_time_;
+        double prune_radius_explored_;
+        double prune_radius_closed_;
+        double voronoi_field_cost_weight_;
 
         int vertex_id_=0;
         int generateVertexID();

@@ -45,11 +45,11 @@ bool AStar::search(){
             if (next==current){
                 continue;
             }
-            double new_cost = cost_so_far_[current] + gm_->getEdgeWeight(current->id,next->id); //+ 0.001*(1/(100000*map_service_.distance(next->state.x(),next->state.y(),LayerID::COLLISION)));
+            double new_cost = cost_so_far_[current] + gm_->getEdgeWeight(current->id,next->id);
 
             if(cost_so_far_.find(next) == cost_so_far_.end() || new_cost<cost_so_far_[next]){
                 cost_so_far_[next]=new_cost;
-                double priority = cost_so_far_[next] + heuristicEuler(next->state,v_goal_->state);
+                double priority = cost_so_far_[next] + heuristicDirect(next->state,v_goal_->state);
                 frontier_.put(next,priority);
                 came_from_[next]=current;
             }
@@ -63,7 +63,7 @@ std::vector<Vertex*> AStar::getPath(){
     return path_;
 }
 
-double AStar::heuristicEuler(const StateVec& state_u, const StateVec& state_v){
+double AStar::heuristicDirect(const StateVec& state_u, const StateVec& state_v){
     double distance;
     geod_.Inverse(state_u.y(),state_u.x(),state_v.y(),state_v.x(),distance);
     return abs(distance);
@@ -128,7 +128,7 @@ void AStar::saveDataContainers(){
     
     std::cout << "Creating debug files" << std::endl;
     for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
-        std::cout << (*path_it)->state.x() << "," << (*path_it)->state.y() << std::endl;
+        path_file << (*path_it)->state.x() << "," << (*path_it)->state.y() << "\n";
     }
 
     for (auto came_from_it = came_from_.begin(); came_from_it!=came_from_.end(); came_from_it++){
@@ -153,6 +153,7 @@ void AStar::saveDataContainers(){
     explored_file.close();
     closed_file.close();
     frontier_file.close();
+    path_file.close();
     std::cout << "Debug files saved" << std::endl;
 }
 

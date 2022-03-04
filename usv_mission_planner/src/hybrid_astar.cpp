@@ -5,9 +5,22 @@ tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
 grid_search_alg_(new AStar(tree->getGraphManager())){
-    //Set up geo converter
     geo_converter_.addFrameByEPSG("WGS84",4326);
-}
+
+    //Load parameters
+    double test_param = 0.0;
+    bool parameter_load_error = false;
+    if(!ros::param::get("hybrid_a_star/search_phase/default_sim_time",default_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_distance",precision_phase_distance_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_sim_time",precision_phase_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_explored",prune_radius_explored_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_closed",prune_radius_closed_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/heuristic/voronoi_field_cost_weight",voronoi_field_cost_weight_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+}   
 
 void HybridAStar::setStart(double lon, double lat, double yaw){
     geo_converter_.addFrameByENUOrigin("start_enu",lat,lon,0);
@@ -60,8 +73,8 @@ void HybridAStar::search(){
             state_type candidate_state = {current->pose->x(),current->pose->y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
             ModelLibrary::simulatedHorizon hor = simulateVessel(candidate_state,heading,sim_time);
 
-            if (collision(candidate_state,current_region,hor)) continue;
             if (similarClosed(candidate_state)) continue;
+            if (collision(candidate_state,current_region,hor)) continue;
             
             std::pair<extendedVertex*,bool> next_pair = getNextVertex(candidate_state);
 
@@ -120,7 +133,7 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     double total_distance=0;
     for(int i=0; i<shortest_path.size()-1; i++){
         geod_.Inverse(shortest_path[i]->state.y(),shortest_path[i]->state.x(),shortest_path[i+1]->state.y(),shortest_path[i+1]->state.x(),spline_distance);
-        total_distance+=spline_distance;
+        total_distance+=abs(spline_distance);
     }
     grid_distance_lookup_.insert(std::make_pair(current,total_distance));
     return total_distance+difference;
@@ -132,7 +145,7 @@ std::pair<extendedVertex*,bool> HybridAStar::getNextVertex(state_type& next_stat
     bool explored = false;
     for(auto vertex_it=cost_so_far_.begin(); vertex_it!=cost_so_far_.end();vertex_it++){
         geod_.Inverse((*vertex_it).first->pose->y(),(*vertex_it).first->pose->x(),next_state[1],next_state[0],distance_check);
-        if (abs(distance_check)<25){
+        if (abs(distance_check)<prune_radius_explored_){
             explored=true;
             return std::make_pair((*vertex_it).first,explored);
         }
@@ -141,23 +154,24 @@ std::pair<extendedVertex*,bool> HybridAStar::getNextVertex(state_type& next_stat
 }
 
 bool HybridAStar::collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor){
-    //Check for collision
     //If in same region as last time, cant possibly be collision
+    ros::Time start_collision = ros::Time::now();
     ros::Time start_leaf_search = ros::Time::now();
     Region* candidate_region = tree_->getLeafRegionContaining(current_state[0],current_state[1]);
     ros::Time end_leaf_search = ros::Time::now();
     leaf_time_.push_back(ros::Duration(end_leaf_search-start_leaf_search).toSec());
 
-    //If candidate region is nullptr, definitely path into land, no need to check for detailed collision
-    if(candidate_region==nullptr){
-        points_outside_quadtree_.push_back(std::make_pair(current_state[0],current_state[1]));
-        return true;
-    }
-
     if (candidate_region==current_region){
+        collision_time_.push_back(ros::Duration(ros::Time::now()-start_collision).toSec());
         return false;
     }
 
+    //If candidate region is nullptr, definitely path into land, no need to check for detailed collision
+    if(candidate_region==nullptr){
+        points_outside_quadtree_.push_back(std::make_pair(current_state[0],current_state[1]));
+        collision_time_.push_back(ros::Duration(ros::Time::now()-start_collision).toSec());
+        return true;
+    }
 
     spline_.empty();
     Eigen::Vector3d point_local;
@@ -171,18 +185,17 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
     
     if (map_client_.intersects(&spline_,LayerID::COLLISION)){
-        //Path from current vertex to candidate collides with land, do not add the candidate to the open vertex list
+        collision_time_.push_back(ros::Duration(ros::Time::now()-start_collision).toSec());
         return true;
     } else{
+        collision_time_.push_back(ros::Duration(ros::Time::now()-start_collision).toSec());
         return false;
     }
 }
 
 double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost,kSearchPhase search_phase){
-    double distance_to_land = map_client_.distance(next->pose->x(),next->pose->y(),LayerID::COLLISION);
-    double distance_voronoi = map_client_.distance(next->pose->x(),next->pose->y(),LayerID::VORONOI);
-    double voronoi_field = (0.001/(0.001+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-0.01,2)/pow(0.01,2));
-    double cost_distance = 0.005*100000*voronoi_field;
+    double voronoi_field = 1e5*map_client_.voronoi_field(next->pose->x(),next->pose->y());
+    double cost_distance = voronoi_field_cost_weight_*voronoi_field;
 
     ros::Time start_heuristic = ros::Time::now();
     double priority = new_cost + cost_distance;
@@ -203,7 +216,7 @@ std::vector<extendedVertex*> HybridAStar::reconstructPath() {
         path.push_back(current);
         current = came_from_[current];
     }
-    path.push_back(v_start_); // optional
+    path.push_back(v_start_);
     std::reverse(path.begin(), path.end());
     return path;
 }
@@ -214,9 +227,9 @@ std::vector<extendedVertex*> HybridAStar::getPath(){
 
 double HybridAStar::determineSimulationTime(double distance){
     ros::Time start_calc_sim = ros::Time::now();
-    double sim_time = 60;
-    if(distance<1000){
-        sim_time=20;
+    double sim_time = default_sim_time_;
+    if(distance<precision_phase_distance_){
+        sim_time=precision_phase_sim_time_;
     } 
     ros::Time end_calc_sim = ros::Time::now();
     calc_sim_time_.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
@@ -224,7 +237,7 @@ double HybridAStar::determineSimulationTime(double distance){
 }
 
 kSearchPhase HybridAStar::determineSearchPhase(double distance){
-    if(distance<1000){
+    if(distance<precision_phase_distance_){
         return kSearchPhase::kPrecision;
     } else{
         return kSearchPhase::kInitial;
@@ -255,7 +268,7 @@ bool HybridAStar::similarClosed(state_type& state){
     bool next_closed =false;
     for(auto closed_it = closed_.begin(); closed_it!=closed_.end(); closed_it++){
         geod_.Inverse((*closed_it)->pose->y(),(*closed_it)->pose->x(),state[1],state[0],closed_distance_check);
-        if(closed_distance_check<25){
+        if(abs(closed_distance_check)<prune_radius_closed_){
             return true;
         }
     }
@@ -328,8 +341,8 @@ void HybridAStar::dumpSearchBenchmark(){
         }
         accumulated_distance_to_land+=distance_to_land;
     }
-    ROS_INFO_STREAM("Min. distance to land: " << min_distance_to_land*100000);
-    ROS_INFO_STREAM("Accumulated distance to land: " << accumulated_distance_to_land*100000); 
+    ROS_INFO_STREAM("Min. distance to land: " << min_distance_to_land*1e5);
+    ROS_INFO_STREAM("Accumulated distance to land: " << accumulated_distance_to_land*1e5); 
 
 
     ROS_INFO_STREAM("Search took: " << ros::Duration(end_search_-start_search_).toSec());

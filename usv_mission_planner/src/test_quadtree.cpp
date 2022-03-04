@@ -59,13 +59,13 @@ int main(int argc, char** argv){
     ros::Time done_load = ros::Time::now();
     std::cout << "Time to load: " << ros::Duration(done_load-start_load).toSec() << std::endl;
     
-    quadtree.setStart(-73.901701601459521,40.566665718424396);
+    quadtree.setStart(-73.999927,40.590175);
     quadtree.setGoal(-73.8443265,40.6415880);
     quadtree.visualize();
 
     ros::NodeHandle astar_nh("~AStarROS");
     AStarROS astar(astar_nh,quadtree.getGraphManager());
-    astar.setStart(-73.901701601459521,40.566665718424396);
+    astar.setStart(-73.999927,40.590175);
     astar.setGoal(-73.8443265,40.6415880);
     ros::Time start_astar = ros::Time::now();
     astar.search();
@@ -76,8 +76,7 @@ int main(int argc, char** argv){
     std::vector<Vertex*> path = astar.getPath();
     std::cout << "Path length: " << path.size() << std::endl;
     astar.visualize();
-    
-    
+    astar.saveDataContainers();
     
     ROS_INFO_STREAM("Start Hybrid A*");
     ros::NodeHandle hybrid_astar_nh("~HybridAStarROS");

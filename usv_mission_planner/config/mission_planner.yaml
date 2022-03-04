@@ -1,0 +1,10 @@
+hybrid_a_star:
+  search_phase:
+    default_sim_time: 60
+    precision_phase_distance: 1000
+    precision_phase_sim_time: 20
+  search_pruning:
+    prune_radius_explored: 25
+    prune_radius_closed: 25
+  heuristic:
+    voronoi_field_cost_weight: 0.005

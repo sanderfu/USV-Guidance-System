@@ -15,6 +15,7 @@ class MapService {
         MapService();
         bool intersects(OGRGeometry* geom, LayerID layer_id);
         double distance(double lon,double lat,LayerID layer_id,double max_distance=0.01);
+        double voronoi_field(double lon, double lat);
     private:
         GDALDataset* ds_;
         GDALDataset* ds_in_mem_;

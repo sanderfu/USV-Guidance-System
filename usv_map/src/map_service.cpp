@@ -41,16 +41,7 @@ MapService::MapService(){
         multi_feature->SetGeometry(&multi_poly);
         multi_layer->CreateFeature(multi_feature);
     }
-    /*for(auto&& layer: ds_voronoi_->GetLayers()){
-        OGRLayer* voroni_layer = ds_debug->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiLineString);
-        OGRFeature* voroni_feature = OGRFeature::CreateFeature(voroni_layer->GetLayerDefn());
-        voroni_feature->SetGeometry(layer->GetFeature(0)->GetGeometryRef());
-        voroni_layer->CreateFeature(voroni_feature);
-    }
-    */
     ds_in_mem_->CopyLayer(ds_voronoi_->GetLayerByName("voronoi"),"voronoi");
-
-
 }
 
 bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
@@ -118,6 +109,12 @@ double MapService::distance(double lon,double lat,LayerID layer_id,double max_di
     //double distance = feat->GetGeometryRef()->Distance(&distance_point_);
     OGRFeature::DestroyFeature(feat);
     return distance;
+}
+
+double MapService::voronoi_field(double lon, double lat){
+    double distance_to_land = distance(lon,lat,LayerID::COLLISION);
+    double distance_voronoi = distance(lon,lat,LayerID::VORONOI);
+    return (0.001/(0.001+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-0.01,2)/pow(0.01,2));
 }
 
 

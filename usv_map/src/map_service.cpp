@@ -1,7 +1,14 @@
 #include "usv_map/map_service.h"
 
-MapService::MapService(){
-    std::string db_path_ = ros::package::getPath("usv_simulator")+"/maps/check_db.sqlite";
+MapService::MapService(std::string mission_region){
+    std::string mission_path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/";
+
+    if(!boost::filesystem::exists(mission_path)){
+        ROS_WARN_STREAM("Tried to use preprocessed mission region: "<< mission_region << " which has not been defined");
+        ros::shutdown();
+    }
+
+    std::string db_path_ = mission_path+"check_db.sqlite";
     GDALAllRegister();
     ds_ = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_ == NULL)
@@ -10,7 +17,7 @@ MapService::MapService(){
         ros::shutdown();
     }
 
-    std::string db_lite_path=ros::package::getPath("usv_simulator") + "/maps/check_db_lite.sqlite";
+    std::string db_lite_path=mission_path+"check_db_lite.sqlite";
     GDALDataset* ds_lite_ = (GDALDataset*) GDALOpenEx(db_lite_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_lite_ == NULL)
     {
@@ -18,7 +25,7 @@ MapService::MapService(){
         ros::shutdown();
     }
 
-    std::string voronoi_path = ros::package::getPath("voroni")+"/data/test_map/voronoi.sqlite";
+    std::string voronoi_path = mission_path+"voronoi.sqlite";
     GDALDataset* ds_voronoi_ = (GDALDataset*) GDALOpenEx(voronoi_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_voronoi_ == NULL)
     {
@@ -41,7 +48,37 @@ MapService::MapService(){
         multi_feature->SetGeometry(&multi_poly);
         multi_layer->CreateFeature(multi_feature);
     }
+
+    OGREnvelope layer_envelope;
+    ds_in_mem_->ResetReading();
+    lower_left_.setX(INFINITY);
+    lower_left_.setY(INFINITY);
+
+    upper_right_.setX(-INFINITY);
+    upper_right_.setY(-INFINITY);
+    for(auto&& layer: ds_in_mem_->GetLayers()){
+        layer->GetExtent(&layer_envelope);
+        if(layer_envelope.MinX<lower_left_.getX() && layer_envelope.MinY<lower_left_.getY()){
+            lower_left_.setX(layer_envelope.MinX);
+            lower_left_.setY(layer_envelope.MinY);
+        }
+        if(layer_envelope.MaxX>upper_right_.getX() && layer_envelope.MaxY>upper_right_.getY()){
+            upper_right_.setX(layer_envelope.MaxX);
+            upper_right_.setY(layer_envelope.MaxY);
+        }
+    }    
+
     ds_in_mem_->CopyLayer(ds_voronoi_->GetLayerByName("voronoi"),"voronoi");
+
+    //Load parameters
+    bool parameter_load_error = false;
+    if(!ros::param::get("map_service/voronoi_field/alpha",alpha_)) parameter_load_error = true;
+    if(!ros::param::get("map_service/distance/default_saturation",default_saturation_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+    
 }
 
 bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
@@ -79,6 +116,9 @@ bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
 }
 
 double MapService::distance(double lon,double lat,LayerID layer_id,double max_distance){
+    if(max_distance==-1){
+        max_distance = default_saturation_;
+    }
     OGRLayer* layer;
     switch(layer_id){
     case LayerID::COLLISION:
@@ -114,9 +154,16 @@ double MapService::distance(double lon,double lat,LayerID layer_id,double max_di
 double MapService::voronoi_field(double lon, double lat){
     double distance_to_land = distance(lon,lat,LayerID::COLLISION);
     double distance_voronoi = distance(lon,lat,LayerID::VORONOI);
-    return (0.001/(0.001+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-0.01,2)/pow(0.01,2));
+    return (alpha_/(alpha_+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-default_saturation_,2)/pow(default_saturation_,2));
 }
 
+std::pair<OGRPoint, OGRPoint> MapService::getMapExtent(){
+    return std::make_pair(lower_left_,upper_right_);
+}
+
+GDALDataset* MapService::getDataset(){
+    return ds_;
+}
 
 
 

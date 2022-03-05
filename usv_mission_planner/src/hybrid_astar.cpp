@@ -1,14 +1,14 @@
 #include "usv_mission_planner/hybrid_astar.h"
 
-HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model):
+HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service):
 tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
-grid_search_alg_(new AStar(tree->getGraphManager())){
+map_service_(map_service),
+grid_search_alg_(new AStar(tree->getGraphManager(),map_service_)){
     geo_converter_.addFrameByEPSG("WGS84",4326);
 
     //Load parameters
-    double test_param = 0.0;
     bool parameter_load_error = false;
     if(!ros::param::get("hybrid_a_star/search_phase/default_sim_time",default_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_distance",precision_phase_distance_)) parameter_load_error = true;
@@ -184,7 +184,7 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
         spline_.addPoint(point_global(0),point_global(1));
     }
     
-    if (map_client_.intersects(&spline_,LayerID::COLLISION)){
+    if (map_service_->intersects(&spline_,LayerID::COLLISION)){
         collision_time_.push_back(ros::Duration(ros::Time::now()-start_collision).toSec());
         return true;
     } else{
@@ -194,7 +194,7 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
 }
 
 double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost,kSearchPhase search_phase){
-    double voronoi_field = 1e5*map_client_.voronoi_field(next->pose->x(),next->pose->y());
+    double voronoi_field = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
     double cost_distance = voronoi_field_cost_weight_*voronoi_field;
 
     ros::Time start_heuristic = ros::Time::now();
@@ -335,7 +335,7 @@ void HybridAStar::dumpSearchBenchmark(){
     double min_distance_to_land = INFINITY;
     double accumulated_distance_to_land = 0.0;
     for(auto path_it = path_.begin(); path_it!=path_.end(); path_it++){
-        double distance_to_land = map_client_.distance((*path_it)->pose->x(),(*path_it)->pose->y(),LayerID::COLLISION);
+        double distance_to_land = map_service_->distance((*path_it)->pose->x(),(*path_it)->pose->y(),LayerID::COLLISION);
         if(distance_to_land<min_distance_to_land){
             min_distance_to_land = distance_to_land;
         }
@@ -353,9 +353,9 @@ void HybridAStar::dumpSearchBenchmark(){
     ROS_INFO_STREAM("Calculate sim time " << calc_sim_time_.size() << " times. Total time spent: " << std::accumulate(calc_sim_time_.begin(),calc_sim_time_.end(),0.0));
 }
 
-HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model):
+HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service):
 nh_(nh),
-HybridAStar(tree,vessel_model){
+HybridAStar(tree,vessel_model,map_service){
     path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/hybrid_astar/visual_path",1,true);
 
     geo_converter_.addFrameByEPSG("WGS84",4326);

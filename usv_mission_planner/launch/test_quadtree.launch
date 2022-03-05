@@ -3,6 +3,7 @@
     <include file="$(find usv_map)/launch/default.launch"/>
 
     <rosparam command="load" file="$(find usv_mission_planner)/config/mission_planner.yaml" />
+    <rosparam command="load" file="$(find usv_map)/config/map_service.yaml" />
     <node pkg="usv_mission_planner"
         name="test_quadtree"
         type="test_quadtree"

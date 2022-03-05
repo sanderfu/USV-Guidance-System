@@ -53,7 +53,7 @@ int main(int argc, char** argv){
     double lon_upper_right = -73.72435;
     double lat_upper_right = 40.65096;
 
-    MapService map_client;
+    MapService map_client("outside_new_york_mission");
 
 
     std::vector<std::pair<double,double>> points_to_check;

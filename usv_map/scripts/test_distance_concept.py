@@ -113,6 +113,8 @@ def main():
 
     tile_size = 0.001/2
     colors = plt.cm.get_cmap("Greys",len(np.unique(z_normalized.round(decimals=4)))*2)
+    colors_2 = plt.cm.get_cmap("Greys",len(np.unique(z_2_normalized.round(decimals=4)))*2)
+    colors_3 = plt.cm.get_cmap("Greys",len(np.unique(z_3_normalized.round(decimals=6)))*2)
     i=0
     for index,row in tqdm(distance_df.iterrows(), total=distance_df.shape[0]):
         x,y = row["x_center"], row["y_center"]
@@ -121,10 +123,10 @@ def main():
         patch1 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_normalized[index])), alpha=1, zorder=1)
         ax.add_patch(patch1)
 
-        patch2 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_2_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_2_normalized[index])), alpha=1, zorder=1)
+        patch2 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors_2(z_2_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_2_normalized[index])), alpha=1, zorder=1)
         ax_2.add_patch(patch2)
 
-        patch3 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors(z_3_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_3_normalized[index])), alpha=1, zorder=1)
+        patch3 = PolygonPatch(poly, fc=mpl.colors.rgb2hex(colors_2(z_3_normalized[index])),ec=mpl.colors.rgb2hex(colors(z_3_normalized[index])), alpha=1, zorder=1)
         ax_3.add_patch(patch3)
 
         i+=1

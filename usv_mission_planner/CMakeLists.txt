@@ -35,6 +35,7 @@ cs_add_library(${PROJECT_NAME}
   src/quadtree.cpp
   src/astar.cpp
   src/hybrid_astar.cpp
+  src/mission_planner.cpp
 )
 target_link_libraries(${PROJECT_NAME} region)
 

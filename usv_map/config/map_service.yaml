@@ -1,0 +1,5 @@
+map_service:
+  voronoi_field:
+    alpha: 0.001
+  distance:
+    default_saturation: 0.01

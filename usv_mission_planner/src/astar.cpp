@@ -1,6 +1,9 @@
 #include "usv_mission_planner/astar.h"
 
-AStar::AStar(GraphManager* gm):gm_(gm), geod_(GeographicLib::Geodesic::WGS84()){}
+AStar::AStar(GraphManager* gm, MapService* map_service):
+gm_(gm), 
+geod_(GeographicLib::Geodesic::WGS84()),
+map_service_(map_service){}
 
 void AStar::setStart(double lon,double lat){
     StateVec start(lon,lat,0,0);
@@ -157,9 +160,9 @@ void AStar::saveDataContainers(){
     std::cout << "Debug files saved" << std::endl;
 }
 
-AStarROS::AStarROS(ros::NodeHandle& nh, GraphManager* gm):
+AStarROS::AStarROS(ros::NodeHandle& nh, GraphManager* gm, MapService* map_service):
 nh_(nh),
-AStar(gm){
+AStar(gm,map_service){
     path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/astar/visual_path",1,true);
 
     geo_converter_.addFrameByEPSG("WGS84",4326);

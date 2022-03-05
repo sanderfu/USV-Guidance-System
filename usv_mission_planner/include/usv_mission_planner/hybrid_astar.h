@@ -30,19 +30,16 @@ struct extendedVertex{
 
 class HybridAStar{
     public:
-        HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model);
+        HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service);
         void setStart(double lon, double lat, double yaw);
         void setGoal(double lon, double lat, double yaw);
         void search();
-
         std::vector<extendedVertex*> getPath();
-
-        double getDistanceToRegionBoundary(extendedVertex* current, Region* current_region,double heading);
     
     protected:
         geotf::GeodeticConverter geo_converter_;
         GeographicLib::Geodesic geod_;
-        MapService map_client_;
+        MapService* map_service_;
 
         Quadtree* tree_;
         AStar* grid_search_alg_;
@@ -80,10 +77,6 @@ class HybridAStar{
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
         double heuristic(extendedVertex* current,extendedVertex* next,double new_cost,kSearchPhase search_phase);
 
-        double SSA(double angle){
-            return fmod(angle+M_PI,2*M_PI) - M_PI;
-        }
-
         double determineSimulationTime(double distance);
         kSearchPhase determineSearchPhase(double distance);
         ModelLibrary::simulatedHorizon simulateVessel(state_type& state, double heading_candidate, double sim_time);
@@ -107,7 +100,7 @@ class HybridAStar{
 
 class HybridAStarROS : public HybridAStar{
     public:
-        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model);
+        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model,MapService* map_service);
         void visualize();
     private:
         geotf::GeodeticConverter geo_converter_;

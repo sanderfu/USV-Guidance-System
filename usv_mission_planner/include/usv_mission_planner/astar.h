@@ -10,7 +10,7 @@
 
 class AStar{
     public:
-        AStar(GraphManager* gm);
+        AStar(GraphManager* gm,MapService* map_service);
         void setStart(double lon, double lat);
         void setGoal(double lon, double lat);
         bool search();
@@ -24,7 +24,7 @@ class AStar{
         GeographicLib::Geodesic geod_;
         Vertex* v_start_;
         Vertex* v_goal_;
-        MapService map_service_;
+        MapService* map_service_;
         std::unordered_map<Vertex*, Vertex*> came_from_;
         std::unordered_map<Vertex*, double> cost_so_far_;
         PriorityQueue<Vertex*,double> frontier_;
@@ -39,7 +39,7 @@ class AStar{
 
 class AStarROS : public AStar{
     public:
-        AStarROS(ros::NodeHandle& nh, GraphManager* gm);
+        AStarROS(ros::NodeHandle& nh, GraphManager* gm,MapService* map_service);
         void visualize();
     private:
         geotf::GeodeticConverter geo_converter_;

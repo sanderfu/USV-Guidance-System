@@ -1,7 +1,7 @@
 #include "usv_mission_planner/mission_planner.h"
 
 MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
-
+    GDALAllRegister();
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     odom_sub_ = nh_.subscribe("odom",1,&MissionPlanner::odomCb,this);
     goal_sub_ = nh_.subscribe("global_goal",1,&MissionPlanner::goalCb,this);

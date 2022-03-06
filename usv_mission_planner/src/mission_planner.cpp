@@ -50,7 +50,8 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
         //map_service_ = new MapService(extent,map_name(optional))
     }
     std::pair<OGRPoint,OGRPoint> map_extent = map_service_->getMapExtent();
-    tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),!preprocessed_map_);
+    tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,!preprocessed_map_);
+    
     vessel_model_ = new ModelLibrary::Viknes830();
     search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_);
     ROS_INFO_STREAM("Done initializing MissionPlanner");
@@ -96,6 +97,7 @@ bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_missi
     if(req.publish_path){
         publishPath();
     }
+    savePath();
 
     res.success = true;
     return true;

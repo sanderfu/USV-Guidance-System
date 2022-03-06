@@ -1,0 +1,9 @@
+<launch>
+    <node pkg="usv_mission_planner"
+        name="mission_planner_client_node"
+        type="mission_planner_client_node"
+        respawn="false"
+        output="screen"
+        launch-prefix="">
+    </node>
+</launch>

@@ -1,0 +1,11 @@
+<launch>
+    <rosparam command="load" file="$(find usv_mission_planner)/config/mission_planner.yaml" />
+    <rosparam command="load" file="$(find usv_map)/config/map_service.yaml" />
+    <node pkg="usv_mission_planner"
+        name="mission_planner_node"
+        type="mission_planner_node"
+        respawn="false"
+        output="screen"
+        launch-prefix="">
+    </node>
+</launch>

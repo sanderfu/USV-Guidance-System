@@ -8,14 +8,18 @@
  * @param ds The dataset containing the map we build the Quadtree w.r.t. 
  * @param build_immediately If true, build the quadtree. If false, dont.
  */
-Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately): 
+Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region,bool build_immediately): 
     ds_(ds),
     lower_left_(lower_left),
     upper_right_(upper_right),
     geod_(GeographicLib::Geodesic::WGS84()){
     gm_ = new GraphManager;
     ros::Time start = ros::Time::now();
-    if (build_immediately) build();
+    if (build_immediately){
+        build();
+        save(mission_region);
+    } 
+    else load(mission_region);
     ros::Time end = ros::Time::now();
 
     benchmark_data_.build_time = ros::Duration(end-start).toSec();
@@ -32,20 +36,20 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, b
  * 
  * @param tree_name What the quadtree should be saved as (will overwrite any previous stored tree witht his name)
  */
-void Quadtree::save(const std::string& tree_name){
-    std::string path = ros::package::getPath("usv_mission_planner");
-    path.append("/data/quadtrees/"+tree_name+"/");
+void Quadtree::save(const std::string& mission_region){
+    std::string path = ros::package::getPath("usv_map");
+    path.append("/data/mission_regions/"+mission_region+"/");
     //Save graph
 
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directory(path);
     }
 
-    std::string graph_path = path+tree_name;
+    std::string graph_path = path + "quadtree_graph";
     gm_->saveGraph(graph_path);
 
     //Save for post-mission visualization
-    std::string viz_path = path+tree_name+".csv";
+    std::string viz_path = path+"quadtree.csv";
     std::ofstream viz_path_file(viz_path);
     viz_path_file << "u_lon,u_lat,v_lon,v_lat,edge_cost\n";
     for(auto edge_it = gm_->edge_map_.begin(); edge_it!=gm_->edge_map_.end();edge_it++){
@@ -123,9 +127,9 @@ void Quadtree::save(const std::string& tree_name){
  * 
  * @param tree_name Nam eof the saved quadtree. If a non-existent quadtree is named, the code will crash hard!
  */
-void Quadtree::load(const std::string& tree_name){
-    std::string path = ros::package::getPath("usv_mission_planner")+"/data/quadtrees/"+tree_name+"/";
-    std::string graph_path = path + tree_name;
+void Quadtree::load(const std::string& mission_region){
+    std::string path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/";
+    std::string graph_path = path + "quadtree_graph";
     gm_->loadGraph(graph_path);
 
     //Load regions
@@ -379,9 +383,9 @@ void Quadtree::build(){
 
 }
 
-QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds,bool build_immediately):
+QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region,bool build_immediately):
 nh_(nh),
-Quadtree(lower_left,upper_right,ds,build_immediately){
+Quadtree(lower_left,upper_right,ds,mission_region,build_immediately){
     vertex_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_vertices",1,true);
     edge_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_edges",1,true);
     region_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/highlight_region",1,true);

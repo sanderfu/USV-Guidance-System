@@ -53,7 +53,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,!preprocessed_map_);
     
     vessel_model_ = new ModelLibrary::Viknes830();
-    search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_);
+    search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_,mission_name_);
     ROS_INFO_STREAM("Done initializing MissionPlanner");
 
 

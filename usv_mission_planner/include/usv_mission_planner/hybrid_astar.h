@@ -30,7 +30,7 @@ struct extendedVertex{
 
 class HybridAStar{
     public:
-        HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service);
+        HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name);
         void setStart(double lon, double lat, double yaw);
         void setGoal(double lon, double lat, double yaw);
         void search();
@@ -83,6 +83,7 @@ class HybridAStar{
         bool similarClosed(state_type& state);
 
         //Debug tools
+        std::string mission_name_;
         std::vector<std::pair<double,double>> points_outside_quadtree_;
         void saveDataContainers();
 
@@ -100,7 +101,7 @@ class HybridAStar{
 
 class HybridAStarROS : public HybridAStar{
     public:
-        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model,MapService* map_service);
+        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model,MapService* map_service, std::string mission_name);
         void visualize();
     private:
         geotf::GeodeticConverter geo_converter_;

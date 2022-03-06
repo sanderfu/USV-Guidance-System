@@ -1,6 +1,6 @@
 #include "usv_mission_planner/hybrid_astar.h"
 
-HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service):
+HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):
 tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
@@ -20,6 +20,8 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_)){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
     }
+
+    mission_name_ = mission_name;
 }   
 
 void HybridAStar::setStart(double lon, double lat, double yaw){
@@ -277,9 +279,9 @@ bool HybridAStar::similarClosed(state_type& state){
 
 void HybridAStar::saveDataContainers(){
     std::cout << "Creating debug files" << std::endl;
-    std::string path = ros::package::getPath("usv_mission_planner")+"/data/debug/hybrid_astar/";
+    std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){
-        boost::filesystem::create_directory(path);
+        boost::filesystem::create_directories(path);
     }
 
     std::ofstream closed_file(path+"closed.csv");
@@ -323,6 +325,16 @@ void HybridAStar::saveDataContainers(){
 }
 
 void HybridAStar::dumpSearchBenchmark(){
+    std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directories(path);
+    }
+
+    std::ofstream benchmark_file_time(path+"benchmark_time.csv");
+    std::ofstream benchmark_file_misc(path+"benchmark_misc.csv");
+    benchmark_file_time<<"name,times_run,total_time\n";
+    benchmark_file_misc<<"name,value\n";
+
     //Benchmark info:
     double total_distance = 0;
     double spline_distance = 0;
@@ -331,6 +343,7 @@ void HybridAStar::dumpSearchBenchmark(){
         total_distance+=spline_distance;
     }
     ROS_INFO_STREAM("Total distance to travel: " << total_distance << " m" );
+    benchmark_file_misc<<"total_distance"<<","<<total_distance<<"\n";
 
     double min_distance_to_land = INFINITY;
     double accumulated_distance_to_land = 0.0;
@@ -342,7 +355,10 @@ void HybridAStar::dumpSearchBenchmark(){
         accumulated_distance_to_land+=distance_to_land;
     }
     ROS_INFO_STREAM("Min. distance to land: " << min_distance_to_land*1e5);
-    ROS_INFO_STREAM("Accumulated distance to land: " << accumulated_distance_to_land*1e5); 
+    ROS_INFO_STREAM("Accumulated distance to land: " << accumulated_distance_to_land*1e5);
+    benchmark_file_misc<<"min_distance_land"<<","<<min_distance_to_land*1e5<<"\n";
+    benchmark_file_misc<<"accumulated_distance_land"<<","<<accumulated_distance_to_land*1e5<<"\n";
+
 
 
     ROS_INFO_STREAM("Search took: " << ros::Duration(end_search_-start_search_).toSec());
@@ -351,11 +367,17 @@ void HybridAStar::dumpSearchBenchmark(){
     ROS_INFO_STREAM("Simulate " << simulate_time_.size() << " times. Total time spent: " << std::accumulate(simulate_time_.begin(),simulate_time_.end(),0.0));
     ROS_INFO_STREAM("Calculate heuristic " << heuristic_time_.size() << " times. Total time spent: " << std::accumulate(heuristic_time_.begin(),heuristic_time_.end(),0.0));
     ROS_INFO_STREAM("Calculate sim time " << calc_sim_time_.size() << " times. Total time spent: " << std::accumulate(calc_sim_time_.begin(),calc_sim_time_.end(),0.0));
+    benchmark_file_time<<"search_time"<<","<<1<<","<<ros::Duration(end_search_-start_search_).toSec()<<"\n";
+    benchmark_file_time<<"check_for_leaf"<<","<<leaf_time_.size()<<","<<std::accumulate(leaf_time_.begin(),leaf_time_.end(),0.0)<<"\n";
+    benchmark_file_time<<"check_for_collision"<<","<<collision_time_.size()<<","<<std::accumulate(collision_time_.begin(),collision_time_.end(),0.0)<<"\n";
+    benchmark_file_time<<"simulate"<<","<<simulate_time_.size()<<","<<std::accumulate(simulate_time_.begin(),simulate_time_.end(),0.0)<<"\n";
+    benchmark_file_time<<"calculate_heuristic"<<","<<heuristic_time_.size()<<","<<std::accumulate(heuristic_time_.begin(),heuristic_time_.end(),0.0)<<"\n";
+    benchmark_file_time<<"calculate_sim_time"<<","<<calc_sim_time_.size()<<","<<std::accumulate(calc_sim_time_.begin(),calc_sim_time_.end(),0.0)<<"\n";
 }
 
-HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service):
+HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):
 nh_(nh),
-HybridAStar(tree,vessel_model,map_service){
+HybridAStar(tree,vessel_model,map_service,mission_name){
     path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/hybrid_astar/visual_path",1,true);
 
     geo_converter_.addFrameByEPSG("WGS84",4326);

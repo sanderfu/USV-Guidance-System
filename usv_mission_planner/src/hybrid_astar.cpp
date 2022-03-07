@@ -1,5 +1,12 @@
 #include "usv_mission_planner/hybrid_astar.h"
-
+/**
+ * @brief Construct a new Hybrid A Star object
+ * 
+ * @param tree A Quadtree used for focusing the heuristic
+ * @param vessel_model A vessel model used for simulation.
+ * @param map_service A map service to query collision and voronoi field values. 
+ * @param mission_name The name of the mission. Relevant for data storage.
+ */
 HybridAStar::HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):
 tree_(tree),
 vessel_model_(vessel_model),
@@ -24,17 +31,38 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_)){
     mission_name_ = mission_name;
 }   
 
+/**
+ * @brief Set the start pose for the search
+ * 
+ * @param lon Star longitude
+ * @param lat Starg latitude
+ * @param yaw Start heading
+ */
 void HybridAStar::setStart(double lon, double lat, double yaw){
     geo_converter_.addFrameByENUOrigin("start_enu",lat,lon,0);
     state_type state = {lon,lat,yaw,0,0,0};
     v_start_ = new extendedVertex(generateVertexID(),state);
 }
 
+/**
+ * @brief Set the goal pose for the search
+ * 
+ * @remark The heading is neglected for the time being
+ * 
+ * @param lon 
+ * @param lat 
+ * @param yaw 
+ */
 void HybridAStar::setGoal(double lon, double lat, double yaw){
     state_type state = {lon,lat,yaw,0,0,0};
     v_goal_ = new extendedVertex(generateVertexID(),state);
 }
 
+/**
+ * @brief Clear all data containers. 
+ * Helping function to avoid leftover data whenever more than one search is requested form the same object.
+ * 
+ */
 void HybridAStar::clear(){
     came_from_.clear();
     cost_so_far_.clear();
@@ -49,6 +77,10 @@ void HybridAStar::clear(){
     calc_sim_time_.clear();
 }
 
+/**
+ * @brief Find a feasible, optimized path fromt he start to the goal pose.
+ * 
+ */
 void HybridAStar::search(){
     clear();
     start_search_ = ros::Time::now();
@@ -110,16 +142,36 @@ void HybridAStar::search(){
     dumpSearchBenchmark();
 }
 
+/**
+ * @brief Self explanatory
+ * 
+ * @return int VertexID
+ */
 int HybridAStar::generateVertexID(){
     return vertex_id_++;
 }
 
+/**
+ * @brief Get the true distance between two positions (lon,lat,0) using GeographicLib
+ * 
+ * @param u Position A
+ * @param v Position B
+ * @return double True distance (estimate) [m]
+ */
 double HybridAStar::getDistance(StateVec* u, StateVec* v){
     double distance;
     geod_.Inverse(u->y(),u->x(),v->y(),v->x(),distance);
     return abs(distance);
 }
 
+
+/**
+ * @brief Get a coarse collision-free-path length approximation using A* on Quadtree graph
+ * 
+ * @param u Position A 
+ * @param v Position B
+ * @return double DIstance approximation [m]
+ */
 double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     //Check if roughly this start->goal config has been checked before
     Region* current = tree_->getLeafRegionContaining(u->x(),u->y());
@@ -156,6 +208,14 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     return total_distance+difference;
 }
 
+/**
+ * @brief Given a vessel state, return search vertex and boolean flag informing if has been previously explored.
+ * 
+ * @remark Currently, heading is not taken into consideration when comparing internally in this function.
+ * 
+ * @param next_state The vessel state
+ * @return std::pair<extendedVertex*,bool>
+ */
 std::pair<extendedVertex*,bool> HybridAStar::getNextVertex(state_type& next_state){
     //Find most similar node prdviously explored (if exists)
     double distance_check;
@@ -170,6 +230,17 @@ std::pair<extendedVertex*,bool> HybridAStar::getNextVertex(state_type& next_stat
     return std::make_pair(new extendedVertex(generateVertexID(),next_state),explored);
 }
 
+/**
+ * @brief Check if simulation horizon collides with land. 
+ * 
+ * @details Includes Two layers of fast-checks before consulting the GDAL API, both utilizing region comparison.
+ * 
+ * @param current_state Current state
+ * @param current_region Current region
+ * @param sim_hor Candidate simulation horizon
+ * @return true Collision with land detected
+ * @return false Collision with land not detected
+ */
 bool HybridAStar::collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor){
     //If in same region as last time, cant possibly be collision
     ros::Time start_collision = ros::Time::now();
@@ -210,6 +281,15 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
 }
 
+/**
+ * @brief The Hybrid A* Heuristic specially developed and tuned for this application.
+ * 
+ * @param current The current state
+ * @param next The candidate state 
+ * @param new_cost The cost-so-far, including distance cost of moving from current->next
+ * @param search_phase The current search phase
+ * @return double The heuristic value
+ */
 double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost,kSearchPhase search_phase){
     double voronoi_field = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
     double cost_distance = voronoi_field_cost_weight_*voronoi_field;
@@ -226,6 +306,11 @@ double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, doub
     return priority;
 }
 
+/**
+ * @brief When a search is complete, reconstructs the path from start to goal using the came_from_ map.
+ * 
+ * @return std::vector<extendedVertex*> Path
+ */
 std::vector<extendedVertex*> HybridAStar::reconstructPath() {
     std::vector<extendedVertex*> path;
     extendedVertex* current = v_close_;
@@ -238,10 +323,21 @@ std::vector<extendedVertex*> HybridAStar::reconstructPath() {
     return path;
 }
 
+/**
+ * @brief Get the currently stored path
+ * 
+ * @return std::vector<extendedVertex*> Path
+ */
 std::vector<extendedVertex*> HybridAStar::getPath(){
     return path_;
 }
 
+/**
+ * @brief Determine for how many seconds the candidate should be simulated.
+ * 
+ * @param distance The straight-line distance to goal.
+ * @return double Simulation time [s]
+ */
 double HybridAStar::determineSimulationTime(double distance){
     ros::Time start_calc_sim = ros::Time::now();
     double sim_time = default_sim_time_;
@@ -253,6 +349,12 @@ double HybridAStar::determineSimulationTime(double distance){
     return sim_time;
 }
 
+/**
+ * @brief Determine the search phase based on the straight-line distance to goal.
+ * 
+ * @param distance The straight-line distance to goal.
+ * @return kSearchPhase Search phase
+ */
 kSearchPhase HybridAStar::determineSearchPhase(double distance){
     if(distance<precision_phase_distance_){
         return kSearchPhase::kPrecision;
@@ -261,6 +363,14 @@ kSearchPhase HybridAStar::determineSearchPhase(double distance){
     }
 }
 
+/**
+ * @brief Simulate the vessel based on a heading candidate.
+ * 
+ * @param state Current vessel state
+ * @param heading_candidate Heading candidate (absolute) [rad]
+ * @param sim_time Simulation time [s]
+ * @return ModelLibrary::simulatedHorizon 
+ */
 ModelLibrary::simulatedHorizon HybridAStar::simulateVessel(state_type& state, double heading_candidate, double sim_time){
     ros::Time start_sim = ros::Time::now();
     Eigen::Vector3d pos_wgs(state[0],state[1],0);
@@ -279,6 +389,15 @@ ModelLibrary::simulatedHorizon HybridAStar::simulateVessel(state_type& state, do
     return sim_hor;
 }
 
+/**
+ * @brief Evaluate the state has already previously been assigned with a search vertex that has been closed.
+ * 
+ * @remark Does not take heading into account in comparison checking
+ * 
+ * @param state 
+ * @return true 
+ * @return false 
+ */
 bool HybridAStar::similarClosed(state_type& state){
     //If vertex sufficiently simiar has been closed, go to next candidate
     double closed_distance_check;
@@ -292,6 +411,10 @@ bool HybridAStar::similarClosed(state_type& state){
     return false;
 }
 
+/**
+ * @brief Save data containers for debugging/visualization purposes
+ * 
+ */
 void HybridAStar::saveDataContainers(){
     std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){
@@ -337,6 +460,10 @@ void HybridAStar::saveDataContainers(){
     }
 }
 
+/**
+ * @brief Dump benchmark data to console and csv files for debugging and performance evaluation.
+ * 
+ */
 void HybridAStar::dumpSearchBenchmark(){
     std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){

@@ -5,16 +5,38 @@ gm_(gm),
 geod_(GeographicLib::Geodesic::WGS84()),
 map_service_(map_service){}
 
+/**
+ * @brief Set search start vertex
+ * 
+ * @remark The exact (lon,lat) must exist in the graph managed by the GraphManager prior to calling this function!
+ * 
+ * @param lon Start longitude
+ * @param lat Start latitude
+ */
 void AStar::setStart(double lon,double lat){
     StateVec start(lon,lat,0,0);
     gm_->getNearestVertex(&start,&v_start_);
 }
 
+/**
+ * @brief Set search goal vertex
+ * 
+ * @remark The exact (lon,lat) must exist in the graph managed by the GraphManager prior to calling this function!
+ * 
+ * @param lon Goal longitude
+ * @param lat Goal latitude
+ */
 void AStar::setGoal(double lon,double lat){
     StateVec goal(lon,lat,0,0);
     gm_->getNearestVertex(&goal,&v_goal_);
 }
 
+/**
+ * @brief Search for a graph-optimal path.
+ * 
+ * @return true 
+ * @return false 
+ */
 bool AStar::search(){
     while(!frontier_.empty()){
         frontier_.get();
@@ -62,25 +84,34 @@ bool AStar::search(){
     return reconstructPath();
 }
 
+/**
+ * @brief Get the path stored in path_
+ * 
+ * @return std::vector<Vertex*> Path
+ */
 std::vector<Vertex*> AStar::getPath(){
     return path_;
 }
 
+/**
+ * @brief Heuristic function for the A* Search. Approximates the true distance between to (lon,lat,0) points with GeographicLib
+ * 
+ * @param state_u Point A
+ * @param state_v Point B
+ * @return double Absolute distance between A and B [m]
+ */
 double AStar::heuristicDirect(const StateVec& state_u, const StateVec& state_v){
     double distance;
     geod_.Inverse(state_u.y(),state_u.x(),state_v.y(),state_v.x(),distance);
     return abs(distance);
 }
 
-double AStar::heuristicDiagonal(const StateVec& state_u, const StateVec& state_v){
-    double dx, dy;
-    geod_.Inverse(state_u.y(),state_u.x(),state_u.y(),state_v.x(),dx);
-    dx = abs(dx);
-    geod_.Inverse(state_u.y(),state_u.x(),state_v.y(),state_u.x(),dy);
-    dy = abs(dy);
-    return dx+dy-std::min(dx,dy);
-}
-
+/**
+ * @brief Based on the came_from_ map produced by search, fetch the path from start to goal.
+ * 
+ * @return true Path exists between start and goal
+ * @return false Path does not exist between start and goal
+ */
 bool AStar::reconstructPath() {
     path_.clear();
     Vertex* current = v_goal_;
@@ -98,6 +129,10 @@ bool AStar::reconstructPath() {
     return true;
 }
 
+/**
+ * @brief Save data containers relevant for debugging/visualization
+ * 
+ */
 void AStar::saveDataContainers(){
     std::string path = ros::package::getPath("usv_mission_planner");
     path.append("/data/debug/astar/");

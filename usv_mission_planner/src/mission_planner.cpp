@@ -1,11 +1,18 @@
 #include "usv_mission_planner/mission_planner.h"
 
+/**
+ * @brief Construct a new Mission Planner object
+ * 
+ * @details Register publishers and subscribers, load relevant parameters, load and publish gpx path(optionally) 
+ * preprocess mission region if not already done or forced to (optionally) and construct objects needed for path search functionality.
+ * 
+ * @param nh ROS NodeHandle
+ */
 MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     GDALAllRegister();
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
     odom_sub_ = nh_.subscribe("odom",1,&MissionPlanner::odomCb,this);
-    goal_sub_ = nh_.subscribe("global_goal",1,&MissionPlanner::goalCb,this);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
     bool parameter_load_error = false;
@@ -54,7 +61,6 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     }
     std::pair<OGRPoint,OGRPoint> map_extent = map_service_->getMapExtent();
     tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,!preprocessed_map_);
-    
     vessel_model_ = new ModelLibrary::Viknes830();
     search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_,mission_name_);
     ROS_INFO_STREAM("Done initializing MissionPlanner");
@@ -63,6 +69,12 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
 
 }
 
+/**
+ * @brief Publish a path stored in the path_ container.
+ * 
+ * @todo Change from Pose to PoseArray. This has consequences for LOS too.
+ * 
+ */
 void MissionPlanner::publishPath(){
     geometry_msgs::Pose wpt_msg;
     for(auto path_it = path_.begin(); path_it!=path_.end();path_it++){
@@ -73,20 +85,35 @@ void MissionPlanner::publishPath(){
     }
 }
 
+/**
+ * @brief Publish a desired speed stored in the desired_speed_ variable.
+ * 
+ */
 void MissionPlanner::publishSpeed(){
     geometry_msgs::Twist msg;
     msg.linear.x = desired_speed_;
     speed_pub_.publish(msg);
 }
 
+/**
+ * @brief Register the latest recieved odometry
+ * 
+ * @param odom Odometry message from vessel.
+ */
 void MissionPlanner::odomCb(const nav_msgs::Odometry& odom){
     latest_odom_ = odom;
 }
 
-void MissionPlanner::goalCb(const geometry_msgs::Pose& goal){
-    search_alg_->setGoal(goal.position.x,goal.position.y,0);
-}
-
+/**
+ * @brief Service function to find an optimized path.
+ * 
+ * @details The search is either from latest vessel omodmetry or from specified position based on service request.
+ * 
+ * @param req Service request
+ * @param res Service response
+ * @return true The service call function completed without failure
+ * @return false The service call function failed
+ */
 bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res){
     ROS_INFO_STREAM("Start search in mission planner");
     if (req.use_odom){
@@ -114,6 +141,10 @@ bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_missi
 
 }
 
+/**
+ * @brief Save path stored in path_ to gpx file for debugging/visualziation in OpenCPN or custom scripts.
+ * 
+ */
 void MissionPlanner::savePath(){
     std::string gpx_path = mission_path_+"debug"+".gpx";
     if(boost::filesystem::exists(gpx_path)){
@@ -144,6 +175,13 @@ MissionPlannerClient::MissionPlannerClient(ros::NodeHandle& nh): nh_(nh){
     search_client_ = nh_.serviceClient<usv_mission_planner::search>("SearchGlobalPath");
 }
 
+/**
+ * @brief Request the mission planner to search from the current vessel odometry to a specified goal.
+ * 
+ * @param goal_lon Goal longitude
+ * @param goal_lat Goal latitude
+ * @param publish_path Should path be published in ROS network?
+ */
 void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=true;
@@ -153,6 +191,16 @@ void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,bool 
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }
 
+/**
+ * @brief Request the mission planner to search from a custom position to a specified goal.
+ * 
+ * @param start_lon Start longitude
+ * @param start_lat Start latitude
+ * @param start_heading Start heading
+ * @param goal_lon Goal longitude
+ * @param goal_lat Goal latitude
+ * @param publish_path Should path be published in ROS network?
+ */
 void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=false;

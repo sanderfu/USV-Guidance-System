@@ -30,10 +30,7 @@ class AStar{
         PriorityQueue<Vertex*,double> frontier_;
         std::vector<Vertex*> closed_;
         
-
-
         double heuristicDirect(const StateVec& state_u, const StateVec& state_v);
-        double heuristicDiagonal(const StateVec& state_u, const StateVec& state_v);
         bool reconstructPath();
 };
 

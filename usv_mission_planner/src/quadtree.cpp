@@ -290,6 +290,11 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
     return frame_points;
 }
 
+/**
+ * @brief Introduce a custom vertex to the graph and make connection with all edges in same region.
+ * 
+ * @param s Vertex
+ */
 void Quadtree::setCustomVertex(Vertex* s){
     Region* leaf_region = getLeafRegionContaining(s->state.x(),s->state.y());
 
@@ -302,12 +307,24 @@ void Quadtree::setCustomVertex(Vertex* s){
     }
 }
 
+/**
+ * @brief Set start
+ * 
+ * @param lon Longitude
+ * @param lat Latitude
+ */
 void Quadtree::setStart(double lon, double lat){
     Vertex* s = new Vertex(gm_->generateVertexID(),StateVec(lon,lat,0,0));
     setCustomVertex(s);
     return;
 }
 
+/**
+ * @brief Set goal
+ * 
+ * @param lon Longitude
+ * @param lat Latitude
+ */
 void Quadtree::setGoal(double lon,double lat){
     Vertex* g = new Vertex(gm_->generateVertexID(),StateVec(lon,lat,0,0));
     setCustomVertex(g);

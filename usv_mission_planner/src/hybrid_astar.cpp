@@ -35,7 +35,22 @@ void HybridAStar::setGoal(double lon, double lat, double yaw){
     v_goal_ = new extendedVertex(generateVertexID(),state);
 }
 
+void HybridAStar::clear(){
+    came_from_.clear();
+    cost_so_far_.clear();
+    closed_.clear();
+    grid_distance_lookup_.clear();
+    while(!frontier_.empty()) frontier_.get();
+
+    collision_time_.clear();
+    leaf_time_.clear();
+    simulate_time_.clear();
+    heuristic_time_.clear();
+    calc_sim_time_.clear();
+}
+
 void HybridAStar::search(){
+    clear();
     start_search_ = ros::Time::now();
     frontier_.put(v_start_,0);
     came_from_[v_start_] = v_start_;
@@ -278,7 +293,6 @@ bool HybridAStar::similarClosed(state_type& state){
 }
 
 void HybridAStar::saveDataContainers(){
-    std::cout << "Creating debug files" << std::endl;
     std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directories(path);
@@ -321,7 +335,6 @@ void HybridAStar::saveDataContainers(){
     for(auto outside_it=points_outside_quadtree_.begin(); outside_it!=points_outside_quadtree_.end();outside_it++){
         points_outside_quadtree_file<<outside_it->first<<","<<outside_it->second<<"\n";
     }
-    std::cout << "Debug files saved" << std::endl;
 }
 
 void HybridAStar::dumpSearchBenchmark(){

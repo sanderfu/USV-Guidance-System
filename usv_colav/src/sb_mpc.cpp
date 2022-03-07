@@ -47,6 +47,8 @@ K_DCHI_P_(1.2)			//   1.2
     //Set speed action alternatives
     double speedOffsets[] = {-1,0,0.5,1};
     P_ca_.assign(speedOffsets, speedOffsets + sizeof(speedOffsets)/sizeof(speedOffsets[0]));
+    Chi_ca_last_ = 0.0;
+    P_ca_last_ = 1.0;
 
     //Initialize visualization stuff (debug purposes)
     path_viz_pub_ = nh_.advertise<visualization_msgs::Marker>("colav/path_viz",1,true);
@@ -147,14 +149,18 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             state[5] = latest_odom_.twist.twist.angular.z;
             ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizon(state,(latest_los_setpoint_.linear.x)*(*p_it),latest_los_setpoint_.angular.z+(*chi_it),60);
             
-            //Avoid collision in COLREG compliant manner
-            for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
-                double key = it->first;
-				cost_k = costFnc(horizon, obstacles_horizon[key], *p_it, *chi_it, key);
-				if (cost_k > cost_i){
-					cost_i = cost_k;	// Maximizing cost associated with this scenario
-				}
-			}
+            //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
+            if(obstacle_vessels_.size()!=0){
+                for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
+                    double key = it->first;
+                    cost_k = costFnc(horizon, obstacles_horizon[key], *p_it, *chi_it, key);
+                    if (cost_k > cost_i){
+                        cost_i = cost_k;	// Maximizing cost associated with this scenario
+                    }
+			    }
+            } else{
+                cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it) + Delta_Chi(*chi_it);
+            }
 
             //Simulation horizon to LineString
             OGRLineString path;

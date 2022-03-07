@@ -3,6 +3,7 @@
 MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     GDALAllRegister();
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
+    speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
     odom_sub_ = nh_.subscribe("odom",1,&MissionPlanner::odomCb,this);
     goal_sub_ = nh_.subscribe("global_goal",1,&MissionPlanner::goalCb,this);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
@@ -14,6 +15,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     if(!ros::param::get("mission_planner/preprocessed_map",preprocessed_map_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/map_name",map_name_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/search_immideately",search_immideately_)) parameter_load_error = true;
+    if(!ros::param::get("mission_planner/desired_speed",desired_speed_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
@@ -37,8 +39,9 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
             state_type state = {route->getX(i),route->getY(i),0,0,0,0};
             path_.push_back(new extendedVertex(i,state));
         }
-
+        ros::Duration(1.0).sleep();
         publishPath();
+        publishSpeed();
         return;
     }
 
@@ -70,6 +73,12 @@ void MissionPlanner::publishPath(){
     }
 }
 
+void MissionPlanner::publishSpeed(){
+    geometry_msgs::Twist msg;
+    msg.linear.x = desired_speed_;
+    speed_pub_.publish(msg);
+}
+
 void MissionPlanner::odomCb(const nav_msgs::Odometry& odom){
     latest_odom_ = odom;
 }
@@ -96,6 +105,7 @@ bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_missi
 
     if(req.publish_path){
         publishPath();
+        publishSpeed();
     }
     savePath();
 

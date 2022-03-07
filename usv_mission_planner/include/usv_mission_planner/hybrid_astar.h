@@ -69,6 +69,7 @@ class HybridAStar{
 
         int vertex_id_=0;
         int generateVertexID();
+        void clear();
         std::vector<extendedVertex*> reconstructPath();
 
         double getDistance(StateVec* u, StateVec* v);

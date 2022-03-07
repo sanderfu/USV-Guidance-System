@@ -1,6 +1,7 @@
 #include "usv_map/map_service.h"
 
 MapService::MapService(std::string mission_region){
+    GDALAllRegister();
     std::string mission_path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/";
 
     if(!boost::filesystem::exists(mission_path)){
@@ -175,8 +176,14 @@ GDALDataset* MapService::getDataset(){
  * @param nh Ros nodehandle.
  */
 MapServiceServer::MapServiceServer(const ros::NodeHandle& nh) : nh_(nh){
-    db_path_ = ros::package::getPath("usv_simulator");
-    db_path_.append("/maps/check_db.sqlite");
+    std::string mission_region;
+    bool parameter_load_error = false;
+    if(!ros::param::get("Viknes830/mission_planner/map_name",mission_region)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+    db_path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/"+"check_db.sqlite";
     GDALAllRegister();
     ds_ = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_ == NULL){
@@ -184,11 +191,10 @@ MapServiceServer::MapServiceServer(const ros::NodeHandle& nh) : nh_(nh){
         ros::shutdown();
     }
 
-
     intersect_service_ = nh_.advertiseService("/map/intersects", &MapServiceServer::intersects, this);
     distance_service_ = nh_.advertiseService("/map/distance", &MapServiceServer::distance, this);
 
-    std::string db_lite_path=ros::package::getPath("usv_simulator") + "/maps/check_db_lite.sqlite";
+    std::string db_lite_path=ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/"+"check_db_lite.sqlite";
     GDALDataset* ds_lite = (GDALDataset*) GDALOpenEx(db_lite_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_lite == NULL)
     {

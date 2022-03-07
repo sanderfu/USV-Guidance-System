@@ -16,6 +16,7 @@ class MissionPlanner{
     private:
         ros::NodeHandle nh_;
         ros::Publisher path_pub_;
+        ros::Publisher speed_pub_;
         ros::Subscriber odom_sub_;
         ros::Subscriber goal_sub_;
         ros::ServiceServer search_service_;
@@ -41,6 +42,7 @@ class MissionPlanner{
         bool preprocessed_map_;
         std::string map_name_;
         bool search_immideately_;
+        double desired_speed_;
 
         //Storage
         std::string mission_path_;
@@ -49,6 +51,7 @@ class MissionPlanner{
         void setGoal(double lon, double lat);
         bool search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res);
         void publishPath();
+        void publishSpeed();
         void odomCb(const nav_msgs::Odometry& odom);
         void goalCb(const geometry_msgs::Pose& goal);
 

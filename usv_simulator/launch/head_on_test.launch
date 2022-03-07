@@ -8,6 +8,7 @@
   <arg name="use_vo" default="False" />
   <arg name="use_sb_mpc" default="True" />
   <arg name="shipname" default="Viknes830" />
+  <arg name="map_name" default="outside_new_york" />
 
   <include file="$(find usv_map)/launch/default.launch"/>
 
@@ -15,6 +16,7 @@
       <arg name="waypoint_file" default="head_on_usv.csv" />
       <param name="waypoint_file" value="$(arg waypoint_file)"/>
       <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
+      <param name="mission_planner/map_name" value="$(arg map_name)"/>
       <node pkg="usv_simulator"
             name="sim"
             type="sim_vessel_node"
@@ -33,13 +35,14 @@
       <node pkg="robot_state_publisher"
           type="robot_state_publisher"
           name="tf_broadcaster" />
-
+      
       <node pkg="usv_mission_planner"
             name="mission_planner"
             type="static_mission_planner_node.py"
             respawn="false"
             output="screen">
       </node>
+      
 
       <node pkg="usv_colav"
             name="sb_mpc"

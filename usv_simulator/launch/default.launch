@@ -3,7 +3,7 @@
   <!--<arg name="vessel_param_file" default="$(find usv_simulator)/config/parameters/viknes.yaml" />-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
   <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
-  <arg name="initial_position_usv" default="[-74.016705,40.592954,0]" />
+  <arg name="initial_position_usv" default="[-74.016705,40.592954,-3.14]" />
   <arg name="initial_position_obstacle" default="[-73.9799828822622,40.5432309943067, 0]" />
   <arg name="use_vo" default="False" />
   <arg name="use_sb_mpc" default="True" />

@@ -13,8 +13,8 @@ int main(int argc, char** argv){
     
     point_upper.importFromWkt(&wkt_upper);
     
-    std::string db_path_ = ros::package::getPath("usv_simulator");
-    db_path_.append("/maps/check_db_lite.sqlite");
+    std::string map_name = "outside_new_york";
+    std::string db_path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+map_name+"/check_db.sqlite";
     std::cout << db_path_ << std::endl;
     GDALAllRegister();
     GDALDataset* ds = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);

@@ -7,8 +7,14 @@
  * @param nh ROS NodeHandle
  */
 SimulatedLand::SimulatedLand(const ros::NodeHandle& nh){
-    path_ = ros::package::getPath("usv_simulator");
-    path_.append("/maps/check_db.sqlite");
+    std::string map_name;
+    bool parameter_load_error = false;
+    if(!ros::param::get("mission_planner/map_name",map_name)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+    path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+map_name+"/check_db.sqlite";
 
     polygon_.header.frame_id="map";
     poly_pub_ = nh_.advertise<jsk_recognition_msgs::PolygonArray>("/sim/land",1,true);

@@ -36,7 +36,6 @@ void pathToGPX(std::string file_name,std::vector<extendedVertex*>& hybrid_path){
 int main(int argc, char** argv){
     ros::init(argc,argv,"test_quad");
     
-    /*
     OGRPoint point_lower;
     //const char* wkt_lower = "POINT(-73.98275 40.50820)";
     const char* wkt_lower = "POINT(-74.02454 40.49856)";
@@ -48,76 +47,24 @@ int main(int argc, char** argv){
     point_lower.importFromWkt(&wkt_lower);
     point_upper.importFromWkt(&wkt_upper);
     
-    std::string db_path_ = ros::package::getPath("usv_simulator");
-    db_path_.append("/maps/check_db.sqlite");
+    std::string map_name = "outside_new_york";
+    std::string db_path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+map_name+"/check_db.sqlite";
+    std::cout << db_path_ << std::endl;
     GDALAllRegister();
     GDALDataset* ds = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
 
     ros::NodeHandle nh("~testQT");
-    QuadtreeROS quadtree(nh,point_lower,point_upper,ds,false);
+    QuadtreeROS quadtree(nh,point_lower,point_upper,ds,map_name,false);
     
     ros::Time start_load = ros::Time::now();
-    quadtree.load("test_quadtree");
+    quadtree.load("outside_new_york");
     ros::Time done_load = ros::Time::now();
     std::cout << "Time to load: " << ros::Duration(done_load-start_load).toSec() << std::endl;
-    
-    quadtree.setStart(-73.999927,40.590175);
-    quadtree.setGoal(-73.8443265,40.6415880);
-    quadtree.visualize();
-    
 
-    ros::NodeHandle astar_nh("~AStarROS");
-    MapService map_service("outside_new_york");
-    AStarROS astar(astar_nh,quadtree.getGraphManager(),&map_service);
-    astar.setStart(-73.999927,40.590175);
-    astar.setGoal(-73.8443265,40.6415880);
-    ros::Time start_astar = ros::Time::now();
-    astar.search();
-    ros::Time end_astar = ros::Time::now();
-    ROS_INFO_STREAM("AStar search took " << ros::Duration(end_astar-start_astar).toSec());
-    
-
-    std::vector<Vertex*> path = astar.getPath();
-    std::cout << "Path length: " << path.size() << std::endl;
-    astar.visualize();
-    astar.saveDataContainers();
-    
-    ROS_INFO_STREAM("Start Hybrid A*");
-    ros::NodeHandle hybrid_astar_nh("~HybridAStarROS");
-    ModelLibrary::Viknes830 viknes;
-    ROS_INFO_STREAM("Sleep for 5s waiting for map server");
-    ros::Duration(1).sleep();
-    ROS_INFO_STREAM("Sleep done");
-    HybridAStarROS hybrid_astar(hybrid_astar_nh,&quadtree,&viknes,&map_service);
-    hybrid_astar.setStart(-73.999927,40.590175,-M_PI);
-    hybrid_astar.setGoal(-73.8443265,40.6415880,0);
-    hybrid_astar.search();
-
-    std::vector<extendedVertex*> hybrid_path = hybrid_astar.getPath();
-    std::cout << "Path length: " << hybrid_path.size() << std::endl;
-    hybrid_astar.visualize();
-
-    pathToGPX("test_gpx",hybrid_path);
-    */
-    /*
     ros::Time start_save = ros::Time::now();
-    quadtree.save("test_quadtree_2");
+    quadtree.save("test_quadtree_region");
     ros::Time done_save = ros::Time::now();
     std::cout << "Time to save: " << ros::Duration(done_save-start_save).toSec() << std::endl;
-    */
-    
-    ros::NodeHandle nh;
-    MissionPlanner mission_planner(nh);
-    ros::NodeHandle nh_2;
-    MissionPlannerClient mission_planner_client(nh_2);
-    std::cout << "Start search" << std::endl;
-    mission_planner_client.searchFromCustom(-73.999927,40.590175,-M_PI,-73.8443265,40.6415880);
-    std::cout << "Search done" << std::endl;
-    
-
-
-    
-    
 
     ros::spin();
 

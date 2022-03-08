@@ -11,7 +11,7 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), geo_conve
 
     x_[0] = local_initial_position(0);
     x_[1] = local_initial_position(1);
-    x_[2] = 0;
+    x_[2] = global_initial_position(2);
     x_[3] = 0;
     x_[4] = 0;
     x_[5] = 0;

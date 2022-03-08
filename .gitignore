@@ -33,3 +33,6 @@
 
 ##Python relevant
 __pycache__/
+
+*.csv
+*.pyc

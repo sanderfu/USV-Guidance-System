@@ -21,7 +21,6 @@ class LOS:
         rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
         rospy.Subscriber("external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
         self.debug_crosstrack = rospy.Publisher("los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
         self.debug_alongtrack = rospy.Publisher("los/alongtrack",Float32,queue_size=1,tcp_nodelay=True)
@@ -42,7 +41,10 @@ class LOS:
         self.first_wpt_set = False
         self.stop = True
 
-        self.desired_yaw = 0
+
+        first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
+        _,_,yaw = euler_from_quaternion([first_odom.pose.pose.orientation.x,first_odom.pose.pose.orientation.y,first_odom.pose.pose.orientation.z,first_odom.pose.pose.orientation.w])
+        self.desired_yaw = yaw
         self.desired_speed = 0
         self.correction = Twist()
         self.correction.linear.x = 1
@@ -52,6 +54,7 @@ class LOS:
 
         #Coordinate conversion client
         self.converter_client = GeodeticConverterClient()
+        rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
         #Visualization
         self.first_viz = True
@@ -61,6 +64,7 @@ class LOS:
         self.los_vector_pub = rospy.Publisher("los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
         self.visualize_timer = rospy.Timer(rospy.Duration(0.1),self.visualize_los_vector)
         self.initialize_visualization()
+        
 
     def reset(self, msg:Bool):
         print("LOS reset")

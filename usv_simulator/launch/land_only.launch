@@ -1,0 +1,19 @@
+<launch>
+    <arg name="shipname" default="Viknes830" />
+    <arg name="map_name" default="outside_new_york" />
+    <group ns="$(arg shipname)">
+        <node pkg="rviz"
+            type="rviz"
+            name="rviz"
+            args="-d $(find usv_simulator)/config/rviz/default.rviz" />
+
+        <param name="mission_planner/map_name" value="$(arg map_name)"/>
+        <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            output="screen">
+        </node>
+    </group>
+
+</launch>

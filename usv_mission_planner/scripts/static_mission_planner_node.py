@@ -11,7 +11,7 @@ def main():
     wpt_pub = rospy.Publisher("mission_planner/geo_waypoint",Pose,queue_size=10,tcp_nodelay=True)
     speed_pub = rospy.Publisher("mission_planner/desired_speed",Twist,queue_size=1,tcp_nodelay=True)
     pkg_path = rospkg.RosPack().get_path("usv_mission_planner")
-    csv_path = os.path.join(pkg_path,"data/",rospy.get_param("waypoint_file"))
+    csv_path = os.path.join(pkg_path,"data/static_mission_planner",rospy.get_param("waypoint_file"))
     geo_wpts = np.loadtxt(csv_path,delimiter=",")
     rospy.loginfo("Mission planner sleeping 3s before starting")
     rospy.sleep(1)

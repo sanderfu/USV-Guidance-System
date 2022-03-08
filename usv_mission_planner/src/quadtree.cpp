@@ -8,14 +8,18 @@
  * @param ds The dataset containing the map we build the Quadtree w.r.t. 
  * @param build_immediately If true, build the quadtree. If false, dont.
  */
-Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately): 
+Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region,bool build_immediately): 
     ds_(ds),
     lower_left_(lower_left),
     upper_right_(upper_right),
     geod_(GeographicLib::Geodesic::WGS84()){
     gm_ = new GraphManager;
     ros::Time start = ros::Time::now();
-    if (build_immediately) build();
+    if (build_immediately){
+        build();
+        save(mission_region);
+    } 
+    else load(mission_region);
     ros::Time end = ros::Time::now();
 
     benchmark_data_.build_time = ros::Duration(end-start).toSec();
@@ -32,20 +36,20 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, b
  * 
  * @param tree_name What the quadtree should be saved as (will overwrite any previous stored tree witht his name)
  */
-void Quadtree::save(const std::string& tree_name){
-    std::string path = ros::package::getPath("usv_mission_planner");
-    path.append("/data/quadtrees/"+tree_name+"/");
+void Quadtree::save(const std::string& mission_region){
+    std::string path = ros::package::getPath("usv_map");
+    path.append("/data/mission_regions/"+mission_region+"/");
     //Save graph
 
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directory(path);
     }
 
-    std::string graph_path = path+tree_name;
+    std::string graph_path = path + "quadtree_graph";
     gm_->saveGraph(graph_path);
 
     //Save for post-mission visualization
-    std::string viz_path = path+tree_name+".csv";
+    std::string viz_path = path+"quadtree.csv";
     std::ofstream viz_path_file(viz_path);
     viz_path_file << "u_lon,u_lat,v_lon,v_lat,edge_cost\n";
     for(auto edge_it = gm_->edge_map_.begin(); edge_it!=gm_->edge_map_.end();edge_it++){
@@ -91,12 +95,14 @@ void Quadtree::save(const std::string& tree_name){
             layer->CreateField(new OGRFieldDefn("parent",OGRFieldType::OFTInteger64));
             layer->CreateField(new OGRFieldDefn("id",OGRFieldType::OFTInteger64));
             layer->CreateField(new OGRFieldDefn("region",OGRFieldType::OFTInteger64));
+            layer->CreateField(new OGRFieldDefn("is_leaf",OGRFieldType::OFTInteger64));
         }
         OGRFeature* feature = OGRFeature::CreateFeature(layer->GetLayerDefn());
         feature->SetGeometry(current->region_polygon_);
         feature->SetField("parent",current->getParentID());
         feature->SetField("id",current->getID());
         feature->SetField("region",static_cast<int>(current->getOwnRegion()));
+        feature->SetField("is_leaf",static_cast<int>(current->is_leaf_));
         layer->CreateFeature(feature);
 
         for(auto child_it = current->children.begin(); child_it!=current->children.end(); child_it++){
@@ -121,9 +127,9 @@ void Quadtree::save(const std::string& tree_name){
  * 
  * @param tree_name Nam eof the saved quadtree. If a non-existent quadtree is named, the code will crash hard!
  */
-void Quadtree::load(const std::string& tree_name){
-    std::string path = ros::package::getPath("usv_mission_planner")+"/data/quadtrees/"+tree_name+"/";
-    std::string graph_path = path + tree_name;
+void Quadtree::load(const std::string& mission_region){
+    std::string path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/";
+    std::string graph_path = path + "quadtree_graph";
     gm_->loadGraph(graph_path);
 
     //Load regions
@@ -157,16 +163,16 @@ void Quadtree::load(const std::string& tree_name){
                 switch (static_cast<childRegion>(feat->GetFieldAsInteger64("region")))
                 {
                 case childRegion::NW:
-                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::NW,ds_),childRegion::NW);
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NW,ds_),childRegion::NW);
                     break;
                 case childRegion::NE:
-                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::NE,ds_),childRegion::NE);
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NE,ds_),childRegion::NE);
                     break;
                 case childRegion::SW:
-                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::SW,ds_),childRegion::SW);
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SW,ds_),childRegion::SW);
                     break;
                 case childRegion::SE:
-                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,generateRegionID(),parent->getID(),childRegion::SE,ds_),childRegion::SE);
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SE,ds_),childRegion::SE);
                     break;
                 default:
                     ROS_ERROR_STREAM("Region type not recognized!");
@@ -174,7 +180,18 @@ void Quadtree::load(const std::string& tree_name){
                 }
                 //Add child to parent map
                 parent_lookup[parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")))->getID()]=parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")));
-
+                Region* child = parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region")));
+                child->is_leaf_=static_cast<bool>(feat->GetFieldAsInteger64("is_leaf"));
+                if(child->is_leaf_){
+                    std::unordered_map<regionEdge,std::vector<StateVec>> frame_states = getFramePoints(parent->getChildRegion(static_cast<childRegion>(feat->GetFieldAsInteger64("region"))));
+                    Vertex* tmp;
+                    for(auto frame_state_it=frame_states.begin(); frame_state_it!=frame_states.end(); frame_state_it++){
+                        for(auto state_it=(*frame_state_it).second.begin(); state_it!=(*frame_state_it).second.end(); state_it++){
+                            gm_->getNearestVertex(&(*state_it),&tmp);
+                            child->vertices.push_back(tmp);
+                        }
+                    }
+                }
                 if (parent->children.size()==4){
                     //All 4 children added, remove from map
                     parent_lookup.erase(parent->getID());
@@ -197,12 +214,16 @@ void Quadtree::load(const std::string& tree_name){
 Region* Quadtree::getLeafRegionContaining(double lon, double lat){
     Region* current = tree_root_;
     Region* prev = nullptr;
-    while(current!=prev){
+    while(current!=prev && current!=nullptr){
         region_sequence_.push_back(current);
         prev = current;
         current = current->getChildRegionContaining(lon,lat);
     }
     return current;
+}
+
+GraphManager* Quadtree::getGraphManager(){
+    return gm_;
 }
 
 /**
@@ -270,6 +291,47 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
 }
 
 /**
+ * @brief Introduce a custom vertex to the graph and make connection with all edges in same region.
+ * 
+ * @param s Vertex
+ */
+void Quadtree::setCustomVertex(Vertex* s){
+    Region* leaf_region = getLeafRegionContaining(s->state.x(),s->state.y());
+
+    gm_->addVertex(s);
+    for(auto leaf_vertex_it=leaf_region->vertices.begin(); leaf_vertex_it!=leaf_region->vertices.end(); leaf_vertex_it++){
+        double distance;
+        geod_.Inverse(s->state.y(),s->state.x(),(*leaf_vertex_it)->state.y(),(*leaf_vertex_it)->state.x(),distance);
+        distance = abs(distance);
+        gm_->addEdge(s,*leaf_vertex_it,distance);
+    }
+}
+
+/**
+ * @brief Set start
+ * 
+ * @param lon Longitude
+ * @param lat Latitude
+ */
+void Quadtree::setStart(double lon, double lat){
+    Vertex* s = new Vertex(gm_->generateVertexID(),StateVec(lon,lat,0,0));
+    setCustomVertex(s);
+    return;
+}
+
+/**
+ * @brief Set goal
+ * 
+ * @param lon Longitude
+ * @param lat Latitude
+ */
+void Quadtree::setGoal(double lon,double lat){
+    Vertex* g = new Vertex(gm_->generateVertexID(),StateVec(lon,lat,0,0));
+    setCustomVertex(g);
+    return;
+}
+
+/**
  * @brief Build the Quadtree
  * 
  */
@@ -294,6 +356,7 @@ void Quadtree::build(){
             continue;
         } else if(occupied_ratio==0 ){
             //Area is free, add vertecies
+            current_region->is_leaf_=true;
             std::unordered_map<regionEdge,std::vector<StateVec>> frame_points = getFramePoints(current_region);
             Vertex* corner;
             for (auto side_it = frame_points.begin(); side_it!=frame_points.end(); side_it++){
@@ -316,8 +379,6 @@ void Quadtree::build(){
                     //If edge already exists, don't add again
                     if(gm_->edge_map_[(*it_vert_a)->id].find((*it_vert_b)->id)!=gm_->edge_map_[(*it_vert_a)->id].end()) continue;
 
-                    //TODO: Wrong to use Euler here to weight the edge, must uuse geodetic distance!
-
                     double distance;
                     double lon_a = (*it_vert_a)->state.x();
                     double lat_a = (*it_vert_a)->state.y();
@@ -337,9 +398,9 @@ void Quadtree::build(){
 
 }
 
-QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds,bool build_immediately):
+QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region,bool build_immediately):
 nh_(nh),
-Quadtree(lower_left,upper_right,ds,build_immediately){
+Quadtree(lower_left,upper_right,ds,mission_region,build_immediately){
     vertex_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_vertices",1,true);
     edge_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_edges",1,true);
     region_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/highlight_region",1,true);
@@ -371,7 +432,7 @@ void QuadtreeROS::visualize(){
     publishVisualGraph();
 }
 
-void QuadtreeROS::testGetRegion(double lon, double lat){
+Region* QuadtreeROS::testGetRegion(double lon, double lat){
 
     Eigen::Vector3d point_geo(lon,lat,0);
     Eigen::Vector3d point_enu;
@@ -385,8 +446,12 @@ void QuadtreeROS::testGetRegion(double lon, double lat){
     ros::Time end = ros::Time::now();
     std::cout << "Finding child leaf took: " << ros::Duration(end-start).toSec() << std::endl;
 
-
-    highlightRegion(child);   
+    if (child==nullptr){
+        ROS_INFO_STREAM("Not covered by leaf");
+        return nullptr;
+    }
+    highlightRegion(child);
+    return child;   
 }
 
 void QuadtreeROS::initializeMarkers(){

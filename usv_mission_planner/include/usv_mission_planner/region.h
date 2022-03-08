@@ -54,6 +54,7 @@ class Region{
 
         std::unordered_map<childRegion, Region*> children;
         std::vector<Vertex*> vertices;
+        bool is_leaf_;
     private:
         GDALDataset* ds_;
         OGRLayer* comparison_layer_;

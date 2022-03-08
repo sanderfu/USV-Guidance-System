@@ -43,7 +43,7 @@ namespace ModelLibrary{
             void operator() (const state_type& x, state_type &dxdt, const double /*t*/);
 
             simulatedHorizon simulateHorizon(state_type x_init, double u_d, double psi_d, double T);
-            simulatedHorizon simulateHorizonAdaptive(state_type x_init, double u_d, double psi_d, double T);
+            simulatedHorizon simulateHorizonAdaptive(state_type& x_init, double u_d, double psi_d, double T);
             void simulate(state_type& x, double u_d, double psi_d, double T);
 
             inline double getL() {return L_;}
@@ -123,32 +123,8 @@ namespace ModelLibrary{
     };
 
 
-    double SSA(double angle){
-        return fmod(angle+M_PI,2*M_PI) - M_PI;
-    }
-
-    double normalize_angle_diff(double angle, double angle_ref){
-        double new_angle;
-        double diff = angle_ref - angle;
-
-        if (isinf(angle) || isinf(angle_ref)) return angle;
-
-        // Get angle within 2*PI of angle_ref
-        if (diff > 0){
-            new_angle = angle +(diff - fmod(diff, 2*M_PI));
-        }else{
-            new_angle = angle + (diff + fmod(-diff, 2*M_PI));
-        }
-
-        // Get angle on side closest to angle_ref
-        diff = angle_ref - new_angle;
-        if (diff > M_PI){
-            new_angle += 2*M_PI;
-        }else if (diff < -M_PI){
-            new_angle -= 2*M_PI;
-        }
-        return new_angle;
-    }
+    double SSA(double angle);
+    double normalize_angle_diff(double angle, double angle_ref);
 
 
 }//End namespace ModelLibrary;

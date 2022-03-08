@@ -33,6 +33,9 @@ install(TARGETS region
 
 cs_add_library(${PROJECT_NAME}
   src/quadtree.cpp
+  src/astar.cpp
+  src/hybrid_astar.cpp
+  src/mission_planner.cpp
 )
 target_link_libraries(${PROJECT_NAME} region)
 
@@ -44,6 +47,15 @@ cs_add_executable(test_quadtree
 )
 target_link_libraries(test_quadtree ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
+cs_add_executable(mission_planner_node
+  src/mission_planner_node.cpp
+)
+target_link_libraries(mission_planner_node ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
+
+cs_add_executable(mission_planner_client_node
+  src/mission_planner_client_node.cpp
+)
+target_link_libraries(mission_planner_client_node ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
 
 ##########

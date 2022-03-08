@@ -1,0 +1,13 @@
+Header header
+
+bool use_odom
+bool publish_path
+
+float64 custom_start_lon
+float64 custom_start_lat
+float64 custom_start_heading
+
+float64 goal_lon
+float64 goal_lat
+---
+bool success

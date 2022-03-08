@@ -1,0 +1,9 @@
+#Take in a point and return distance to collision
+Header header
+
+uint8 layer_id
+float64 lon
+float64 lat
+
+---
+float64 distance

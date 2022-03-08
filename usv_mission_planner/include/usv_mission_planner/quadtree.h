@@ -38,14 +38,15 @@ typedef struct {
  */
 class Quadtree{
     public:
-        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately=true);
+        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region, bool build_immediately=true);
         
-        void setStart(Vertex* s);
-        void setGoal(Vertex* g);
+        void setStart(double lon, double lat);
+        void setGoal(double lon, double lat);
         Region* getLeafRegionContaining(double lon, double lat);
+        GraphManager* getGraphManager();
 
-        void save(const std::string& tree_name);
-        void load(const std::string& tree_name);
+        void save(const std::string& mission_region);
+        void load(const std::string& Mission_region);
 
     protected:
         GDALDataset* ds_;
@@ -68,7 +69,6 @@ class Quadtree{
 
         int generateRegionID();
         void splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate);
-        Region* findLeafRegionContaining(StateVec& pos);
         void setCustomVertex(Vertex* s);
 
         //Debug
@@ -77,9 +77,9 @@ class Quadtree{
 
 class QuadtreeROS : public Quadtree{
     public:
-        QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, bool build_immediately=true);
+        QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region, bool build_immediately=true);
         void visualize();
-        void testGetRegion(double lon, double lat);
+        Region* testGetRegion(double lon, double lat);
     private:
         geotf::GeodeticConverter geo_converter_;
         ros::NodeHandle nh_;

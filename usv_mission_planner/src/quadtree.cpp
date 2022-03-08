@@ -379,8 +379,6 @@ void Quadtree::build(){
                     //If edge already exists, don't add again
                     if(gm_->edge_map_[(*it_vert_a)->id].find((*it_vert_b)->id)!=gm_->edge_map_[(*it_vert_a)->id].end()) continue;
 
-                    //TODO: Wrong to use Euler here to weight the edge, must uuse geodetic distance!
-
                     double distance;
                     double lon_a = (*it_vert_a)->state.x();
                     double lat_a = (*it_vert_a)->state.y();

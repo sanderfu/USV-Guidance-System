@@ -8,7 +8,6 @@
 #include "usv_map/map_service.h"
 #include "unordered_map"
 #include <iostream>
-#include "usv_mission_planner/flexible_priority_queue.h"
 #include "usv_mission_planner/priority_queue.h"
 #include "usv_mission_planner/astar.h"
 

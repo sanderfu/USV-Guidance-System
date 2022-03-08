@@ -53,7 +53,6 @@ class MissionPlanner{
         void publishPath();
         void publishSpeed();
         void odomCb(const nav_msgs::Odometry& odom);
-
         void savePath();
 };
 

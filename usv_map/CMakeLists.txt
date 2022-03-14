@@ -24,6 +24,7 @@ find_package (GeographicLib REQUIRED)
 cs_add_library(${PROJECT_NAME}
   src/geotf_ros.cpp
   src/map_service.cpp
+  src/map_preprocessor.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -59,6 +60,11 @@ cs_add_executable(map_service_node
   src/map_service_node.cpp
 )
 target_link_libraries(map_service_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+
+cs_add_executable(map_preprocessor_node
+  src/map_preprocessor_node.cpp
+)
+target_link_libraries(map_preprocessor_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
 cs_add_executable(test_services
   src/test_services.cpp

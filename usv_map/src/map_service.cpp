@@ -82,6 +82,56 @@ MapService::MapService(std::string mission_region){
     
 }
 
+MapService::MapService(GDALDataset* ds):
+ds_(ds){
+    driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
+    //driver_mem_ = GetGDALDriverManager()->GetDriverByName("SQLite");
+    ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
+    //ds_in_mem_ = driver_mem_->Create((ros::package::getPath("usv_map")+"/data/debug/debug.sqlite").c_str(),0,0,0,GDT_Unknown,NULL);
+    OGRFeature* feat;
+    for(auto&& layer: ds_->GetLayers()){
+        if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
+        OGRLayer* multi_layer = ds_in_mem_->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiPolygon);
+        OGRFeature* multi_feature = OGRFeature::CreateFeature(multi_layer->GetLayerDefn());
+        OGRMultiPolygon multi_poly;
+        layer->ResetReading();
+            while((feat = layer->GetNextFeature()) != NULL){
+                multi_poly.addGeometry(feat->GetGeometryRef());
+                OGRFeature::DestroyFeature(feat);
+            }
+        multi_feature->SetGeometry(&multi_poly);
+        multi_layer->CreateFeature(multi_feature);
+    }
+
+    OGREnvelope layer_envelope;
+    ds_in_mem_->ResetReading();
+    lower_left_.setX(INFINITY);
+    lower_left_.setY(INFINITY);
+
+    upper_right_.setX(-INFINITY);
+    upper_right_.setY(-INFINITY);
+    for(auto&& layer: ds_in_mem_->GetLayers()){
+        layer->GetExtent(&layer_envelope);
+        if(layer_envelope.MinX<lower_left_.getX() && layer_envelope.MinY<lower_left_.getY()){
+            lower_left_.setX(layer_envelope.MinX);
+            lower_left_.setY(layer_envelope.MinY);
+        }
+        if(layer_envelope.MaxX>upper_right_.getX() && layer_envelope.MaxY>upper_right_.getY()){
+            upper_right_.setX(layer_envelope.MaxX);
+            upper_right_.setY(layer_envelope.MaxY);
+        }
+    }
+
+    //Load parameters
+    bool parameter_load_error = false;
+    if(!ros::param::get("map_service/voronoi_field/alpha",alpha_)) parameter_load_error = true;
+    if(!ros::param::get("map_service/distance/default_saturation",default_saturation_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+}
+
 bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
     OGRLayer* layer; 
     switch(layer_id){

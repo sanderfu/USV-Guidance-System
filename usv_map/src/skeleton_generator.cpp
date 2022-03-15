@@ -6,7 +6,7 @@ tree_(tree),
 map_service_(map_service),
 geod_(geod){
     in_layer_ = ds_->GetLayerByName(layername.c_str());
-    ds_->CreateLayer("voronoi_skeleton",nullptr,wkbMultiLineString);
+    voronoi_layer_ = ds_->CreateLayer("voronoi",nullptr,wkbMultiLineString);
 }
 
 void VoronoiSkeletonGenerator::run(){
@@ -45,7 +45,6 @@ void VoronoiSkeletonGenerator::run(){
     int branches_pruned = 0;
 
     //std::unordered_map<std::pair<double,double>,bool,hash_pair> contained_in_geometry_lookup;
-
     while(edges){
         bool intersects = false;
         total_edges++;
@@ -112,8 +111,23 @@ void VoronoiSkeletonGenerator::run(){
             */
             if(intersects) break;
             OGRFeature::DestroyFeature(feat);
-            
         }
+        
+        if (intersects){
+            edges = jcv_diagram_get_next_edge(edges);
+            continue;
+        }
+        
+        
+        //If comes this far, add
+        OGRLineString line;
+        line.addPoint(&check_point_a);
+        line.addPoint(&check_point_b);
+        voronoi_geom.addGeometry(&line);
+
+        //i++;
+        //edge_file << edges->pos[0].x << "," << edges->pos[0].y << "," << edges->pos[1].x << "," << edges->pos[1].y << "\n";
+        edges = jcv_diagram_get_next_edge(edges);
     }
     voronoi_feature->SetGeometry(&voronoi_geom);
     voronoi_layer_->CreateFeature(voronoi_feature);

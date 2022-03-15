@@ -1,6 +1,6 @@
 #pragma once
 #include "gdal/ogrsf_frmts.h"
-#include "voronoi/jc_voronoi.h"
+#include "usv_map/jc_voronoi.h"
 #include "usv_map/quadtree.h"
 #include "usv_map/map_service.h"
 

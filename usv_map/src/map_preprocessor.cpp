@@ -1,5 +1,6 @@
 #include "usv_map/map_preprocessor.h"
 
+
 MapPreprocessor::MapPreprocessor(){
     GDALAllRegister();
     driver_sqlite_ = GetGDALDriverManager()->GetDriverByName("SQLite");
@@ -32,9 +33,11 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
     //Build quadtree
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,true);
-    tree.save(mission_region_name);
+    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,false);
 
-    //Build voronoi graph
-
+    //Build voronoi skeleton
+    MapService map_service(db);
+    GeographicLib::Geodesic geod(GeographicLib::Geodesic::WGS84());
+    VoronoiSkeletonGenerator vs_gen("collision_dissolved",db,&tree,&map_service,&geod);
+    vs_gen.run();
 }

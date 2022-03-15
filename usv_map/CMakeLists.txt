@@ -34,6 +34,8 @@ install(TARGETS region
 
 cs_add_library(${PROJECT_NAME}
   src/quadtree.cpp
+  src/skeleton_generator.cpp
+  src/jc_voronoi.cpp
   src/geotf_ros.cpp
   src/map_service.cpp
   src/map_preprocessor.cpp

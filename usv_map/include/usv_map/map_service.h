@@ -14,6 +14,7 @@ enum LayerID {COLLISION, CAUTION, VORONOI};
 class MapService {
     public:
         MapService(std::string mission_region);
+        MapService(GDALDataset* ds);
         bool intersects(OGRGeometry* geom, LayerID layer_id);
         double distance(double lon,double lat,LayerID layer_id,double max_distance=-1);
         double voronoi_field(double lon, double lat);

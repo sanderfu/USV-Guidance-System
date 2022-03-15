@@ -1,0 +1,9 @@
+<launch>
+    <rosparam command="load" file="$(find usv_map)/config/map_service.yaml" />
+    <node pkg="usv_map"
+            name="map_preprocessor_node"
+            type="map_preprocessor_node"
+            respawn="false"
+            output="screen">
+    </node>
+</launch>

@@ -27,13 +27,14 @@
             output="screen">
       </node>
       
-
       <param name="robot_description" textfile="$(arg vessel_model_file)" />
       <node pkg="robot_state_publisher"
           type="robot_state_publisher"
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+      <include file="$(find usv_mission_planner)/launch/mission_planner_client.launch"/>
+
       
       
       <node pkg="usv_colav"

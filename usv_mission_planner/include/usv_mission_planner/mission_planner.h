@@ -1,7 +1,8 @@
 #pragma once
 #include "ros/ros.h"
 #include "ros/package.h"
-#include "nav_msgs/Odometry.h"
+#include "ros/topic.h"
+#include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/Pose.h"
 #include "std_msgs/Bool.h"
 #include "usv_mission_planner/hybrid_astar.h"
@@ -36,7 +37,7 @@ class MissionPlanner{
         std::vector<extendedVertex*> path_;
 
         //Received data
-        nav_msgs::Odometry latest_odom_;
+        geometry_msgs::PoseStamped latest_gps_;
 
         //Parameters
         std::string mission_name_;
@@ -55,7 +56,6 @@ class MissionPlanner{
         bool search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res);
         void publishPath();
         void publishSpeed();
-        void odomCb(const nav_msgs::Odometry& odom);
         void savePath();
 };
 

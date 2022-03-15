@@ -13,7 +13,6 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
     region_available_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/region_available",1,true);
-    odom_sub_ = nh_.subscribe("odom",1,&MissionPlanner::odomCb,this);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
     bool parameter_load_error = false;
@@ -100,15 +99,6 @@ void MissionPlanner::publishSpeed(){
 }
 
 /**
- * @brief Register the latest recieved odometry
- * 
- * @param odom Odometry message from vessel.
- */
-void MissionPlanner::odomCb(const nav_msgs::Odometry& odom){
-    latest_odom_ = odom;
-}
-
-/**
  * @brief Service function to find an optimized path.
  * 
  * @details The search is either from latest vessel omodmetry or from specified position based on service request.
@@ -121,12 +111,14 @@ void MissionPlanner::odomCb(const nav_msgs::Odometry& odom){
 bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res){
     ROS_INFO_STREAM("Start search in mission planner");
     if (req.use_odom){
+        latest_gps_ = *ros::topic::waitForMessage<geometry_msgs::PoseStamped>("pose",nh_);
+        std::cout << "Latest odom: " << latest_gps_.pose.position.x << latest_gps_.pose.position.y << std::endl;
         tf::Quaternion q;
-        tf::quaternionMsgToTF(latest_odom_.pose.pose.orientation,q);
+        tf::quaternionMsgToTF(latest_gps_.pose.orientation,q);
         tf::Matrix3x3 m(q);
         double roll, pitch, yaw;
         m.getRPY(roll, pitch, yaw);
-        search_alg_->setStart(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,yaw);
+        search_alg_->setStart(latest_gps_.pose.position.x,latest_gps_.pose.position.y,yaw);
     } else{
         search_alg_->setStart(req.custom_start_lon,req.custom_start_lat,req.custom_start_heading);
     }

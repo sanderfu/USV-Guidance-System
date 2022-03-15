@@ -57,7 +57,9 @@ void SimulatedVessel::updateLoop(const ros::TimerEvent& e){
 void SimulatedVessel::publishData(){
     tf::Transform transform;
     nav_msgs::Odometry odom;
+    geometry_msgs::PoseStamped pose;
 
+    //Transform publish
     transform.setOrigin(tf::Vector3(x_[0],x_[1],0));
 
     tf::Quaternion q;
@@ -69,6 +71,7 @@ void SimulatedVessel::publishData(){
                                             "map",
                                             vessel_name_));
 
+    //Odometry publish (local frame)
     odom.header.stamp = ros::Time::now();
     odom.header.frame_id = "map";
     odom.child_frame_id = nh_.getNamespace();
@@ -81,8 +84,18 @@ void SimulatedVessel::publishData(){
     odom.twist.twist.linear.x = x_[3];
     odom.twist.twist.linear.y = x_[4];
     odom.twist.twist.angular.z = x_[5];
-
     odom_pub_.publish(odom);
+
+    //Pose publish (global frame, LLA)
+    Eigen::Vector3d local_initial_position(x_[0],x_[1],0);
+    Eigen::Vector3d global_initial_position;
+    while(!geo_converter_.convert("global_enu",local_initial_position,"WGS84",global_initial_position));
+    pose.pose.position.x = global_initial_position.x();
+    pose.pose.position.y = global_initial_position.y();
+    tf::quaternionTFToMsg(q, pose.pose.orientation);
+    pose_pub_.publish(pose);
+
+
 }
 
 /**

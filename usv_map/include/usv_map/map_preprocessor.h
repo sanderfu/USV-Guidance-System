@@ -1,5 +1,7 @@
 #pragma once
 #include "enc_extraction/enc_extract_lib.h"
+#include "usv_map/skeleton_generator.h"
+#include "usv_map/quadtree.h"
 #include "ros/package.h"
 #include "boost/filesystem.hpp"
 
@@ -8,8 +10,6 @@ class MapPreprocessor{
         MapPreprocessor();
         void run(std::string mission_region_name, extractorRegion& region);
     private:
-        ENCExtractor* enc_extractor_;
-        //VoronoiSkeletonGenerator* voronoi_skeleton_generator_;
         GDALDriver* driver_sqlite_;
 
         //Vessel data (TODO: Load from parameter server)

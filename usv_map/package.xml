@@ -23,6 +23,8 @@
   <depend>tf</depend>
   <depend>roslib</depend>
   <depend>geotf</depend>
+  <depend>planner_common</depend>
+  <depend>voronoi</depend>
   <depend>enc_extraction</depend>
   <depend>message_generation</depend>
   <depend>message_runtime</depend>

@@ -3,7 +3,7 @@
 //Dependencies for quadtree
 #include "ros/ros.h"
 #include "ros/package.h"
-#include "usv_mission_planner/region.h"
+#include "usv_map/region.h"
 #include "gdal/ogrsf_frmts.h"
 #include "planner_common/graph_manager.h"
 #include "vector"

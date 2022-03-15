@@ -57,7 +57,7 @@ def main():
     figure_2,ax_2 = plt.subplots(1,1)
     figure_3,ax_3 = plt.subplots(1,1)
     #Plot background
-    datasource_path = rospack.get_path('voroni')+"/data/test_map/check_db.sqlite"
+    datasource_path = rospack.get_path('voronoi')+"/data/test_map/check_db.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:
         raise RuntimeError("Failed to load datasource",datasource_path)
@@ -138,7 +138,7 @@ def main():
     ax.autoscale(enable=True, axis="both", tight=None)
     ax_2.autoscale(enable=True, axis="both", tight=None)
     ax_3.autoscale(enable=True, axis="both", tight=None)
-    figure.savefig(rospack.get_path('usv_map')+"/scripts/voroni_field.pdf")
+    figure.savefig(rospack.get_path('usv_map')+"/scripts/voronoi_field.pdf")
     figure_2.savefig(rospack.get_path('usv_map')+"/scripts/distance_obstacle.pdf")
     figure_3.savefig(rospack.get_path('usv_map')+"/scripts/distance_voronoi.pdf")
     #plt.show()

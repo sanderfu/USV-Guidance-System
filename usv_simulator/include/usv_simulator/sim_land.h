@@ -5,6 +5,8 @@
 #include "ros/package.h"
 #include "geotf/geodetic_converter.h"
 #include <gdal/ogrsf_frmts.h>
+#include "ros/topic.h"
+#include "std_msgs/Bool.h"
 
 class SimulatedLand{
     public:

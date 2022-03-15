@@ -21,31 +21,20 @@ find_package (GeographicLib REQUIRED)
 #############
 # LIBRARIES #
 #############
-add_library(region src/region.cpp)
-target_compile_options(region PRIVATE ${OpenMP_FLAGS})
-add_dependencies(region ${catkin_EXPORTED_TARGETS})
-target_link_libraries(region ${catkin_LIBRARIES} ${OpenMP_LIBS})
-install(TARGETS region
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
-
 cs_add_library(${PROJECT_NAME}
-  src/quadtree.cpp
   src/astar.cpp
   src/hybrid_astar.cpp
   src/mission_planner.cpp
 )
-target_link_libraries(${PROJECT_NAME} region)
+
 
 ############
 # BINARIES #
 ############
-cs_add_executable(test_quadtree
-  src/test_quadtree.cpp
-)
-target_link_libraries(test_quadtree ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
+#cs_add_executable(test_quadtree
+#  src/test_quadtree.cpp
+#)
+#target_link_libraries(test_quadtree ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
 cs_add_executable(mission_planner_node
   src/mission_planner_node.cpp

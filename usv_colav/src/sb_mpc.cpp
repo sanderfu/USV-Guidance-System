@@ -24,6 +24,7 @@ K_DCHI_P_(1.2)			//   1.2
     ROS_INFO_STREAM("SB_MPC started, waiting for first odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
+    ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
     ROS_INFO_STREAM("Odometry and LOS setpoint received");
 
     geo_converter_.addFrameByEPSG("WGS84",4326);

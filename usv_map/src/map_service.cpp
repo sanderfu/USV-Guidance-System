@@ -9,7 +9,8 @@ MapService::MapService(std::string mission_region){
         ros::shutdown();
     }
 
-    std::string db_path_ = mission_path+"check_db.sqlite";
+    std::string db_path_ = mission_path+"region.sqlite";
+    std::cout << db_path_ << std::endl;
     GDALAllRegister();
     ds_ = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_ == NULL)
@@ -18,26 +19,11 @@ MapService::MapService(std::string mission_region){
         ros::shutdown();
     }
 
-    std::string db_lite_path=mission_path+"check_db_lite.sqlite";
-    GDALDataset* ds_lite_ = (GDALDataset*) GDALOpenEx(db_lite_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-    if( ds_lite_ == NULL)
-    {
-        ROS_ERROR_STREAM("MapService: Failed to open map db");
-        ros::shutdown();
-    }
-
-    std::string voronoi_path = mission_path+"voronoi.sqlite";
-    GDALDataset* ds_voronoi_ = (GDALDataset*) GDALOpenEx(voronoi_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-    if( ds_voronoi_ == NULL)
-    {
-        ROS_ERROR_STREAM("MapService: Failed to open voronoi db");
-        ros::shutdown();
-    }
-
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
     ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
     OGRFeature* feat;
-    for(auto&& layer: ds_lite_->GetLayers()){
+    for(auto&& layer: ds_->GetLayers()){
+        if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
         OGRLayer* multi_layer = ds_in_mem_->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiPolygon);
         OGRFeature* multi_feature = OGRFeature::CreateFeature(multi_layer->GetLayerDefn());
         OGRMultiPolygon multi_poly;
@@ -69,7 +55,7 @@ MapService::MapService(std::string mission_region){
         }
     }    
 
-    ds_in_mem_->CopyLayer(ds_voronoi_->GetLayerByName("voronoi"),"voronoi");
+    ds_in_mem_->CopyLayer(ds_->GetLayerByName("voronoi"),"voronoi");
 
     //Load parameters
     bool parameter_load_error = false;
@@ -80,6 +66,56 @@ MapService::MapService(std::string mission_region){
         ros::shutdown();
     }
     
+}
+
+MapService::MapService(GDALDataset* ds):
+ds_(ds){
+    driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
+    //driver_mem_ = GetGDALDriverManager()->GetDriverByName("SQLite");
+    ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
+    //ds_in_mem_ = driver_mem_->Create((ros::package::getPath("usv_map")+"/data/debug/debug.sqlite").c_str(),0,0,0,GDT_Unknown,NULL);
+    OGRFeature* feat;
+    for(auto&& layer: ds_->GetLayers()){
+        if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
+        OGRLayer* multi_layer = ds_in_mem_->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiPolygon);
+        OGRFeature* multi_feature = OGRFeature::CreateFeature(multi_layer->GetLayerDefn());
+        OGRMultiPolygon multi_poly;
+        layer->ResetReading();
+            while((feat = layer->GetNextFeature()) != NULL){
+                multi_poly.addGeometry(feat->GetGeometryRef());
+                OGRFeature::DestroyFeature(feat);
+            }
+        multi_feature->SetGeometry(&multi_poly);
+        multi_layer->CreateFeature(multi_feature);
+    }
+
+    OGREnvelope layer_envelope;
+    ds_in_mem_->ResetReading();
+    lower_left_.setX(INFINITY);
+    lower_left_.setY(INFINITY);
+
+    upper_right_.setX(-INFINITY);
+    upper_right_.setY(-INFINITY);
+    for(auto&& layer: ds_in_mem_->GetLayers()){
+        layer->GetExtent(&layer_envelope);
+        if(layer_envelope.MinX<lower_left_.getX() && layer_envelope.MinY<lower_left_.getY()){
+            lower_left_.setX(layer_envelope.MinX);
+            lower_left_.setY(layer_envelope.MinY);
+        }
+        if(layer_envelope.MaxX>upper_right_.getX() && layer_envelope.MaxY>upper_right_.getY()){
+            upper_right_.setX(layer_envelope.MaxX);
+            upper_right_.setY(layer_envelope.MaxY);
+        }
+    }
+
+    //Load parameters
+    bool parameter_load_error = false;
+    if(!ros::param::get("map_service/voronoi_field/alpha",alpha_)) parameter_load_error = true;
+    if(!ros::param::get("map_service/distance/default_saturation",default_saturation_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
 }
 
 bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
@@ -178,12 +214,12 @@ GDALDataset* MapService::getDataset(){
 MapServiceServer::MapServiceServer(const ros::NodeHandle& nh) : nh_(nh){
     std::string mission_region;
     bool parameter_load_error = false;
-    if(!ros::param::get("Viknes830/mission_planner/map_name",mission_region)) parameter_load_error = true;
+    if(!ros::param::get("mission_planner/map_name",mission_region)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
     }
-    db_path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/"+"check_db.sqlite";
+    db_path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/"+"region.sqlite";
     GDALAllRegister();
     ds_ = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
     if( ds_ == NULL){
@@ -194,18 +230,11 @@ MapServiceServer::MapServiceServer(const ros::NodeHandle& nh) : nh_(nh){
     intersect_service_ = nh_.advertiseService("/map/intersects", &MapServiceServer::intersects, this);
     distance_service_ = nh_.advertiseService("/map/distance", &MapServiceServer::distance, this);
 
-    std::string db_lite_path=ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/"+"check_db_lite.sqlite";
-    GDALDataset* ds_lite = (GDALDataset*) GDALOpenEx(db_lite_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-    if( ds_lite == NULL)
-    {
-        ROS_ERROR_STREAM("MapServiceServer: Failed to open map db");
-        ros::shutdown();
-    }
-
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
     memory_ds_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
     OGRFeature* feat;
-    for(auto&& layer: ds_lite->GetLayers()){
+    for(auto&& layer: ds_->GetLayers()){
+        if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
         OGRLayer* multi_layer = memory_ds_->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiPolygon);
         OGRFeature* multi_feature = OGRFeature::CreateFeature(multi_layer->GetLayerDefn());
         OGRMultiPolygon multi_poly;

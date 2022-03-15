@@ -3,6 +3,7 @@
 #include "ros/ros.h"
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Twist.h"
+#include "std_msgs/Bool.h"
 #include "gdal/ogrsf_frmts.h"
 #include "usv_map/map_service.h"
 #include "usv_map/geotf_ros.h"

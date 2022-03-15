@@ -12,7 +12,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     GDALAllRegister();
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
-    odom_sub_ = nh_.subscribe("odom",1,&MissionPlanner::odomCb,this);
+    region_available_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/region_available",1,true);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
     bool parameter_load_error = false;
@@ -21,7 +21,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     if(!ros::param::get("mission_planner/gpx_name",gpx_name_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/preprocessed_map",preprocessed_map_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/map_name",map_name_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/search_immideately",search_immideately_)) parameter_load_error = true;
+    if(!ros::param::get("mission_planner/map_extent",mission_region_extent_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/desired_speed",desired_speed_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
@@ -52,15 +52,18 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
         return;
     }
 
-    if(preprocessed_map_){
-        map_service_ = new MapService(map_name_);
-    } else{
-        ROS_WARN_STREAM("Handling non-preprocessed maps not implemented yet");
-        ros::shutdown();
-        //map_service_ = new MapService(extent,map_name(optional))
+    if(!preprocessed_map_){
+        std::cout << "Start preprocessing map" << std::endl;
+        MapPreprocessor preprocessor;
+        extractorRegion r(mission_region_extent_[0],mission_region_extent_[1],mission_region_extent_[2],mission_region_extent_[3]);
+        preprocessor.run(map_name_,r);
+         std::cout << "Done preprocessing map" << std::endl;
     }
+    region_available_pub_.publish(std_msgs::Bool());
+
+    map_service_ = new MapService(map_name_);
     std::pair<OGRPoint,OGRPoint> map_extent = map_service_->getMapExtent();
-    tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,!preprocessed_map_);
+    tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,false);
     vessel_model_ = new ModelLibrary::Viknes830();
     search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_,mission_name_);
     ROS_INFO_STREAM("Done initializing MissionPlanner");
@@ -96,15 +99,6 @@ void MissionPlanner::publishSpeed(){
 }
 
 /**
- * @brief Register the latest recieved odometry
- * 
- * @param odom Odometry message from vessel.
- */
-void MissionPlanner::odomCb(const nav_msgs::Odometry& odom){
-    latest_odom_ = odom;
-}
-
-/**
  * @brief Service function to find an optimized path.
  * 
  * @details The search is either from latest vessel omodmetry or from specified position based on service request.
@@ -117,12 +111,14 @@ void MissionPlanner::odomCb(const nav_msgs::Odometry& odom){
 bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res){
     ROS_INFO_STREAM("Start search in mission planner");
     if (req.use_odom){
+        latest_gps_ = *ros::topic::waitForMessage<geometry_msgs::PoseStamped>("pose",nh_);
+        std::cout << "Latest odom: " << latest_gps_.pose.position.x << latest_gps_.pose.position.y << std::endl;
         tf::Quaternion q;
-        tf::quaternionMsgToTF(latest_odom_.pose.pose.orientation,q);
+        tf::quaternionMsgToTF(latest_gps_.pose.orientation,q);
         tf::Matrix3x3 m(q);
         double roll, pitch, yaw;
         m.getRPY(roll, pitch, yaw);
-        search_alg_->setStart(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,yaw);
+        search_alg_->setStart(latest_gps_.pose.position.x,latest_gps_.pose.position.y,yaw);
     } else{
         search_alg_->setStart(req.custom_start_lon,req.custom_start_lat,req.custom_start_heading);
     }

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "usv_model/model_library.h"
-#include "usv_mission_planner/quadtree.h"
+#include "usv_map/quadtree.h"
 #include "GeographicLib/Geodesic.hpp"
 #include "geotf/geodetic_converter.h"
 #include "vector"

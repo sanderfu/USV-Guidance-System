@@ -1,4 +1,4 @@
-#include "usv_mission_planner/quadtree.h"
+#include "usv_map/quadtree.h"
 #include "usv_mission_planner/astar.h"
 #include "usv_mission_planner/hybrid_astar.h"
 #include "usv_mission_planner/mission_planner.h"

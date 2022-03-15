@@ -9,11 +9,9 @@
   <arg name="use_sb_mpc" default="True" />
   <arg name="shipname" default="Viknes830" />
 
-  <include file="$(find usv_map)/launch/default.launch"/>
-
   <group ns="$(arg shipname)">
-      <arg name="waypoint_file" default="test_grounding_avoidance.csv" />
-      <param name="waypoint_file" value="$(arg waypoint_file)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
       <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
       <node pkg="usv_simulator"
             name="sim"
@@ -29,13 +27,14 @@
             output="screen">
       </node>
       
-
       <param name="robot_description" textfile="$(arg vessel_model_file)" />
       <node pkg="robot_state_publisher"
           type="robot_state_publisher"
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+      <include file="$(find usv_mission_planner)/launch/mission_planner_client.launch"/>
+
       
       
       <node pkg="usv_colav"

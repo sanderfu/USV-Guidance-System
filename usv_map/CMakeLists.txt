@@ -21,20 +21,26 @@ find_package (GeographicLib REQUIRED)
 #############
 # LIBRARIES #
 #############
-cs_add_library(${PROJECT_NAME}
-  src/geotf_ros.cpp
-  src/map_service.cpp
+add_library(region src/region.cpp)
+target_compile_options(region PRIVATE ${OpenMP_FLAGS})
+add_dependencies(region ${catkin_EXPORTED_TARGETS})
+target_link_libraries(region ${catkin_LIBRARIES} ${OpenMP_LIBS})
+install(TARGETS region
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
-#add_library(graph_builder src/graph_builder.cpp)
-#target_compile_options(graph_builder PRIVATE ${OpenMP_FLAGS})
-#add_dependencies(graph_builder ${catkin_EXPORTED_TARGETS})
-#target_link_libraries(graph_builder ${catkin_LIBRARIES} ${OpenMP_LIBS})
-#install(TARGETS graph_builder
-#  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-#)
+
+cs_add_library(${PROJECT_NAME}
+  src/quadtree.cpp
+  src/skeleton_generator.cpp
+  src/jc_voronoi.cpp
+  src/geotf_ros.cpp
+  src/map_service.cpp
+  src/map_preprocessor.cpp
+)
+target_link_libraries(${PROJECT_NAME} region ${GeographicLib_LIBRARIES})
 
 ############
 # BINARIES #
@@ -59,6 +65,11 @@ cs_add_executable(map_service_node
   src/map_service_node.cpp
 )
 target_link_libraries(map_service_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+
+cs_add_executable(map_preprocessor_node
+  src/map_preprocessor_node.cpp
+)
+target_link_libraries(map_preprocessor_node ${PROJECT_NAME} ${gdal_LIBRARIES} ${GeographicLib_LIBRARIES})
 
 cs_add_executable(test_services
   src/test_services.cpp

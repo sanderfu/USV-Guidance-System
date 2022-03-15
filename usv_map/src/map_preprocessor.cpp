@@ -33,7 +33,7 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
     //Build quadtree
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,false);
+    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,true);
 
     //Build voronoi skeleton
     MapService map_service(db);

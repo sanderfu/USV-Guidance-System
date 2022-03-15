@@ -19,7 +19,7 @@ mission_planner:
   #Preprocessing has been run for mission region
   preprocessed_map: false
   #Preprocessed data to load (or save). Loads/saves collision db, voronoi db and quadtree 
-  map_name: "test_mission_region_2"
+  map_name: "outside_new_york"
   # Two coordinates defining the mission region. Discarded if preprocessed_map=true (min_lon,min_lat,max_lon,max_lat)
   map_extent: [-74.02483,40.49961,-73.72579,40.64967]
   #Desired speed of the vessel planning for

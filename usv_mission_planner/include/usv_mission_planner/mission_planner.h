@@ -3,12 +3,14 @@
 #include "ros/package.h"
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Pose.h"
+#include "std_msgs/Bool.h"
 #include "usv_mission_planner/hybrid_astar.h"
 #include "boost/filesystem.hpp"
 #include "ctime"
 #include "gdal/ogrsf_frmts.h"
 #include "tf/transform_datatypes.h"
 #include "usv_mission_planner/search.h"
+#include "usv_map/map_preprocessor.h"
 
 class MissionPlanner{
     public:
@@ -17,6 +19,7 @@ class MissionPlanner{
         ros::NodeHandle nh_;
         ros::Publisher path_pub_;
         ros::Publisher speed_pub_;
+        ros::Publisher region_available_pub_;
         ros::Subscriber odom_sub_;
         ros::Subscriber goal_sub_;
         ros::ServiceServer search_service_;
@@ -43,6 +46,7 @@ class MissionPlanner{
         std::string map_name_;
         bool search_immideately_;
         double desired_speed_;
+        std::vector<double> mission_region_extent_;
 
         //Storage
         std::string mission_path_;

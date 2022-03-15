@@ -214,7 +214,7 @@ GDALDataset* MapService::getDataset(){
 MapServiceServer::MapServiceServer(const ros::NodeHandle& nh) : nh_(nh){
     std::string mission_region;
     bool parameter_load_error = false;
-    if(!ros::param::get("Viknes830/mission_planner/map_name",mission_region)) parameter_load_error = true;
+    if(!ros::param::get("mission_planner/map_name",mission_region)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();

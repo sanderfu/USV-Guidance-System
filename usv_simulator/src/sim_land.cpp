@@ -14,6 +14,7 @@ SimulatedLand::SimulatedLand(const ros::NodeHandle& nh){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
     }
+    ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available");
     path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+map_name+"/region.sqlite";
 
     polygon_.header.frame_id="map";

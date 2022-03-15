@@ -13,15 +13,15 @@ mission_planner:
   #Name of mission, for path and debug data storage
   mission_name: "testmission"
   #If path determined in advance and stored to gpx, load it and publish
-  load_from_gpx: true
+  load_from_gpx: false
   #Load from this gpx or save to this gpx
   gpx_name: "debug"
   #Preprocessing has been run for mission region
-  preprocessed_map: true
+  preprocessed_map: false
   #Preprocessed data to load (or save). Loads/saves collision db, voronoi db and quadtree 
-  map_name: "outside_new_york"
-  # Two coordinates defining the mission region. Discarded if preprocessed_map=true
-  map_extent: [[1,2],[3,4]]
+  map_name: "test_mission_region_2"
+  # Two coordinates defining the mission region. Discarded if preprocessed_map=true (min_lon,min_lat,max_lon,max_lat)
+  map_extent: [-74.02483,40.49961,-73.72579,40.64967]
   #When vessel pose and goal received, immideately searches for path
   search_immideately: true
   #Desired speed of the vessel planning for

@@ -12,6 +12,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     GDALAllRegister();
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
+    region_available_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/region_available",1,true);
     odom_sub_ = nh_.subscribe("odom",1,&MissionPlanner::odomCb,this);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
@@ -23,6 +24,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     if(!ros::param::get("mission_planner/map_name",map_name_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/search_immideately",search_immideately_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/desired_speed",desired_speed_)) parameter_load_error = true;
+    if(!ros::param::get("mission_planner/map_extent",mission_region_extent_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
@@ -52,13 +54,16 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
         return;
     }
 
-    if(preprocessed_map_){
-        map_service_ = new MapService(map_name_);
-    } else{
-        ROS_WARN_STREAM("Handling non-preprocessed maps not implemented yet");
-        ros::shutdown();
-        //map_service_ = new MapService(extent,map_name(optional))
+    if(!preprocessed_map_){
+        std::cout << "Start preprocessing map" << std::endl;
+        MapPreprocessor preprocessor;
+        extractorRegion r(mission_region_extent_[0],mission_region_extent_[1],mission_region_extent_[2],mission_region_extent_[3]);
+        preprocessor.run(map_name_,r);
+         std::cout << "Done preprocessing map" << std::endl;
     }
+    region_available_pub_.publish(std_msgs::Bool());
+
+    map_service_ = new MapService(map_name_);
     std::pair<OGRPoint,OGRPoint> map_extent = map_service_->getMapExtent();
     tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,!preprocessed_map_);
     vessel_model_ = new ModelLibrary::Viknes830();

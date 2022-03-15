@@ -22,8 +22,6 @@ mission_planner:
   map_name: "test_mission_region_2"
   # Two coordinates defining the mission region. Discarded if preprocessed_map=true (min_lon,min_lat,max_lon,max_lat)
   map_extent: [-74.02483,40.49961,-73.72579,40.64967]
-  #When vessel pose and goal received, immideately searches for path
-  search_immideately: true
   #Desired speed of the vessel planning for
   desired_speed: 5
 

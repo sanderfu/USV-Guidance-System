@@ -22,9 +22,8 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     if(!ros::param::get("mission_planner/gpx_name",gpx_name_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/preprocessed_map",preprocessed_map_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/map_name",map_name_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/search_immideately",search_immideately_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/desired_speed",desired_speed_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/map_extent",mission_region_extent_)) parameter_load_error = true;
+    if(!ros::param::get("mission_planner/desired_speed",desired_speed_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();

@@ -44,7 +44,6 @@ class MissionPlanner{
         std::string gpx_name_;
         bool preprocessed_map_;
         std::string map_name_;
-        bool search_immideately_;
         double desired_speed_;
         std::vector<double> mission_region_extent_;
 

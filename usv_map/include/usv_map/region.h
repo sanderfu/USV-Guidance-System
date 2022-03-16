@@ -58,6 +58,7 @@ class Region{
     private:
         GDALDataset* ds_;
         OGRLayer* comparison_layer_;
+        OGRLayer* unknown_layer_;
 
         int depth_;
         int id_;

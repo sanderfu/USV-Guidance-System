@@ -39,6 +39,8 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
     region_polygon_->Centroid(&centroid_);
 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
+    unknown_layer_ = ds->GetLayerByName("unknown");
+    
 }
 
 /**
@@ -86,6 +88,7 @@ Region::Region(double lon_lower, double lat_lower, double width, double height, 
     region_polygon_->Centroid(&centroid_);
 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
+    unknown_layer_ = ds->GetLayerByName("unknown");
 }
 
 /**
@@ -182,6 +185,13 @@ double Region::getOccupiedArea(){
         geometries_to_check.push_back(feat->GetGeometryRef()); 
         related_features.push_back(feat);
     }
+
+    while((feat = unknown_layer_->GetNextFeature()) != NULL){
+        geometries_to_check.push_back(feat->GetGeometryRef()); 
+        related_features.push_back(feat);
+    }
+
+
 
     #pragma omp parallel for reduction(+:total_area)
         for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){

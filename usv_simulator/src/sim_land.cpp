@@ -45,26 +45,20 @@ void SimulatedLand::loadPolygons(){
     OGRLayer* collision_layer = ds_ptr_->GetLayerByName("collision_dissolved");
     OGRFeature* feat = collision_layer->GetNextFeature();
 
-    int counter = 0;
     while((feat=collision_layer->GetNextFeature())!=NULL){
         polygon_.points.clear();
         OGRLinearRing* ext_ring = feat->GetGeometryRef()->toPolygon()->getExteriorRing();
 
-        double last_x = INFINITY;
-        double last_y = INFINITY;
         for(int i=0;i<ext_ring->getNumPoints()-1;i++){
             Eigen::Vector3d global_coord(ext_ring->getX(i),ext_ring->getY(i),0);
             Eigen::Vector3d local_coord;
             converter_.convert("global",global_coord,"local",&local_coord);
-            last_x = local_coord(0);
-            last_y = local_coord(1);
             point_.x = local_coord(0);
             point_.y = local_coord(1);
             polygon_.points.push_back(point_);
         }
         if(ext_ring->getNumPoints()>1){
             polygon_array_.polygons.push_back(polygon_);
-            counter++;
         }
         OGRFeature::DestroyFeature(feat);
     }

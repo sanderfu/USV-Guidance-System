@@ -44,8 +44,9 @@ void SimulatedLand::loadPolygons(){
     }
     OGRLayer* collision_layer = ds_ptr_->GetLayerByName("collision_dissolved");
     OGRFeature* feat = collision_layer->GetNextFeature();
-    while(feat!=NULL){
-        polygon_.polygon.points.clear();
+
+    while((feat=collision_layer->GetNextFeature())!=NULL){
+        polygon_.points.clear();
         OGRLinearRing* ext_ring = feat->GetGeometryRef()->toPolygon()->getExteriorRing();
 
         for(int i=0;i<ext_ring->getNumPoints()-1;i++){
@@ -54,13 +55,12 @@ void SimulatedLand::loadPolygons(){
             converter_.convert("global",global_coord,"local",&local_coord);
             point_.x = local_coord(0);
             point_.y = local_coord(1);
-            polygon_.polygon.points.push_back(point_);
+            polygon_.points.push_back(point_);
         }
         if(ext_ring->getNumPoints()>1){
             polygon_array_.polygons.push_back(polygon_);
         }
-
-        feat = collision_layer->GetNextFeature();
+        OGRFeature::DestroyFeature(feat);
     }
 
     polygon_array_.header.frame_id="map";

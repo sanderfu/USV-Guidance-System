@@ -1,6 +1,7 @@
 #pragma once
 
-#include "jsk_recognition_msgs/PolygonArray.h"
+#include "usv_simulator/PolygonArray64.h"
+#include "usv_simulator/Polygon64.h"
 #include "ros/ros.h"
 #include "ros/package.h"
 #include "geotf/geodetic_converter.h"
@@ -16,9 +17,9 @@ class SimulatedLand{
         ros::Publisher poly_pub_;
         std::string path_;
         
-        jsk_recognition_msgs::PolygonArray polygon_array_;
-        geometry_msgs::PolygonStamped polygon_;
-        geometry_msgs::Point32 point_;
+        usv_simulator::PolygonArray64 polygon_array_;
+        usv_simulator::Polygon64 polygon_;
+        geometry_msgs::Point point_;
         
         geotf::GeodeticConverter converter_;
 

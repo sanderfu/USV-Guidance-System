@@ -27,8 +27,13 @@ K_DCHI_P_(1.2)			//   1.2
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
     ROS_INFO_STREAM("Odometry and LOS setpoint received");
 
+    std::vector<double> global_position_vec;
+    if(!nh_.getParam("initial_position",global_position_vec)){
+        ROS_ERROR_STREAM("Failed to load initial position parameter");
+    }
+
     geo_converter_.addFrameByEPSG("WGS84",4326);
-    geo_converter_.addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
+    geo_converter_.addFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
 
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
 

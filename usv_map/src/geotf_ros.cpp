@@ -3,7 +3,14 @@ namespace geotf {
 
 GeodeticConverterServer::GeodeticConverterServer(const ros::NodeHandle& nh): nh_(nh) {
     addFrameByEPSG("WGS84",4326);
-    addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
+
+    std::vector<double> global_position_vec;
+    if(!nh_.getParam("sim_origin",global_position_vec)){
+        ROS_ERROR_STREAM("Failed to load initial position parameter");
+        ros::shutdown();
+    }
+
+    addFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
     frame_conversion_srv_ = nh_.advertiseService("/map/frame_conversion",&GeodeticConverterServer::frameConversion,this);
     add_frame_srv_ = nh_.advertiseService("/map/add_frame",&GeodeticConverterServer::addFrame,this);
 }

@@ -2,7 +2,7 @@
 
 int main(int argc, char** argv){
     ros::init(argc,argv,"geotf_ros");
-    ros::NodeHandle nh("geotf_ros");
+    ros::NodeHandle nh;
 
     geotf::GeodeticConverterServer converter(nh);
 

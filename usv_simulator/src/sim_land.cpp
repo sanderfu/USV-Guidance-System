@@ -16,11 +16,14 @@ SimulatedLand::SimulatedLand(const ros::NodeHandle& nh){
     }
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available");
     path_ = ros::package::getPath("usv_map")+"/data/mission_regions/"+map_name+"/region.sqlite";
-
+    
+    std::vector<double> global_position_vec;
+    if(!nh_.getParam("sim_origin",global_position_vec)){
+        ROS_ERROR_STREAM("Failed to load initial position parameter");
+    }
     polygon_.header.frame_id="map";
-    poly_pub_ = nh_.advertise<jsk_recognition_msgs::PolygonArray>("/sim/land",1,true);
-
-    converter_.addFrameByENUOrigin("local",40.5612,-73.9761,0);
+    poly_pub_ = nh_.advertise<usv_simulator::PolygonArray64>("/sim/land",1,true);
+    converter_.addFrameByENUOrigin("local",global_position_vec[1],global_position_vec[0],0);
     converter_.addFrameByEPSG("global",4326);
     if(!converter_.canConvert("global","local")){
         ROS_ERROR_STREAM_NAMED("sim_land","Frame conversion error");

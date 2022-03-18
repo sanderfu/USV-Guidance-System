@@ -36,3 +36,6 @@ __pycache__/
 
 *.csv
 *.pyc
+
+#Ignore data produced by system
+data/

@@ -87,6 +87,10 @@ cs_add_executable(test_distance_concept
 target_compile_options(test_distance_concept PRIVATE ${OpenMP_FLAGS})
 target_link_libraries(test_distance_concept ${PROJECT_NAME} ${gdal_LIBRARIES} ${OpenMP_LIBS})
 
+cs_add_executable(test_map_preprocessor
+  src/test_map_preprocessor.cpp
+)
+target_link_libraries(test_map_preprocessor ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
 ##########
 # EXPORT #

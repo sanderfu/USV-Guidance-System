@@ -7,6 +7,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include "GeographicLib/Geodesic.hpp"
 
 #include <assert.h>
 
@@ -125,7 +126,8 @@ struct _jcv_site
 
 // The coefficients a, b and c are from the general line equation: ax * by + c = 0
 struct _jcv_edge
-{
+{   
+    double id;
     struct _jcv_edge*   next;
     jcv_site*           sites[2];
     jcv_point           pos[2];
@@ -212,6 +214,9 @@ static inline jcv_real jcv_point_dist_sq( const jcv_point* pt1, const jcv_point*
 
 static inline jcv_real jcv_point_dist( const jcv_point* pt1, const jcv_point* pt2 )
 {
+    //double dist;
+    //GeographicLib::Geodesic::WGS84().Inverse(pt1->y,pt1->x,pt2->y,pt2->x,dist);
+    //dist = abs(dist);
     return (jcv_real)(JCV_SQRT(jcv_point_dist_sq(pt1, pt2)));
 }
 
@@ -922,8 +927,9 @@ static void jcv_circle_event(jcv_context_internal* internal)
     if( jcv_check_circle_event( leftleft, he, &p ) )
     {
         jcv_pq_remove(internal->eventqueue, leftleft);
-        leftleft->vertex    = p;
+        leftleft->vertex    = p; 
         leftleft->y         = p.y + jcv_point_dist(&bottom->p, &p);
+        
         jcv_pq_push(internal->eventqueue, leftleft);
     }
     if( jcv_check_circle_event( he, rightright, &p ) )

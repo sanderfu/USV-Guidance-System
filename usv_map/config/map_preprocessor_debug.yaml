@@ -1,0 +1,5 @@
+#This config is only taken into consideration if debugging preprocessor separately from the rest of the guidance system.
+preprocessor_debug:
+  extract_enc: true
+  build_quadtree: true
+  build_voronoi: true

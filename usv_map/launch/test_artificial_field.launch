@@ -1,0 +1,10 @@
+<launch>
+    <rosparam command="load" file="$(find usv_map)/config/map_service.yaml" />
+    <rosparam command="load" file="$(find usv_map)/config/map_preprocessor_debug.yaml" />
+    <node pkg="usv_map"
+            name="test_artificial_field"
+            type="test_artificial_field"
+            respawn="false"
+            output="screen">
+    </node>
+</launch>

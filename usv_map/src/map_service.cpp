@@ -36,24 +36,9 @@ MapService::MapService(std::string mission_region){
         multi_layer->CreateFeature(multi_feature);
     }
 
-    OGREnvelope layer_envelope;
-    ds_in_mem_->ResetReading();
-    lower_left_.setX(INFINITY);
-    lower_left_.setY(INFINITY);
-
-    upper_right_.setX(-INFINITY);
-    upper_right_.setY(-INFINITY);
-    for(auto&& layer: ds_in_mem_->GetLayers()){
-        layer->GetExtent(&layer_envelope);
-        if(layer_envelope.MinX<lower_left_.getX() && layer_envelope.MinY<lower_left_.getY()){
-            lower_left_.setX(layer_envelope.MinX);
-            lower_left_.setY(layer_envelope.MinY);
-        }
-        if(layer_envelope.MaxX>upper_right_.getX() && layer_envelope.MaxY>upper_right_.getY()){
-            upper_right_.setX(layer_envelope.MaxX);
-            upper_right_.setY(layer_envelope.MaxY);
-        }
-    }    
+    OGRLineString* mission_region_boundary = ds_->GetLayerByName("mission_region")->GetFeature(1)->GetGeometryRef()->getBoundary()->toLineString();
+    mission_region_boundary->getPoint(0,&lower_left_);
+    mission_region_boundary->getPoint(2,&upper_right_);
 
     ds_in_mem_->CopyLayer(ds_->GetLayerByName("voronoi"),"voronoi");
 

@@ -1,5 +1,6 @@
 map_service:
   voronoi_field:
+    #Falloff rate (falling from 0 at voronoi skeleton to 1 at hazard.) (Should be renamed)
     alpha: 0.001
   distance:
     default_saturation: 0.01

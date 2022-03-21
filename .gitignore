@@ -39,3 +39,4 @@ __pycache__/
 
 #Ignore data produced by system
 data/
+figures/

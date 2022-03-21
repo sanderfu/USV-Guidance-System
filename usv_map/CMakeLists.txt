@@ -71,26 +71,16 @@ cs_add_executable(map_preprocessor_node
 )
 target_link_libraries(map_preprocessor_node ${PROJECT_NAME} ${gdal_LIBRARIES} ${GeographicLib_LIBRARIES})
 
-cs_add_executable(test_services
-  src/test_services.cpp
-)
-target_link_libraries(test_services ${PROJECT_NAME})
-
-cs_add_executable(test_map_service
-  src/test_map_service.cpp
-)
-target_link_libraries(test_map_service ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
-
-cs_add_executable(test_distance_concept
-  src/test_distance_concept.cpp
-)
-target_compile_options(test_distance_concept PRIVATE ${OpenMP_FLAGS})
-target_link_libraries(test_distance_concept ${PROJECT_NAME} ${gdal_LIBRARIES} ${OpenMP_LIBS})
-
 cs_add_executable(test_map_preprocessor
   src/test_map_preprocessor.cpp
 )
 target_link_libraries(test_map_preprocessor ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
+
+cs_add_executable(test_artificial_field
+  src/test_artificial_field.cpp
+)
+target_link_libraries(test_artificial_field ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
+
 
 ##########
 # EXPORT #

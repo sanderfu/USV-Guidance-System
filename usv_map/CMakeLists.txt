@@ -87,13 +87,3 @@ target_link_libraries(test_artificial_field ${PROJECT_NAME} ${GeographicLib_LIBR
 ##########
 cs_install()
 cs_export()
-
-#Install python nodes
-set(py_nodes
-  test_client
-)
-
-foreach(py_node IN LISTS py_nodes)
-  catkin_install_python(PROGRAMS scripts/${py_node}.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-endforeach()

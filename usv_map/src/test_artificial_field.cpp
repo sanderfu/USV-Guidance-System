@@ -21,10 +21,10 @@ int main(int argc, char** argv){
     }
 
     MapService map_service(mission_region);
-    double resolution = 0.001;
+    double resolution = 0.0002;
 
     //Get mission region extent
-    std::pair<OGRPoint, OGRPoint> extent = map_service.getMapExtent();//setCutsomExtent(-73.878529,40.581363,-73.846124,40.623166);//map_service.getMapExtent();
+    std::pair<OGRPoint, OGRPoint> extent = setCutsomExtent(-73.878529,40.581363,-73.846124,40.623166);//map_service.getMapExtent();
     std::vector<std::pair<double,double>> points_to_check;
     for(double x=extent.first.getX(); x<extent.second.getX(); x+=resolution){
         for(double y=extent.first.getY(); y<extent.second.getY(); y+=resolution){

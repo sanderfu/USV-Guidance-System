@@ -124,7 +124,7 @@ def main():
     z_3 = -distance_df["distance_voronoi"]
     z_3_normalized = (z_3-min(z_3))/(max(z_3)-min(z_3))
 
-    tile_size = (0.001+0.0005)/2
+    tile_size = (0.0002+0.0001)/2
     colors = plt.cm.get_cmap("inferno",len(np.unique(z_normalized.round(decimals=8)))*2)
     colors_2 = plt.cm.get_cmap("inferno",len(np.unique(z_2_normalized.round(decimals=8)))*2)
     colors_3 = plt.cm.get_cmap("inferno",len(np.unique(z_3_normalized.round(decimals=8)))*2)

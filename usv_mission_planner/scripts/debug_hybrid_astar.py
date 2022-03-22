@@ -50,9 +50,9 @@ GREEN = '#4F7942'
 
 def main():
     rospack = rospkg.RosPack()
-    map_name = "outside_new_york"
-    mission_name = "testmission"
-    datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/check_db.sqlite"
+    map_name = "outside_new_york_2"
+    mission_name = "adaptive_sim_baseline_3"
+    datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:
         raise RuntimeError("Failed to load datasource",datasource_path)
@@ -70,14 +70,13 @@ def main():
             ax.add_patch(patch1)
 
     #Plot distance coloured
-    distance_path = rospack.get_path('usv_map')+"/data/debug_distance_concept/distance_tiles.csv"
-    distance_df = pd.read_csv(distance_path)
-    z = distance_df["distance_voronoi_field"]
-    z_normalized = (z-min(z))/(max(z)-min(z))
+    #distance_path = rospack.get_path('usv_map')+"/data/debug_distance_concept/distance_tiles.csv"
+    #distance_df = pd.read_csv(distance_path)
+    #z_normalized = (z-min(z))/(max(z)-min(z))
 
-    tile_size = 0.001/2
-    colors = plt.cm.get_cmap("Greys",len(np.unique(z_normalized.round(decimals=4)))*2)
-    i=0
+    #tile_size = 0.001/2
+    #colors = plt.cm.get_cmap("Greys",len(np.unique(z_normalized.round(decimals=4)))*2)
+    #i=0
     #for index,row in tqdm(distance_df.iterrows(), total=distance_df.shape[0]):
     #    x,y = row["x_center"], row["y_center"]
     #    coords = np.array([[x-tile_size,y-tile_size],[x-tile_size,y+tile_size],[x+tile_size,y+tile_size],[x+tile_size,y-tile_size]])

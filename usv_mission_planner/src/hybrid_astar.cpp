@@ -12,7 +12,7 @@ tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
 map_service_(map_service),
-grid_search_alg_(new AStar(tree->getGraphManager(),map_service_)){
+grid_search_alg_(new AStar(tree->getGraphManager(),map_service_,mission_name)){
     geo_converter_.addFrameByEPSG("WGS84",4326);
 
     //Load parameters
@@ -20,6 +20,8 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_)){
     if(!ros::param::get("hybrid_a_star/search_phase/default_sim_time",default_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_distance",precision_phase_distance_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_sim_time",precision_phase_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_phase/approach_phase_distance",approach_phase_distance_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_phase/approach_phase_sim_time",approach_phase_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_explored",prune_radius_explored_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_closed",prune_radius_closed_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/voronoi_field_cost_weight",voronoi_field_cost_weight_)) parameter_load_error = true;
@@ -88,7 +90,7 @@ void HybridAStar::search(){
     came_from_[v_start_] = v_start_;
     cost_so_far_[v_start_] = 0;
 
-    std::vector<double> heading_candidates = {-M_PI/6,0,M_PI/6};
+    std::vector<double> heading_candidates = {-M_PI/6,-M_PI/9,0,M_PI/9,M_PI/6};
     Region* current_region;
 
     while(!frontier_.empty()){
@@ -112,6 +114,7 @@ void HybridAStar::search(){
 
         
         double distance = getDistance(current->pose,v_goal_->pose);
+        std::cout << "Distance: " << distance <<std::endl;
         double sim_time = determineSimulationTime(distance);
         kSearchPhase search_phase = determineSearchPhase(distance);
 
@@ -281,6 +284,11 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
 }
 
+double HybridAStar::breakTie(StateVec* current){
+    double dx1, dy1, dx2, dy2;
+    return 0;
+}
+
 /**
  * @brief The Hybrid A* Heuristic specially developed and tuned for this application.
  * 
@@ -343,7 +351,9 @@ double HybridAStar::determineSimulationTime(double distance){
     double sim_time = default_sim_time_;
     if(distance<precision_phase_distance_){
         sim_time=precision_phase_sim_time_;
-    } 
+    } else if(distance<approach_phase_distance_){
+        sim_time=approach_phase_sim_time_;
+    }
     ros::Time end_calc_sim = ros::Time::now();
     calc_sim_time_.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
     return sim_time;
@@ -358,6 +368,8 @@ double HybridAStar::determineSimulationTime(double distance){
 kSearchPhase HybridAStar::determineSearchPhase(double distance){
     if(distance<precision_phase_distance_){
         return kSearchPhase::kPrecision;
+    } else if (distance<approach_phase_distance_) {
+        return kSearchPhase::kApproach;
     } else{
         return kSearchPhase::kInitial;
     }

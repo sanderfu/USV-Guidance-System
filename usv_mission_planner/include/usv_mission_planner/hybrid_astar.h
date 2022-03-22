@@ -11,7 +11,7 @@
 #include "usv_mission_planner/priority_queue.h"
 #include "usv_mission_planner/astar.h"
 
-enum kSearchPhase{kInitial, kPrecision};
+enum kSearchPhase{kInitial, kApproach, kPrecision};
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
         id_ = id;
@@ -62,6 +62,8 @@ class HybridAStar{
         double default_sim_time_;
         double precision_phase_distance_;
         double precision_phase_sim_time_;
+        double approach_phase_distance_;
+        double approach_phase_sim_time_;
         double prune_radius_explored_;
         double prune_radius_closed_;
         double voronoi_field_cost_weight_;
@@ -72,9 +74,11 @@ class HybridAStar{
         std::vector<extendedVertex*> reconstructPath();
 
         double getDistance(StateVec* u, StateVec* v);
+        double getDiagonalDistance(StateVec* u, StateVec* v);
         double getGridDistance(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
+        double breakTie(StateVec* current);
         double heuristic(extendedVertex* current,extendedVertex* next,double new_cost,kSearchPhase search_phase);
 
         double determineSimulationTime(double distance);

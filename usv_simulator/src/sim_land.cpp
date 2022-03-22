@@ -47,11 +47,10 @@ void SimulatedLand::loadPolygons(){
     }
     OGRLayer* collision_layer = ds_ptr_->GetLayerByName("collision_dissolved");
     OGRFeature* feat = collision_layer->GetNextFeature();
-
+    collision_layer->ResetReading();
     while((feat=collision_layer->GetNextFeature())!=NULL){
         polygon_.points.clear();
         OGRLinearRing* ext_ring = feat->GetGeometryRef()->toPolygon()->getExteriorRing();
-
         for(int i=0;i<ext_ring->getNumPoints()-1;i++){
             Eigen::Vector3d global_coord(ext_ring->getX(i),ext_ring->getY(i),0);
             Eigen::Vector3d local_coord;

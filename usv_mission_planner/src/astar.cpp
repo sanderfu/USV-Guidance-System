@@ -1,9 +1,12 @@
 #include "usv_mission_planner/astar.h"
 
-AStar::AStar(GraphManager* gm, MapService* map_service):
+AStar::AStar(GraphManager* gm, MapService* map_service,std::string mission_name):
 gm_(gm), 
 geod_(GeographicLib::Geodesic::WGS84()),
-map_service_(map_service){}
+map_service_(map_service),
+mission_name_(mission_name){
+    search_id_ = 0;
+}
 
 /**
  * @brief Set search start vertex
@@ -54,13 +57,21 @@ bool AStar::search(){
         closed_.push_back(current);
         //Early exit
         if (current==v_goal_){
-            //ROS_INFO_STREAM("Early exit");
-            break;
+            bool path_reconstructed = reconstructPath();
+            updateLookupTable();
+            saveDataContainers(generateSearchID());
+            return path_reconstructed;
+        }
+
+        //Lookup for subsequent searches
+        if(vertexInLookupTable(current)){
+            bool path_reconstructed = reconstructPathFromLookup(current);
+            return path_reconstructed;
         }
 
         if(!ros::ok()){
             std::cout << "Stopping A* prematurely" << std::endl;
-            saveDataContainers();
+            saveDataContainers(generateSearchID());
             exit(1);
         }
 
@@ -81,7 +92,6 @@ bool AStar::search(){
         }
         
     }
-    return reconstructPath();
 }
 
 /**
@@ -129,13 +139,66 @@ bool AStar::reconstructPath() {
     return true;
 }
 
+bool AStar::vertexInLookupTable(const Vertex* v){
+    return (path_lookup_table_.find(v->id)!=path_lookup_table_.end());
+}
+
+void AStar::updateLookupTable(){
+    Vertex* current = v_goal_;
+    while(current!=v_start_){
+        auto came_from_it = came_from_.find(current);
+        if(came_from_it==came_from_.end()){
+            ROS_ERROR_STREAM("Something wrong when constructing lookup table!");
+        }
+        if(path_lookup_table_.find((*came_from_it).second->id)==path_lookup_table_.end()){
+                path_lookup_table_[(*came_from_it).second->id] = current->id;
+        }
+        current = (*came_from_it).second;
+    }
+    std::cout << "Updated lookup table, it now has: " << path_lookup_table_.size() << " elements" << std::endl;
+}
+
+bool AStar::reconstructPathFromLookup(Vertex* v){
+    //Knows optimal path from v to goal.
+    //Think I can use came_from to get v_start_ to v
+    path_.clear();  
+    Vertex* current = v;
+    while (current != v_start_) {
+        path_.push_back(current);
+        auto came_from_it = came_from_.find(current);
+        if(came_from_it==came_from_.end()){
+            path_.clear();
+            return false;
+        }
+        current = (*came_from_it).second;
+    }
+    path_.push_back(v_start_);
+    std::reverse(path_.begin(), path_.end());
+
+    //Reconstruct rest based on lookup
+    current = v;
+    while(current!=v_goal_){
+        current = gm_->getVertex(path_lookup_table_[current->id]);
+        path_.push_back(current);
+    }
+    path_.push_back(v_goal_);
+    return true;
+}
+
+int AStar::generateSearchID(){
+    return search_id_++;
+}
+
 /**
  * @brief Save data containers relevant for debugging/visualization
  * 
  */
-void AStar::saveDataContainers(){
+void AStar::saveDataContainers(int search_id){
     std::string path = ros::package::getPath("usv_mission_planner");
-    path.append("/data/debug/astar/");
+    path.append("/data/missions/"+mission_name_+"/astar/"+std::to_string(search_id)+"/");
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directories(path);
+    }
 
     std::string found_path_path = path+"path.csv";
     std::string closed_file_path = path+"closed.csv";
@@ -143,10 +206,6 @@ void AStar::saveDataContainers(){
     std::string explored_file_path = path+"explored_file.csv";
     std::string frontier_file_path = path+"frontier.csv";
     std::string points_outside_quadtree_path = path + "outside_quadtree.csv";
-
-    if(!boost::filesystem::exists(path)){
-        boost::filesystem::create_directory(path);
-    }
 
     std::ofstream closed_file(closed_file_path);
     closed_file << "lon,lat,psi,id\n";
@@ -164,7 +223,7 @@ void AStar::saveDataContainers(){
     path_file << "lon,lat\n";
 
     
-    std::cout << "Creating debug files" << std::endl;
+    //std::cout << "Creating debug files" << std::endl;
     for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
         path_file << (*path_it)->state.x() << "," << (*path_it)->state.y() << "\n";
     }
@@ -192,12 +251,12 @@ void AStar::saveDataContainers(){
     closed_file.close();
     frontier_file.close();
     path_file.close();
-    std::cout << "Debug files saved" << std::endl;
+    //std::cout << "Debug files saved" << std::endl;
 }
 
 AStarROS::AStarROS(ros::NodeHandle& nh, GraphManager* gm, MapService* map_service):
 nh_(nh),
-AStar(gm,map_service){
+AStar(gm,map_service,"dummy"){
     path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/astar/visual_path",1,true);
 
     geo_converter_.addFrameByEPSG("WGS84",4326);

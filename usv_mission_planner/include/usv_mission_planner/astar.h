@@ -10,15 +10,16 @@
 
 class AStar{
     public:
-        AStar(GraphManager* gm,MapService* map_service);
+        AStar(GraphManager* gm,MapService* map_service, std::string mission_name);
         void setStart(double lon, double lat);
         void setGoal(double lon, double lat);
         bool search();
 
         //For visualization/debugging
         std::vector<Vertex*> getPath();
-        void saveDataContainers();
+        void saveDataContainers(int search_id);
     protected:
+    std::string mission_name_;
         std::vector<Vertex*> path_;
         GraphManager* gm_;
         GeographicLib::Geodesic geod_;
@@ -29,9 +30,16 @@ class AStar{
         std::unordered_map<Vertex*, double> cost_so_far_;
         PriorityQueue<Vertex*,double> frontier_;
         std::vector<Vertex*> closed_;
+
+        std::unordered_map<int,int> path_lookup_table_;
         
+        int search_id_;
+        int generateSearchID();
         double heuristicDirect(const StateVec& state_u, const StateVec& state_v);
         bool reconstructPath();
+        bool vertexInLookupTable(const Vertex* v);
+        void updateLookupTable();
+        bool reconstructPathFromLookup(Vertex* v);
 };
 
 class AStarROS : public AStar{

@@ -21,17 +21,20 @@ class AStar{
     protected:
     std::string mission_name_;
         std::vector<Vertex*> path_;
+        double path_length_;
         GraphManager* gm_;
         GeographicLib::Geodesic geod_;
         Vertex* v_start_;
         Vertex* v_goal_;
+        Vertex* v_attachement_;
         MapService* map_service_;
         std::unordered_map<Vertex*, Vertex*> came_from_;
         std::unordered_map<Vertex*, double> cost_so_far_;
         PriorityQueue<Vertex*,double> frontier_;
-        std::vector<Vertex*> closed_;
+        std::unordered_set<int> closed_;
 
-        std::unordered_map<int,int> path_lookup_table_;
+        std::unordered_map<int, int> path_lookup_table_;
+        std::unordered_map<int,double> distance_lookup_table_;
         
         int search_id_;
         int generateSearchID();
@@ -40,6 +43,7 @@ class AStar{
         bool vertexInLookupTable(const Vertex* v);
         void updateLookupTable();
         bool reconstructPathFromLookup(Vertex* v);
+        bool followingStoredPath(Vertex* v);
 };
 
 class AStarROS : public AStar{

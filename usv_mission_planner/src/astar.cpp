@@ -54,8 +54,9 @@ bool AStar::search(){
 
     while(!frontier_.empty()){
         Vertex* current = frontier_.get();
-        closed_.push_back(current);
+        closed_.insert(current->id);
         //Early exit
+
         if (current==v_goal_){
             bool path_reconstructed = reconstructPath();
             updateLookupTable();
@@ -63,9 +64,10 @@ bool AStar::search(){
             return path_reconstructed;
         }
 
-        //Lookup for subsequent searches
-        if(vertexInLookupTable(current)){
+        if(followingStoredPath(current)){
             bool path_reconstructed = reconstructPathFromLookup(current);
+            updateLookupTable();
+            saveDataContainers(generateSearchID());
             return path_reconstructed;
         }
 
@@ -85,8 +87,13 @@ bool AStar::search(){
 
             if(cost_so_far_.find(next) == cost_so_far_.end() || new_cost<cost_so_far_[next]){
                 cost_so_far_[next]=new_cost;
+                //std::cout << heuristicDirect(next->state,v_goal_->state) << " " << getDistanceToGoal(next) << std::endl;
                 double priority = cost_so_far_[next] + heuristicDirect(next->state,v_goal_->state);
                 frontier_.put(next,priority);
+                if(closed_.find(next->id)!=closed_.end()){
+                    std::cout << "Reopening closed vertex" << std::endl;
+                    closed_.erase(next->id);
+                }
                 came_from_[next]=current;
             }
         }
@@ -124,7 +131,11 @@ double AStar::heuristicDirect(const StateVec& state_u, const StateVec& state_v){
  */
 bool AStar::reconstructPath() {
     path_.clear();
+    path_length_ = 0;
+    double spline_length = 0;
     Vertex* current = v_goal_;
+    Vertex* next = nullptr;
+    distance_lookup_table_.insert(std::make_pair(v_goal_->id,0));
     while (current != v_start_) {
         path_.push_back(current);
         auto came_from_it = came_from_.find(current);
@@ -132,7 +143,11 @@ bool AStar::reconstructPath() {
             path_.clear();
             return false;
         }
-        current = (*came_from_it).second;
+        next = (*came_from_it).second;
+        geod_.Inverse(next->state.y(),next->state.x(),current->state.y(), current->state.x(), spline_length);
+        path_length_+=abs(spline_length);
+        distance_lookup_table_.insert(std::make_pair(next->id,path_length_));
+        current = next;
     }
     path_.push_back(v_start_); // optional
     std::reverse(path_.begin(), path_.end());
@@ -144,18 +159,9 @@ bool AStar::vertexInLookupTable(const Vertex* v){
 }
 
 void AStar::updateLookupTable(){
-    Vertex* current = v_goal_;
-    while(current!=v_start_){
-        auto came_from_it = came_from_.find(current);
-        if(came_from_it==came_from_.end()){
-            ROS_ERROR_STREAM("Something wrong when constructing lookup table!");
-        }
-        if(path_lookup_table_.find((*came_from_it).second->id)==path_lookup_table_.end()){
-                path_lookup_table_[(*came_from_it).second->id] = current->id;
-        }
-        current = (*came_from_it).second;
+    for(int i=0; i<path_.size()-1; i++){
+        path_lookup_table_[path_[i]->id]=path_[i+1]->id;
     }
-    std::cout << "Updated lookup table, it now has: " << path_lookup_table_.size() << " elements" << std::endl;
 }
 
 bool AStar::reconstructPathFromLookup(Vertex* v){
@@ -185,6 +191,25 @@ bool AStar::reconstructPathFromLookup(Vertex* v){
     return true;
 }
 
+bool AStar::followingStoredPath(Vertex* v){
+    Vertex* current = v;
+    int necessary_match_sequence = 10;
+    int i =0;
+    while(i<necessary_match_sequence){
+        if(!vertexInLookupTable(current) || !vertexInLookupTable(came_from_[current]) || !path_lookup_table_[came_from_[current]->id]==current->id){
+            return false;
+        }
+        if(closed_.find(current->id)==closed_.end() || closed_.find(came_from_[current]->id)==closed_.end()){
+            std::cout << "Current or came from not closed, cannot concluce" << std::endl;
+            return false;
+        }
+        current = came_from_[current];
+        i++;
+    }
+    ROS_INFO_STREAM("Detected on prefound path, fast forwarding");
+    return true;
+}
+
 int AStar::generateSearchID(){
     return search_id_++;
 }
@@ -205,7 +230,7 @@ void AStar::saveDataContainers(int search_id){
     std::string came_from_file_path = path+"came_from.csv";
     std::string explored_file_path = path+"explored_file.csv";
     std::string frontier_file_path = path+"frontier.csv";
-    std::string points_outside_quadtree_path = path + "outside_quadtree.csv";
+    std::string distance_lookup_table_path = path+"distance_lookup_table.csv";
 
     std::ofstream closed_file(closed_file_path);
     closed_file << "lon,lat,psi,id\n";
@@ -220,12 +245,14 @@ void AStar::saveDataContainers(int search_id){
     frontier_file << "lon,lat,psi,id\n";
 
     std::ofstream path_file(found_path_path);
-    path_file << "lon,lat\n";
+    path_file << "id,lon,lat\n";
 
+    std::ofstream distance_lookup_table_file(distance_lookup_table_path);
+    distance_lookup_table_file << "id,distance_to_goal\n";
     
     //std::cout << "Creating debug files" << std::endl;
     for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
-        path_file << (*path_it)->state.x() << "," << (*path_it)->state.y() << "\n";
+        path_file << (*path_it)->id <<","<<(*path_it)->state.x() << "," << (*path_it)->state.y() << "\n";
     }
 
     for (auto came_from_it = came_from_.begin(); came_from_it!=came_from_.end(); came_from_it++){
@@ -242,8 +269,12 @@ void AStar::saveDataContainers(int search_id){
     
 
     for(auto closed_it=closed_.begin(); closed_it!=closed_.end();closed_it++){
-        Vertex* v = (*closed_it);
+        Vertex* v = gm_->getVertex(*closed_it);
         closed_file<<v->state.x()<<","<<v->state.y()<<","<<v->state.w()<<","<<v->id<<"\n";
+    }
+
+    for(auto it = distance_lookup_table_.begin(); it!=distance_lookup_table_.end(); it++){
+        distance_lookup_table_file << (*it).first<<","<<(*it).second<<"\n";
     }
     
     came_from_file.close();
@@ -251,6 +282,7 @@ void AStar::saveDataContainers(int search_id){
     closed_file.close();
     frontier_file.close();
     path_file.close();
+    distance_lookup_table_file.close();
     //std::cout << "Debug files saved" << std::endl;
 }
 

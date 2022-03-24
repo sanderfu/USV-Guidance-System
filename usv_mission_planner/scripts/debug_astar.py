@@ -51,7 +51,7 @@ GREEN = '#4F7942'
 def main():
     rospack = rospkg.RosPack()
     map_name = "outside_new_york_2"
-    mission_name = "test_improved_visualization_1"
+    mission_name = "test_matchsequence_3"
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:
@@ -80,12 +80,14 @@ def main():
     ax.add_collection(lc)
 
     a_star_search_count = (len(next(os.walk(rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+"/astar/"))[1]))
+
     for i in range(0,a_star_search_count):
-        #Plot path
+        #Plot path and start
         path_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/path.csv"
         print(path_path)
         path_df = pd.read_csv(path_path)
         path_plot = ax.plot(path_df["lon"],path_df["lat"],color="red",zorder=3,label="path")
+        start_scatter = ax.scatter(path_df["lon"][0],path_df["lat"][0],color="black",marker="*",zorder=4,label="start")
 
         #print("Came from line segments")
         #Plot came-from line segments
@@ -107,8 +109,19 @@ def main():
         frontier_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/frontier.csv"
         frontier_df = pd.read_csv(frontier_path)
         frontier_scatter = ax.scatter(frontier_df["lon"],frontier_df["lat"],color="blue",zorder=3,label="frontier")
+
+        #Plot sequence match
+        sequence_match_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/match_sequence.csv"
+        sequence_match_df = pd.read_csv(sequence_match_path)
+        sequence_match_plot = ax.plot(sequence_match_df["lon"],sequence_match_df["lat"],color="orange",zorder=3,label="frontier")
+        #ax.scatter(sequence_match_df["lon"],sequence_match_df["lat"],color="orange",marker="*",zorder=4,label="sequence_start")
+
         plt.show(block=False)
         plt.waitforbuttonpress()
+        sequence_match_plot.pop(0).remove()
+        start_scatter.remove()
+        
+
         #ax.lines.pop(0)
 
 

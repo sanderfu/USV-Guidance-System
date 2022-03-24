@@ -35,12 +35,15 @@ class AStar{
 
         std::unordered_map<int, int> path_lookup_table_;
         std::unordered_map<int,double> distance_lookup_table_;
+
+        std::vector<Vertex*> match_sequence_;
+
         
         int search_id_;
         int generateSearchID();
         double heuristicDirect(const StateVec& state_u, const StateVec& state_v);
         bool reconstructPath();
-        bool vertexInLookupTable(const Vertex* v);
+        bool edgeInLookupTable(const Vertex* from, const Vertex* to);
         void updateLookupTable();
         bool reconstructPathFromLookup(Vertex* v);
         bool followingStoredPath(Vertex* v);

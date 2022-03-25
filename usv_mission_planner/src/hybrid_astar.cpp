@@ -25,6 +25,7 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_,mission_name)){
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_explored",prune_radius_explored_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_closed",prune_radius_closed_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/voronoi_field_cost_weight",voronoi_field_cost_weight_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/heuristic/distance_scaling_factor",distance_scaling_factor_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
@@ -112,19 +113,19 @@ void HybridAStar::search(){
             exit(1);
         }
 
-        
         double distance = getDistance(current->pose,v_goal_->pose);
         std::cout << "Distance: " << distance <<std::endl;
         double sim_time = determineSimulationTime(distance);
         kSearchPhase search_phase = determineSearchPhase(distance);
 
         //Calculate vertex candidates
+        std::vector<std::pair<extendedVertex*, double>> candidates_container_;
         for(auto heading_candidate_it=heading_candidates.begin();heading_candidate_it!=heading_candidates.end();heading_candidate_it++){
             //Calculate distance to region border
             double heading = *heading_candidate_it+current->pose->w();
             state_type candidate_state = {current->pose->x(),current->pose->y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
             ModelLibrary::simulatedHorizon hor = simulateVessel(candidate_state,heading,sim_time);
-
+            
             if (similarClosed(candidate_state)) continue;
             if (collision(candidate_state,current_region,hor)) continue;
             
@@ -134,10 +135,13 @@ void HybridAStar::search(){
             if(!next_pair.second || new_cost<cost_so_far_[next_pair.first]){
                 cost_so_far_[next_pair.first]=new_cost;
                 double priority = heuristic(current,next_pair.first,new_cost,search_phase);
+                candidates_container_.push_back(std::make_pair(next_pair.first,priority-new_cost));
                 frontier_.put(next_pair.first,priority);
                 came_from_[next_pair.first]=current;
             }
+
         }
+        candidate_exploration_.push_back(std::make_pair(current,candidates_container_));
     }
     path_ = reconstructPath();
     end_search_ = ros::Time::now();
@@ -185,7 +189,7 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     geod_.Inverse(u->y(),u->x(),v->y(),v->x(),distance_u_v);
     geod_.Inverse(current->centroid_.getY(),current->centroid_.getX(),v->y(),v->x(),distance_centroid_v);
     double difference = abs(distance_u_v)-abs(distance_centroid_v);
-
+    
     if (grid_lookup_it!=grid_distance_lookup_.end()){
         return (*grid_lookup_it).second+difference;
     }
@@ -209,6 +213,36 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     }
     grid_distance_lookup_.insert(std::make_pair(current,total_distance));
     return total_distance+difference;
+}
+
+/**
+ * @brief Get a coarse collision-free-path length approximation using A* on Quadtree graph
+ * 
+ * @param u Position A 
+ * @param v Position B
+ * @return double DIstance approximation [m]
+ */
+double HybridAStar::getGridDistanceAccurate(StateVec* u, StateVec* v){
+    //Check if roughly this start->goal config has been checked before
+
+    tree_->setStart(u->x(),u->y());
+    tree_->setGoal(v->x(),v->y());
+
+    grid_search_alg_->setStart(u->x(),u->y());
+    grid_search_alg_->setGoal(v->x(),v->y());
+    bool search_successful = grid_search_alg_->search();
+    if(!search_successful){
+        //Due to fundamental bug in quadtree builder, the search will in very rare cases be unsuccessful.
+        return -1;
+    }
+    std::vector<Vertex*> shortest_path = grid_search_alg_->getPath();
+    double spline_distance=0;
+    double total_distance=0;
+    for(int i=0; i<shortest_path.size()-1; i++){
+        geod_.Inverse(shortest_path[i]->state.y(),shortest_path[i]->state.x(),shortest_path[i+1]->state.y(),shortest_path[i+1]->state.x(),spline_distance);
+        total_distance+=abs(spline_distance);
+    }
+    return total_distance;
 }
 
 /**
@@ -307,7 +341,7 @@ double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, doub
     if (search_phase==kSearchPhase::kPrecision){
         priority+=getDistance(next->pose,v_goal_->pose);
     } else{
-        priority+=std::max(getDistance(next->pose,v_goal_->pose),getGridDistance(next->pose,v_goal_->pose));
+        priority+=distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
     }
     ros::Time end_heuristic = ros::Time::now();
     heuristic_time_.push_back(ros::Duration(end_heuristic-start_heuristic).toSec());
@@ -428,6 +462,7 @@ bool HybridAStar::similarClosed(state_type& state){
  * 
  */
 void HybridAStar::saveDataContainers(){
+    std::cout << "Saving data containers" << std::endl;
     std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directories(path);
@@ -447,6 +482,9 @@ void HybridAStar::saveDataContainers(){
 
     std::ofstream points_outside_quadtree_file(path + "outside_quadtree.csv");
     points_outside_quadtree_file << "lon,lat\n";
+
+    std::ofstream candidate_exploration_file(path + "candidate_exploration.csv");
+    candidate_exploration_file << "origin_lon,origin_lat,cand_lon,cand_lat,cand_h"<<"\n";
 
     for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
         path_file << (*path_it)->pose->x() << "," << (*path_it)->pose->y() << std::endl;
@@ -470,6 +508,19 @@ void HybridAStar::saveDataContainers(){
     for(auto outside_it=points_outside_quadtree_.begin(); outside_it!=points_outside_quadtree_.end();outside_it++){
         points_outside_quadtree_file<<outside_it->first<<","<<outside_it->second<<"\n";
     }
+
+    for(auto it = candidate_exploration_.begin(); it!= candidate_exploration_.end(); it++){
+        for(auto candidate_it=(*it).second.begin(); candidate_it!=(*it).second.end(); candidate_it++){
+            candidate_exploration_file<<(*it).first->pose->x()<<","<<(*it).first->pose->y()<<","<<(*candidate_it).first->pose->x()<<","<<(*candidate_it).first->pose->y()<<","<<(*candidate_it).second<<"\n";
+        }
+    }
+
+    closed_file.close();
+    came_from_file.close();
+    frontier_file.close();
+    path_file.close();
+    points_outside_quadtree_file.close();
+    candidate_exploration_file.close();
 }
 
 /**

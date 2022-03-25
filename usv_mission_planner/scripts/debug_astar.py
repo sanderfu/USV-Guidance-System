@@ -20,7 +20,7 @@ except Exception as e:
     plt.rcParams.update(
         {
             # setgrid
-            "axes.grid": True,
+            "axes.grid": False,
             "grid.linestyle": ":",
             "grid.color": "k",
             "grid.alpha": 0.5,
@@ -50,8 +50,8 @@ GREEN = '#4F7942'
 
 def main():
     rospack = rospkg.RosPack()
-    map_name = "outside_new_york_2"
-    mission_name = "test_matchsequence_3"
+    map_name = "trondheim_hitra_2x"
+    mission_name = "test_matchsequence_trondheim_4x_nomatch"
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:
@@ -70,18 +70,18 @@ def main():
             ax.add_patch(patch1)
     
     #Plot quadtree
-    quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
-    quadtree_df = pd.read_csv(quadtree_path)
-    lines = []
-    for index,row in quadtree_df.iterrows():
-        line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
-        lines.append(line)
-    lc = mc.LineCollection(lines, linewidths=0.1,zorder=3)
-    ax.add_collection(lc)
+    #quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
+    #quadtree_df = pd.read_csv(quadtree_path)
+    #lines = []
+    #for index,row in quadtree_df.iterrows():
+    #    line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
+    #    lines.append(line)
+    #lc = mc.LineCollection(lines, linewidths=0.1,zorder=3)
+    #ax.add_collection(lc)
 
     a_star_search_count = (len(next(os.walk(rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+"/astar/"))[1]))
 
-    for i in range(0,a_star_search_count):
+    for i in range(400,a_star_search_count):
         #Plot path and start
         path_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/path.csv"
         print(path_path)
@@ -101,14 +101,14 @@ def main():
         #ax.add_collection(lc)
 
         #Plot closed
-        closed_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/closed.csv"
-        closed_df = pd.read_csv(closed_path)
-        closed_scatter = ax.scatter(closed_df["lon"],closed_df["lat"],color="grey",zorder=3,label="closed")
+        #closed_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/closed.csv"
+        #closed_df = pd.read_csv(closed_path)
+        #closed_scatter = ax.scatter(closed_df["lon"],closed_df["lat"],color="grey",zorder=3,label="closed")
 
         #Plot unexplored
-        frontier_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/frontier.csv"
-        frontier_df = pd.read_csv(frontier_path)
-        frontier_scatter = ax.scatter(frontier_df["lon"],frontier_df["lat"],color="blue",zorder=3,label="frontier")
+        #frontier_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/frontier.csv"
+        #frontier_df = pd.read_csv(frontier_path)
+        #frontier_scatter = ax.scatter(frontier_df["lon"],frontier_df["lat"],color="blue",zorder=3,label="frontier")
 
         #Plot sequence match
         sequence_match_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+f"/astar/{i}/match_sequence.csv"
@@ -118,6 +118,7 @@ def main():
 
         plt.show(block=False)
         plt.waitforbuttonpress()
+        path_plot.pop(0).remove()
         sequence_match_plot.pop(0).remove()
         start_scatter.remove()
         
@@ -128,7 +129,7 @@ def main():
     ax.legend()
 
 
-    plt.autoscale(enable=True, axis="both", tight=None)
-    plt.show()
+    #plt.autoscale(enable=True, axis="both", tight=None)
+    #plt.show()
 
 main()

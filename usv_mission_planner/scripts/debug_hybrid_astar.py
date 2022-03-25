@@ -50,8 +50,8 @@ GREEN = '#4F7942'
 
 def main():
     rospack = rospkg.RosPack()
-    map_name = "outside_new_york_2"
-    mission_name = "adaptive_sim_baseline_3"
+    map_name = "trondheim_hitra_4x"
+    mission_name = "test_matchsequence_trondheim_4x_105_360"
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:
@@ -123,16 +123,24 @@ def main():
     outside_df = pd.read_csv(outside_path)
     ax.scatter(outside_df["lon"],outside_df["lat"],color="red",marker="x",zorder=3,label="fastcheck")
 
+    #Plot candidates
+    candidates_path = rospack.get_path('usv_mission_planner')+"/data/missions/"+mission_name+"/hybrid_astar/candidate_exploration.csv"
+    candidates_df = pd.read_csv(candidates_path)
+    #for index, row in candidates_df.iterrows():
+    #    ax.scatter(row["cand_lon"],row["cand_lat"],zorder=3,color="pink")
+    #    ax.annotate(row["cand_h"], (row["cand_lon"], row["cand_lat"]))
+
+
     #Plot quadtree
-    quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
-    quadtree_df = pd.read_csv(quadtree_path)
-    lines = []
-    for index,row in quadtree_df.iterrows():
-        line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
-        lines.append(line)
-    lc = mc.LineCollection(lines, linewidths=0.1,zorder=3)
-    ax.add_collection(lc)
-    ax.legend()
+    #quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
+    #quadtree_df = pd.read_csv(quadtree_path)
+    #lines = []
+    #for index,row in quadtree_df.iterrows():
+    #    line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
+    #    lines.append(line)
+    #lc = mc.LineCollection(lines, linewidths=0.1,zorder=3)
+    #ax.add_collection(lc)
+    #ax.legend()
 
 
     plt.autoscale(enable=True, axis="both", tight=None)

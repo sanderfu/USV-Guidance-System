@@ -67,6 +67,7 @@ class HybridAStar{
         double prune_radius_explored_;
         double prune_radius_closed_;
         double voronoi_field_cost_weight_;
+        double distance_scaling_factor_;
 
         int vertex_id_=0;
         int generateVertexID();
@@ -76,6 +77,7 @@ class HybridAStar{
         double getDistance(StateVec* u, StateVec* v);
         double getDiagonalDistance(StateVec* u, StateVec* v);
         double getGridDistance(StateVec* u, StateVec* v);
+        double getGridDistanceAccurate(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
         double breakTie(StateVec* current);
@@ -88,6 +90,7 @@ class HybridAStar{
 
         //Debug tools
         std::string mission_name_;
+        std::vector<std::pair<extendedVertex*,std::vector<std::pair<extendedVertex*,double>>>> candidate_exploration_;
         std::vector<std::pair<double,double>> points_outside_quadtree_;
         void saveDataContainers();
 

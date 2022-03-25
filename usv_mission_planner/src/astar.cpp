@@ -58,6 +58,7 @@ bool AStar::search(){
         //Early exit
 
         if (current==v_goal_){
+            std::cout << "Not following stored path" << std::endl;
             bool path_reconstructed = reconstructPath();
             match_sequence_.clear();
             updateLookupTable();
@@ -65,17 +66,22 @@ bool AStar::search(){
             return path_reconstructed;
         }
 
+        
         if(followingStoredPath(current)){
+            std::cout << "Following stored path" << std::endl;
             bool path_reconstructed = reconstructPathFromLookup(current);
             updateLookupTable();
             saveDataContainers(generateSearchID());
             return path_reconstructed;
         }
+        
+        
+        
 
         if(!ros::ok()){
             std::cout << "Stopping A* prematurely" << std::endl;
             saveDataContainers(generateSearchID());
-            exit(1);
+            return false;
         }
 
         std::vector<Vertex*> neighbors;
@@ -194,16 +200,18 @@ bool AStar::reconstructPathFromLookup(Vertex* v){
 
 bool AStar::followingStoredPath(Vertex* v){
     Vertex* current = v;
-    int necessary_match_sequence = 10;
+    int necessary_match_sequence = 5;
     int i =0;
     match_sequence_.clear();
     while(i<necessary_match_sequence){
         match_sequence_.push_back(current);
         if(!edgeInLookupTable(came_from_[current],current) || !path_lookup_table_[came_from_[current]->id]==current->id){
+            match_sequence_.clear();
             return false;
         }
         if(closed_.find(current->id)==closed_.end() || closed_.find(came_from_[current]->id)==closed_.end()){
             std::cout << "Current or came from not closed, cannot concluce" << std::endl;
+            match_sequence_.clear();
             return false;
         }
         current = came_from_[current];

@@ -51,7 +51,7 @@ GREEN = '#4F7942'
 def main():
     rospack = rospkg.RosPack()
     map_name = "trondheim_hitra_4x"
-    mission_name = "test_matchsequence_trondheim_4x_105_360"
+    mission_name = "test_matchsequence_trondheim_4x_105"
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:

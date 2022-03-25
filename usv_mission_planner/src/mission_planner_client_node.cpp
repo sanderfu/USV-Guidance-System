@@ -9,8 +9,8 @@ int main(int argc, char** argv){
     std::cout << "Waiting 2 seconds before requesting path search" << std::endl;
     ros::Duration(2).sleep();
     std::cout << "Start search" << std::endl;
-    //mission_planner_client.searchFromCustom(-73.999927,40.590175,-M_PI,-73.8443265,40.6415880);
-    mission_planner_client.searchFromOdom(-73.8443265,40.6415880);
+    mission_planner_client.searchFromOdom(9.53574,63.62217);
+    //mission_planner_client.searchFromOdom(9.30736,63.69028);
     std::cout << "Search done" << std::endl;
 
     ros::spin();

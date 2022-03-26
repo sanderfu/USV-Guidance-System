@@ -58,7 +58,7 @@ bool AStar::search(){
         //Early exit
 
         if (current==v_goal_){
-            std::cout << "Not following stored path" << std::endl;
+            //std::cout << "Not following stored path" << std::endl;
             bool path_reconstructed = reconstructPath();
             match_sequence_.clear();
             updateLookupTable();
@@ -68,7 +68,7 @@ bool AStar::search(){
 
         
         if(followingStoredPath(current)){
-            std::cout << "Following stored path" << std::endl;
+            //std::cout << "Following stored path" << std::endl;
             bool path_reconstructed = reconstructPathFromLookup(current);
             updateLookupTable();
             saveDataContainers(generateSearchID());
@@ -218,7 +218,6 @@ bool AStar::followingStoredPath(Vertex* v){
         i++;
     }
     match_sequence_.push_back(current);
-    ROS_INFO_STREAM("Detected on prefound path, fast forwarding");
     return true;
 }
 

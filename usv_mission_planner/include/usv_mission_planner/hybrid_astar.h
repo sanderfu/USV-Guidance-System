@@ -11,7 +11,6 @@
 #include "usv_mission_planner/priority_queue.h"
 #include "usv_mission_planner/astar.h"
 
-enum kSearchPhase{kInitial, kApproach, kPrecision};
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
         id_ = id;
@@ -58,14 +57,17 @@ class HybridAStar{
 
         std::unordered_map<Region*, double> grid_distance_lookup_;
 
-        //Tuning parameters
-        double default_sim_time_;
-        double precision_phase_distance_;
-        double precision_phase_sim_time_;
-        double approach_phase_distance_;
-        double approach_phase_sim_time_;
+        //Search pruning
         double prune_radius_explored_;
         double prune_radius_closed_;
+        //Static simulation time
+        double default_sim_time_;
+        //Adaptive simulation time
+        bool enable_adaptive_sim_time_;
+        double underway_sim_time_minimum_;
+        double approach_sim_time_scaling_;
+        double approach_sim_time_minimum_;
+        //Heuristic
         double voronoi_field_cost_weight_;
         double distance_scaling_factor_;
 
@@ -75,16 +77,14 @@ class HybridAStar{
         std::vector<extendedVertex*> reconstructPath();
 
         double getDistance(StateVec* u, StateVec* v);
-        double getDiagonalDistance(StateVec* u, StateVec* v);
         double getGridDistance(StateVec* u, StateVec* v);
         double getGridDistanceAccurate(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
         double breakTie(StateVec* current);
-        double heuristic(extendedVertex* current,extendedVertex* next,double new_cost,kSearchPhase search_phase);
+        double heuristic(extendedVertex* current,extendedVertex* next,double new_cost);
 
-        double determineSimulationTime(double distance);
-        kSearchPhase determineSearchPhase(double distance);
+        double adaptiveSimulationTime(extendedVertex* current, double distance_to_goal);
         ModelLibrary::simulatedHorizon simulateVessel(state_type& state, double heading_candidate, double sim_time);
         bool similarClosed(state_type& state);
 

@@ -1,10 +1,15 @@
 hybrid_a_star:
-  search_phase:
-    default_sim_time: 240
-    approach_phase_distance: 10000
-    precision_phase_distance: 2500
-    approach_phase_sim_time: 60
-    precision_phase_sim_time: 25
+  static_simulation_time:
+    default_sim_time: 120 #s
+  adaptive_simulation_time:
+    #Should adaptive simulation time be used (alternative is fixed)
+    enable_adaptive_sim_time: true
+    #The lower limit for sim time when land distance smallest
+    underway_sim_time_minimum: 60 #s
+    #The scaling factor for sim time when approaching goal
+    approach_sim_time_scaling: 0.05
+    #Lower limit sim time when approaching goal
+    approach_sim_time_minimum: 25 #s
   search_pruning:
     prune_radius_explored: 50
     prune_radius_closed: 50
@@ -14,7 +19,7 @@ hybrid_a_star:
 
 mission_planner:
   #Name of mission, for path and debug data storage
-  mission_name: "test_matchsequence_trondheim_4x_105"
+  mission_name: "test_adaptive_TRD_ON"
   #If path determined in advance and stored to gpx, load it and publish
   load_from_gpx: false
   #Load from this gpx or save to this gpx

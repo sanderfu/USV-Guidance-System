@@ -17,13 +17,13 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_,mission_name)){
 
     //Load parameters
     bool parameter_load_error = false;
-    if(!ros::param::get("hybrid_a_star/search_phase/default_sim_time",default_sim_time_)) parameter_load_error = true;
-    if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_distance",precision_phase_distance_)) parameter_load_error = true;
-    if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_sim_time",precision_phase_sim_time_)) parameter_load_error = true;
-    if(!ros::param::get("hybrid_a_star/search_phase/approach_phase_distance",approach_phase_distance_)) parameter_load_error = true;
-    if(!ros::param::get("hybrid_a_star/search_phase/approach_phase_sim_time",approach_phase_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_explored",prune_radius_explored_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_closed",prune_radius_closed_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/static_simulation_time/default_sim_time",default_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/enable_adaptive_sim_time",enable_adaptive_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/underway_sim_time_minimum",underway_sim_time_minimum_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/approach_sim_time_scaling",approach_sim_time_scaling_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/approach_sim_time_minimum",approach_sim_time_minimum_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/voronoi_field_cost_weight",voronoi_field_cost_weight_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/distance_scaling_factor",distance_scaling_factor_)) parameter_load_error = true;
     if(parameter_load_error){
@@ -115,8 +115,12 @@ void HybridAStar::search(){
 
         double distance = getDistance(current->pose,v_goal_->pose);
         std::cout << "Distance: " << distance <<std::endl;
-        double sim_time = determineSimulationTime(distance);
-        kSearchPhase search_phase = determineSearchPhase(distance);
+        double sim_time;
+        if(enable_adaptive_sim_time_){
+            sim_time = adaptiveSimulationTime(current,distance);
+        } else{
+            sim_time = default_sim_time_;
+        }
 
         //Calculate vertex candidates
         std::vector<std::pair<extendedVertex*, double>> candidates_container_;
@@ -134,7 +138,7 @@ void HybridAStar::search(){
             double new_cost = cost_so_far_[current] + getDistance(current->pose,next_pair.first->pose);
             if(!next_pair.second || new_cost<cost_so_far_[next_pair.first]){
                 cost_so_far_[next_pair.first]=new_cost;
-                double priority = heuristic(current,next_pair.first,new_cost,search_phase);
+                double priority = heuristic(current,next_pair.first,new_cost);
                 candidates_container_.push_back(std::make_pair(next_pair.first,priority-new_cost));
                 frontier_.put(next_pair.first,priority);
                 came_from_[next_pair.first]=current;
@@ -332,17 +336,13 @@ double HybridAStar::breakTie(StateVec* current){
  * @param search_phase The current search phase
  * @return double The heuristic value
  */
-double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost,kSearchPhase search_phase){
+double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost){
     double voronoi_field = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
     double cost_distance = voronoi_field_cost_weight_*voronoi_field;
 
     ros::Time start_heuristic = ros::Time::now();
     double priority = new_cost + cost_distance;
-    if (search_phase==kSearchPhase::kPrecision){
-        priority+=getDistance(next->pose,v_goal_->pose);
-    } else{
-        priority+=distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
-    }
+    priority+=distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
     ros::Time end_heuristic = ros::Time::now();
     heuristic_time_.push_back(ros::Duration(end_heuristic-start_heuristic).toSec());
     return priority;
@@ -374,39 +374,13 @@ std::vector<extendedVertex*> HybridAStar::getPath(){
     return path_;
 }
 
-/**
- * @brief Determine for how many seconds the candidate should be simulated.
- * 
- * @param distance The straight-line distance to goal.
- * @return double Simulation time [s]
- */
-double HybridAStar::determineSimulationTime(double distance){
+double HybridAStar::adaptiveSimulationTime(extendedVertex* current,double distance_to_goal){
     ros::Time start_calc_sim = ros::Time::now();
-    double sim_time = default_sim_time_;
-    if(distance<precision_phase_distance_){
-        sim_time=precision_phase_sim_time_;
-    } else if(distance<approach_phase_distance_){
-        sim_time=approach_phase_sim_time_;
-    }
+    double dist_land = 1e5*map_service_->distance(current->pose->x(), current->pose->y(),LayerID::COLLISION,INFINITY);
+    double sim_time = std::min(std::max(dist_land/5.0,underway_sim_time_minimum_),std::max(approach_sim_time_scaling_*distance_to_goal/5.0,approach_sim_time_minimum_));
     ros::Time end_calc_sim = ros::Time::now();
     calc_sim_time_.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
     return sim_time;
-}
-
-/**
- * @brief Determine the search phase based on the straight-line distance to goal.
- * 
- * @param distance The straight-line distance to goal.
- * @return kSearchPhase Search phase
- */
-kSearchPhase HybridAStar::determineSearchPhase(double distance){
-    if(distance<precision_phase_distance_){
-        return kSearchPhase::kPrecision;
-    } else if (distance<approach_phase_distance_) {
-        return kSearchPhase::kApproach;
-    } else{
-        return kSearchPhase::kInitial;
-    }
 }
 
 /**

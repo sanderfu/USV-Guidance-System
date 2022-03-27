@@ -2,7 +2,6 @@
 
 SimulationBasedMPC::SimulationBasedMPC(const ros::NodeHandle& nh) : 
 nh_(nh),
-map_client_(&nh_),
 T_(300.0), 				// 150.0  //300
 DT_(0.5), 				//   0.05 // 0.5
 P_(1), 					//   1.0
@@ -20,7 +19,19 @@ K_CHI_(1.3),			//   1.3
 K_DP_(3.5),				//   2.0  // 3.5
 K_DCHI_SB_(0.9),		//   0.9
 K_DCHI_P_(1.2)			//   1.2
-{
+{   
+    bool parameter_load_error = false;
+    std::string map_name;
+    if(!ros::param::get("mission_planner/map_name",map_name)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+    map_service_ = new MapService(map_name);
+    //Warning: I do not know if this will onlky surpress warnings for GDAL related to this module or also the mission planner. 
+    ROS_WARN_STREAM("GDAL errors are supressed!");
+    CPLPushErrorHandler(CPLQuietErrorHandler);
+    
     ROS_INFO_STREAM("SB_MPC started, waiting for first odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
@@ -43,7 +54,7 @@ K_DCHI_P_(1.2)			//   1.2
     main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
-    double courseOffsets[] = {-90.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,90.0};
+    double courseOffsets[] = {89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
     double sizeCO = sizeof(courseOffsets)/sizeof(courseOffsets[0]);
     for (int i = 0; i < sizeCO; i++){
     	courseOffsets[i] *= DEG2RAD;
@@ -138,22 +149,22 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
         obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60);
         obstacles_horizon.insert(it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
     }
+    state_type state(6);
+    state[0] = latest_odom_.pose.pose.position.x; 
+    state[1] = latest_odom_.pose.pose.position.y;
+    tf::quaternionMsgToTF(latest_odom_.pose.pose.orientation,q);
+    tf::Matrix3x3 mat(q);
+    mat.getRPY(roll,pitch,yaw);
+    state[2] = yaw;
+    state[3] = latest_odom_.twist.twist.linear.x;
+    state[4] = latest_odom_.twist.twist.linear.y;
+    state[5] = latest_odom_.twist.twist.angular.z;
 
     for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
         for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
             double cost_i = 0.0;
             //Simulate vessel
-            state_type state(6);
-            state[0] = latest_odom_.pose.pose.position.x; 
-            state[1] = latest_odom_.pose.pose.position.y;
-            tf::quaternionMsgToTF(latest_odom_.pose.pose.orientation,q);
-            tf::Matrix3x3 mat(q);
-            mat.getRPY(roll,pitch,yaw);
-            state[2] = yaw;
-            state[3] = latest_odom_.twist.twist.linear.x;
-            state[4] = latest_odom_.twist.twist.linear.y;
-            state[5] = latest_odom_.twist.twist.angular.z;
-            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizon(state,(latest_los_setpoint_.linear.x)*(*p_it),latest_los_setpoint_.angular.z+(*chi_it),60);
+            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizon(state,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),60);
             
             //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
             if(obstacle_vessels_.size()!=0){
@@ -179,9 +190,11 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             }
 
             //Check path for collision
-            if (map_client_.collision(&path)){
+            if (map_service_->intersects(&path,LayerID::COLLISION)){
                 cost_i += 100;
             }
+            
+            
 
             //TEMPORARY cost func, prioritize small manueuvers
             //cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
@@ -200,7 +213,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
         }
     }
     clearVisualPath();
-    visualizePath(choosen_path);
+    //visualizePath(choosen_path);
     ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
     ROS_INFO_STREAM("Best cost: " << cost);
     P_ca_last_ = u_corr_best;

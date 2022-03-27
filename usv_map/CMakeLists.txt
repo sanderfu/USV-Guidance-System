@@ -61,11 +61,6 @@ cs_add_executable(geotf_ros_node
 )
 target_link_libraries(geotf_ros_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
-cs_add_executable(map_service_node
-  src/map_service_node.cpp
-)
-target_link_libraries(map_service_node ${PROJECT_NAME} ${gdal_LIBRARIES})
-
 cs_add_executable(map_preprocessor_node
   src/map_preprocessor_node.cpp
 )

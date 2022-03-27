@@ -4,15 +4,15 @@
   <arg name="initial_position_usv" default="[-73.992672031393, 40.5392896676828, 0]" />
   <arg name="initial_position_obstacle" default="[-73.9799828822622,40.5432309943067, 0]" />
   <arg name="shipname" default="Viknes830" />
-  <arg name="map_name" default="outside_new_york" />
+  <arg name="map_name" default="outside_new_york_2" />
 
-  <include file="$(find usv_map)/launch/default.launch"/>
 
   <group ns="$(arg shipname)">
       <arg name="waypoint_file" default="head_on_usv.csv" />
       <param name="waypoint_file" value="$(arg waypoint_file)"/>
       <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
       <param name="mission_planner/map_name" value="$(arg map_name)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
       <node pkg="usv_simulator"
             name="sim"
             type="sim_vessel_node"
@@ -39,6 +39,7 @@
             output="screen">
       </node>
       
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
 
       <node pkg="usv_colav"
             name="sb_mpc"
@@ -60,7 +61,6 @@
         args="-d $(find usv_simulator)/config/rviz/default.rviz" />
 
   </group>
-
    <group ns="ship1">
       <arg name="waypoint_file" default="head_on_obst.csv" />
       <param name="waypoint_file" value="$(arg waypoint_file)"/>

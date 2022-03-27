@@ -35,38 +35,3 @@ class MapService {
         double alpha_;
         double default_saturation_;
 };
-
-class MapServiceServer {
-    public:
-        MapServiceServer(const ros::NodeHandle& nh);
-        bool intersects(usv_map::intersect::Request& req, usv_map::intersect::Response& res);
-        bool distance(usv_map::distance::Request& req, usv_map::distance::Response& res);
-    private:
-        ros::NodeHandle nh_;
-        ros::ServiceServer intersect_service_;
-        ros::ServiceServer distance_service_;
-        
-        std::string db_path_;
-        GDALDataset* ds_;
-
-        OGRFeature* feat_;
-
-        GDALDriver* driver_mem_;
-        GDALDataset* memory_ds_;
-        std::unordered_map<std::string,OGRFeature*> multi_feature_map_;
-        double distance_time;
-
-};
-
-class MapServiceClient {
-    public: 
-        MapServiceClient(ros::NodeHandle* nh);
-        bool collision(OGRGeometry* geom);
-        bool caution(OGRGeometry* geom);
-        double distance(double lon,double lat,LayerID layer_id);
-    private:
-        ros::NodeHandle* nh_;
-        ros::ServiceClient intersects_service;
-        ros::ServiceClient distance_service;
-        bool intersects(OGRGeometry* geom, LayerID intersect_type);
-};

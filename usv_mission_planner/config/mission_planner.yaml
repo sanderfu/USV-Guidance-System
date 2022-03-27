@@ -1,27 +1,35 @@
 hybrid_a_star:
-  search_phase:
-    default_sim_time: 60
-    precision_phase_distance: 1000
-    precision_phase_sim_time: 20
+  static_simulation_time:
+    default_sim_time: 120 #s
+  adaptive_simulation_time:
+    #Should adaptive simulation time be used (alternative is fixed)
+    enable_adaptive_sim_time: true
+    #The lower limit for sim time when land distance smallest
+    underway_sim_time_minimum: 60 #s
+    #The scaling factor for sim time when approaching goal
+    approach_sim_time_scaling: 0.05
+    #Lower limit sim time when approaching goal
+    approach_sim_time_minimum: 25 #s
   search_pruning:
-    prune_radius_explored: 25
-    prune_radius_closed: 25
+    prune_radius_explored: 50
+    prune_radius_closed: 50
   heuristic:
+    distance_scaling_factor: 1.05
     voronoi_field_cost_weight: 0.005
 
 mission_planner:
   #Name of mission, for path and debug data storage
-  mission_name: "testmission"
+  mission_name: "test_adaptive_TRD_ON"
   #If path determined in advance and stored to gpx, load it and publish
   load_from_gpx: false
   #Load from this gpx or save to this gpx
   gpx_name: "debug"
   #Preprocessing has been run for mission region
-  preprocessed_map: false
+  preprocessed_map: true
   #Preprocessed data to load (or save). Loads/saves collision db, voronoi db and quadtree 
-  map_name: "outside_new_york"
+  map_name: "trondheim_hitra_4x"
   # Two coordinates defining the mission region. Discarded if preprocessed_map=true (min_lon,min_lat,max_lon,max_lat)
-  map_extent: [-74.02483,40.49961,-73.72579,40.64967]
+  map_extent: [9.26396,63.40249,10.49051,63.73362]
   #Desired speed of the vessel planning for
   desired_speed: 5
 

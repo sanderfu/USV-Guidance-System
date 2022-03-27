@@ -3,8 +3,11 @@
   <!--<arg name="vessel_param_file" default="$(find usv_simulator)/config/parameters/viknes.yaml" />-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
   <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
-  <arg name="initial_position_usv" default="[10.3707,63.4556,-3.14]" />
-  <arg name="sim_origin" default="[10.3707,63.4556,0]" /> 
+  <!--<arg name="initial_position_usv" default="[-74.001588,40.590419,-3.14]" />
+  <arg name="sim_origin" default="[-74.001588,40.590419,0]" /> 
+  -->
+  <arg name="initial_position_usv" default="[10.3853429,63.4511024,0]" />
+  <arg name="sim_origin" default="[10.3853429,63.4511024,0]" /> 
   <arg name="use_vo" default="False" />
   <arg name="use_sb_mpc" default="True" />
   <arg name="shipname" default="Viknes830" />
@@ -37,13 +40,14 @@
       <include file="$(find usv_mission_planner)/launch/mission_planner_client.launch"/>
 
       
-      
+      <!--
       <node pkg="usv_colav"
             name="sb_mpc"
             type="sb_mpc_node"
             respawn="false"
             output="screen">
       </node>
+      -->
       
       <node pkg="rviz"
         type="rviz"

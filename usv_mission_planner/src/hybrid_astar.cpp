@@ -12,17 +12,20 @@ tree_(tree),
 vessel_model_(vessel_model),
 geod_(GeographicLib::Geodesic::WGS84()),
 map_service_(map_service),
-grid_search_alg_(new AStar(tree->getGraphManager(),map_service_)){
+grid_search_alg_(new AStar(tree->getGraphManager(),map_service_,mission_name)){
     geo_converter_.addFrameByEPSG("WGS84",4326);
 
     //Load parameters
     bool parameter_load_error = false;
-    if(!ros::param::get("hybrid_a_star/search_phase/default_sim_time",default_sim_time_)) parameter_load_error = true;
-    if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_distance",precision_phase_distance_)) parameter_load_error = true;
-    if(!ros::param::get("hybrid_a_star/search_phase/precision_phase_sim_time",precision_phase_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_explored",prune_radius_explored_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_closed",prune_radius_closed_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/static_simulation_time/default_sim_time",default_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/enable_adaptive_sim_time",enable_adaptive_sim_time_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/underway_sim_time_minimum",underway_sim_time_minimum_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/approach_sim_time_scaling",approach_sim_time_scaling_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/approach_sim_time_minimum",approach_sim_time_minimum_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/voronoi_field_cost_weight",voronoi_field_cost_weight_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/heuristic/distance_scaling_factor",distance_scaling_factor_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
@@ -88,7 +91,7 @@ void HybridAStar::search(){
     came_from_[v_start_] = v_start_;
     cost_so_far_[v_start_] = 0;
 
-    std::vector<double> heading_candidates = {-M_PI/6,0,M_PI/6};
+    std::vector<double> heading_candidates = {-M_PI/6,-M_PI/9,0,M_PI/9,M_PI/6};
     Region* current_region;
 
     while(!frontier_.empty()){
@@ -110,18 +113,23 @@ void HybridAStar::search(){
             exit(1);
         }
 
-        
         double distance = getDistance(current->pose,v_goal_->pose);
-        double sim_time = determineSimulationTime(distance);
-        kSearchPhase search_phase = determineSearchPhase(distance);
+        std::cout << "Distance: " << distance <<std::endl;
+        double sim_time;
+        if(enable_adaptive_sim_time_){
+            sim_time = adaptiveSimulationTime(current,distance);
+        } else{
+            sim_time = default_sim_time_;
+        }
 
         //Calculate vertex candidates
+        std::vector<std::pair<extendedVertex*, double>> candidates_container_;
         for(auto heading_candidate_it=heading_candidates.begin();heading_candidate_it!=heading_candidates.end();heading_candidate_it++){
             //Calculate distance to region border
             double heading = *heading_candidate_it+current->pose->w();
             state_type candidate_state = {current->pose->x(),current->pose->y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
             ModelLibrary::simulatedHorizon hor = simulateVessel(candidate_state,heading,sim_time);
-
+            
             if (similarClosed(candidate_state)) continue;
             if (collision(candidate_state,current_region,hor)) continue;
             
@@ -130,11 +138,14 @@ void HybridAStar::search(){
             double new_cost = cost_so_far_[current] + getDistance(current->pose,next_pair.first->pose);
             if(!next_pair.second || new_cost<cost_so_far_[next_pair.first]){
                 cost_so_far_[next_pair.first]=new_cost;
-                double priority = heuristic(current,next_pair.first,new_cost,search_phase);
+                double priority = heuristic(current,next_pair.first,new_cost);
+                candidates_container_.push_back(std::make_pair(next_pair.first,priority-new_cost));
                 frontier_.put(next_pair.first,priority);
                 came_from_[next_pair.first]=current;
             }
+
         }
+        candidate_exploration_.push_back(std::make_pair(current,candidates_container_));
     }
     path_ = reconstructPath();
     end_search_ = ros::Time::now();
@@ -182,7 +193,7 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     geod_.Inverse(u->y(),u->x(),v->y(),v->x(),distance_u_v);
     geod_.Inverse(current->centroid_.getY(),current->centroid_.getX(),v->y(),v->x(),distance_centroid_v);
     double difference = abs(distance_u_v)-abs(distance_centroid_v);
-
+    
     if (grid_lookup_it!=grid_distance_lookup_.end()){
         return (*grid_lookup_it).second+difference;
     }
@@ -206,6 +217,36 @@ double HybridAStar::getGridDistance(StateVec* u, StateVec* v){
     }
     grid_distance_lookup_.insert(std::make_pair(current,total_distance));
     return total_distance+difference;
+}
+
+/**
+ * @brief Get a coarse collision-free-path length approximation using A* on Quadtree graph
+ * 
+ * @param u Position A 
+ * @param v Position B
+ * @return double DIstance approximation [m]
+ */
+double HybridAStar::getGridDistanceAccurate(StateVec* u, StateVec* v){
+    //Check if roughly this start->goal config has been checked before
+
+    tree_->setStart(u->x(),u->y());
+    tree_->setGoal(v->x(),v->y());
+
+    grid_search_alg_->setStart(u->x(),u->y());
+    grid_search_alg_->setGoal(v->x(),v->y());
+    bool search_successful = grid_search_alg_->search();
+    if(!search_successful){
+        //Due to fundamental bug in quadtree builder, the search will in very rare cases be unsuccessful.
+        return -1;
+    }
+    std::vector<Vertex*> shortest_path = grid_search_alg_->getPath();
+    double spline_distance=0;
+    double total_distance=0;
+    for(int i=0; i<shortest_path.size()-1; i++){
+        geod_.Inverse(shortest_path[i]->state.y(),shortest_path[i]->state.x(),shortest_path[i+1]->state.y(),shortest_path[i+1]->state.x(),spline_distance);
+        total_distance+=abs(spline_distance);
+    }
+    return total_distance;
 }
 
 /**
@@ -281,6 +322,11 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
 }
 
+double HybridAStar::breakTie(StateVec* current){
+    double dx1, dy1, dx2, dy2;
+    return 0;
+}
+
 /**
  * @brief The Hybrid A* Heuristic specially developed and tuned for this application.
  * 
@@ -290,17 +336,13 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
  * @param search_phase The current search phase
  * @return double The heuristic value
  */
-double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost,kSearchPhase search_phase){
+double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost){
     double voronoi_field = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
     double cost_distance = voronoi_field_cost_weight_*voronoi_field;
 
     ros::Time start_heuristic = ros::Time::now();
     double priority = new_cost + cost_distance;
-    if (search_phase==kSearchPhase::kPrecision){
-        priority+=getDistance(next->pose,v_goal_->pose);
-    } else{
-        priority+=std::max(getDistance(next->pose,v_goal_->pose),getGridDistance(next->pose,v_goal_->pose));
-    }
+    priority+=distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
     ros::Time end_heuristic = ros::Time::now();
     heuristic_time_.push_back(ros::Duration(end_heuristic-start_heuristic).toSec());
     return priority;
@@ -332,35 +374,13 @@ std::vector<extendedVertex*> HybridAStar::getPath(){
     return path_;
 }
 
-/**
- * @brief Determine for how many seconds the candidate should be simulated.
- * 
- * @param distance The straight-line distance to goal.
- * @return double Simulation time [s]
- */
-double HybridAStar::determineSimulationTime(double distance){
+double HybridAStar::adaptiveSimulationTime(extendedVertex* current,double distance_to_goal){
     ros::Time start_calc_sim = ros::Time::now();
-    double sim_time = default_sim_time_;
-    if(distance<precision_phase_distance_){
-        sim_time=precision_phase_sim_time_;
-    } 
+    double dist_land = 1e5*map_service_->distance(current->pose->x(), current->pose->y(),LayerID::COLLISION,INFINITY);
+    double sim_time = std::min(std::max(dist_land/5.0,underway_sim_time_minimum_),std::max(approach_sim_time_scaling_*distance_to_goal/5.0,approach_sim_time_minimum_));
     ros::Time end_calc_sim = ros::Time::now();
     calc_sim_time_.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
     return sim_time;
-}
-
-/**
- * @brief Determine the search phase based on the straight-line distance to goal.
- * 
- * @param distance The straight-line distance to goal.
- * @return kSearchPhase Search phase
- */
-kSearchPhase HybridAStar::determineSearchPhase(double distance){
-    if(distance<precision_phase_distance_){
-        return kSearchPhase::kPrecision;
-    } else{
-        return kSearchPhase::kInitial;
-    }
 }
 
 /**
@@ -416,6 +436,7 @@ bool HybridAStar::similarClosed(state_type& state){
  * 
  */
 void HybridAStar::saveDataContainers(){
+    std::cout << "Saving data containers" << std::endl;
     std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directories(path);
@@ -435,6 +456,9 @@ void HybridAStar::saveDataContainers(){
 
     std::ofstream points_outside_quadtree_file(path + "outside_quadtree.csv");
     points_outside_quadtree_file << "lon,lat\n";
+
+    std::ofstream candidate_exploration_file(path + "candidate_exploration.csv");
+    candidate_exploration_file << "origin_lon,origin_lat,cand_lon,cand_lat,cand_h"<<"\n";
 
     for(auto path_it=path_.begin(); path_it!=path_.end(); path_it++){
         path_file << (*path_it)->pose->x() << "," << (*path_it)->pose->y() << std::endl;
@@ -458,6 +482,19 @@ void HybridAStar::saveDataContainers(){
     for(auto outside_it=points_outside_quadtree_.begin(); outside_it!=points_outside_quadtree_.end();outside_it++){
         points_outside_quadtree_file<<outside_it->first<<","<<outside_it->second<<"\n";
     }
+
+    for(auto it = candidate_exploration_.begin(); it!= candidate_exploration_.end(); it++){
+        for(auto candidate_it=(*it).second.begin(); candidate_it!=(*it).second.end(); candidate_it++){
+            candidate_exploration_file<<(*it).first->pose->x()<<","<<(*it).first->pose->y()<<","<<(*candidate_it).first->pose->x()<<","<<(*candidate_it).first->pose->y()<<","<<(*candidate_it).second<<"\n";
+        }
+    }
+
+    closed_file.close();
+    came_from_file.close();
+    frontier_file.close();
+    path_file.close();
+    points_outside_quadtree_file.close();
+    candidate_exploration_file.close();
 }
 
 /**
@@ -500,7 +537,6 @@ void HybridAStar::dumpSearchBenchmark(){
     benchmark_file_misc<<"accumulated_distance_land"<<","<<accumulated_distance_to_land*1e5<<"\n";
 
 
-
     ROS_INFO_STREAM("Search took: " << ros::Duration(end_search_-start_search_).toSec());
     ROS_INFO_STREAM("Check for leaf " << leaf_time_.size() << " times. Total time spent: " << std::accumulate(leaf_time_.begin(),leaf_time_.end(),0.0));
     ROS_INFO_STREAM("Check for collision " << collision_time_.size() << " times. Total time spent: " << std::accumulate(collision_time_.begin(),collision_time_.end(),0.0));
@@ -513,6 +549,9 @@ void HybridAStar::dumpSearchBenchmark(){
     benchmark_file_time<<"simulate"<<","<<simulate_time_.size()<<","<<std::accumulate(simulate_time_.begin(),simulate_time_.end(),0.0)<<"\n";
     benchmark_file_time<<"calculate_heuristic"<<","<<heuristic_time_.size()<<","<<std::accumulate(heuristic_time_.begin(),heuristic_time_.end(),0.0)<<"\n";
     benchmark_file_time<<"calculate_sim_time"<<","<<calc_sim_time_.size()<<","<<std::accumulate(calc_sim_time_.begin(),calc_sim_time_.end(),0.0)<<"\n";
+
+    ROS_INFO_STREAM("Grid search algorithm:");
+    grid_search_alg_->dumpSearchBenchmark();
 }
 
 HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):

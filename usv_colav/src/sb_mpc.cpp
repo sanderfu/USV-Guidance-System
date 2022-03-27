@@ -213,7 +213,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
         }
     }
     clearVisualPath();
-    //visualizePath(choosen_path);
+    visualizePath(choosen_path);
     ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
     ROS_INFO_STREAM("Best cost: " << cost);
     P_ca_last_ = u_corr_best;

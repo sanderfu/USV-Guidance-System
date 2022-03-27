@@ -41,6 +41,8 @@ void AStar::setGoal(double lon,double lat){
  * @return false 
  */
 bool AStar::search(){
+    ros::Time start = ros::Time::now();
+    int id = generateSearchID();
     while(!frontier_.empty()){
         frontier_.get();
     }
@@ -56,28 +58,24 @@ bool AStar::search(){
         Vertex* current = frontier_.get();
         closed_.insert(current->id);
         //Early exit
-
         if (current==v_goal_){
             //std::cout << "Not following stored path" << std::endl;
             bool path_reconstructed = reconstructPath();
-            match_sequence_.clear();
             updateLookupTable();
-            saveDataContainers(generateSearchID());
+            saveDataContainers(id);
+            search_early_exit_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
             return path_reconstructed;
         }
-
         
         if(followingStoredPath(current)){
             //std::cout << "Following stored path" << std::endl;
             bool path_reconstructed = reconstructPathFromLookup(current);
             updateLookupTable();
-            saveDataContainers(generateSearchID());
+            saveDataContainers(id);
+            search_sequence_match_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
             return path_reconstructed;
         }
         
-        
-        
-
         if(!ros::ok()){
             std::cout << "Stopping A* prematurely" << std::endl;
             saveDataContainers(generateSearchID());
@@ -91,20 +89,14 @@ bool AStar::search(){
                 continue;
             }
             double new_cost = cost_so_far_[current] + gm_->getEdgeWeight(current->id,next->id);
-
             if(cost_so_far_.find(next) == cost_so_far_.end() || new_cost<cost_so_far_[next]){
                 cost_so_far_[next]=new_cost;
-                //std::cout << heuristicDirect(next->state,v_goal_->state) << " " << getDistanceToGoal(next) << std::endl;
                 double priority = cost_so_far_[next] + heuristicDirect(next->state,v_goal_->state);
                 frontier_.put(next,priority);
-                if(closed_.find(next->id)!=closed_.end()){
-                    std::cout << "Reopening closed vertex" << std::endl;
-                    closed_.erase(next->id);
-                }
+                if(closed_.find(next->id)!=closed_.end()) closed_.erase(next->id);
                 came_from_[next]=current;
             }
         }
-        
     }
 }
 
@@ -125,8 +117,10 @@ std::vector<Vertex*> AStar::getPath(){
  * @return double Absolute distance between A and B [m]
  */
 double AStar::heuristicDirect(const StateVec& state_u, const StateVec& state_v){
+    ros::Time start = ros::Time::now();
     double distance;
     geod_.Inverse(state_u.y(),state_u.x(),state_v.y(),state_v.x(),distance);
+    heuristic_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return abs(distance);
 }
 
@@ -137,6 +131,7 @@ double AStar::heuristicDirect(const StateVec& state_u, const StateVec& state_v){
  * @return false Path does not exist between start and goal
  */
 bool AStar::reconstructPath() {
+    ros::Time start = ros::Time::now();
     path_.clear();
     path_length_ = 0;
     double spline_length = 0;
@@ -158,6 +153,7 @@ bool AStar::reconstructPath() {
     }
     path_.push_back(v_start_); // optional
     std::reverse(path_.begin(), path_.end());
+    reconstruct_full_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return true;
 }
 
@@ -166,14 +162,16 @@ bool AStar::edgeInLookupTable(const Vertex* from, const Vertex* to){
 }
 
 void AStar::updateLookupTable(){
+    ros::Time start = ros::Time::now();
     for(int i=0; i<path_.size()-1; i++){
         path_lookup_table_[path_[i]->id]=path_[i+1]->id;
     }
+    update_lookup_table_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
 }
 
 bool AStar::reconstructPathFromLookup(Vertex* v){
     //Knows optimal path from v to goal.
-    //Think I can use came_from to get v_start_ to v
+    ros::Time start = ros::Time::now();
     path_.clear();  
     Vertex* current = v;
     while (current != v_start_) {
@@ -195,10 +193,12 @@ bool AStar::reconstructPathFromLookup(Vertex* v){
         path_.push_back(current);
     }
     path_.push_back(v_goal_);
+    reconstruct_lookup_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return true;
 }
 
 bool AStar::followingStoredPath(Vertex* v){
+    ros::Time start = ros::Time::now();
     Vertex* current = v;
     int necessary_match_sequence = 5;
     int i =0;
@@ -209,15 +209,11 @@ bool AStar::followingStoredPath(Vertex* v){
             match_sequence_.clear();
             return false;
         }
-        if(closed_.find(current->id)==closed_.end() || closed_.find(came_from_[current]->id)==closed_.end()){
-            std::cout << "Current or came from not closed, cannot concluce" << std::endl;
-            match_sequence_.clear();
-            return false;
-        }
         current = came_from_[current];
         i++;
     }
     match_sequence_.push_back(current);
+    following_stored_path_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return true;
 }
 
@@ -230,8 +226,9 @@ int AStar::generateSearchID(){
  * 
  */
 void AStar::saveDataContainers(int search_id){
+    ros::Time start = ros::Time::now();
     std::string path = ros::package::getPath("usv_mission_planner");
-    path.append("/data/missions/"+mission_name_+"/astar/"+std::to_string(search_id)+"/");
+    path.append("/data/missions/"+mission_name_+"/astar/search/"+std::to_string(search_id)+"/");
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directories(path);
     }
@@ -303,7 +300,58 @@ void AStar::saveDataContainers(int search_id){
     path_file.close();
     distance_lookup_table_file.close();
     match_sequence_file.close();
+    save_data_contianer_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     //std::cout << "Debug files saved" << std::endl;
+}
+
+void AStar::dumpSearchBenchmark(){
+    std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/astar/benchmark/";
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directories(path);
+    }
+
+    std::ofstream benchmark_file_time(path+"benchmark_time.csv");
+    std::ofstream benchmark_file_misc(path+"benchmark_misc.csv");
+    benchmark_file_time<<"name,times_run,total_time\n";
+    benchmark_file_misc<<"name,value\n";
+
+
+
+    ROS_INFO_STREAM("Search for path early exit " << search_early_exit_times_.size() << " times. Total time spent: " << std::accumulate(search_early_exit_times_.begin(),search_early_exit_times_.end(),0.0));
+    ROS_INFO_STREAM("Search for path sequence match " << search_sequence_match_times_.size() << " times. Total time spent: " << std::accumulate(search_sequence_match_times_.begin(),search_sequence_match_times_.end(),0.0));
+    ROS_INFO_STREAM("Update lookup table " << update_lookup_table_times_.size() << " times. Total time spent: " << std::accumulate(update_lookup_table_times_.begin(),update_lookup_table_times_.end(),0.0));
+    ROS_INFO_STREAM("Check match sequence " << following_stored_path_times_.size() << " times. Total time spent: " << std::accumulate(following_stored_path_times_.begin(),following_stored_path_times_.end(),0.0));
+    ROS_INFO_STREAM("Calculate heuristic " << heuristic_times_.size() << " times. Total time spent: " << std::accumulate(heuristic_times_.begin(),heuristic_times_.end(),0.0));
+    ROS_INFO_STREAM("Reconstruct from lookup " << reconstruct_lookup_times_.size() << " times. Total time spent: " << std::accumulate(reconstruct_lookup_times_.begin(),reconstruct_lookup_times_.end(),0.0));
+    ROS_INFO_STREAM("Reconstruct from scratch " << reconstruct_full_times_.size() << " times. Total time spent: " << std::accumulate(reconstruct_full_times_.begin(),reconstruct_full_times_.end(),0.0));
+    ROS_INFO_STREAM("Save data containers " << save_data_contianer_times_.size() << " times. Total time spent: " << std::accumulate(save_data_contianer_times_.begin(),save_data_contianer_times_.end(),0.0));
+    benchmark_file_time<<"search_early_exit"<<","<<search_early_exit_times_.size()<<","<<std::accumulate(search_early_exit_times_.begin(),search_early_exit_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"search_sequence_match"<<","<<search_sequence_match_times_.size()<<","<<std::accumulate(search_sequence_match_times_.begin(),search_sequence_match_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"update_lookup_table"<<","<<update_lookup_table_times_.size()<<","<<std::accumulate(update_lookup_table_times_.begin(),update_lookup_table_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"check_following_stored_path"<<","<<following_stored_path_times_.size()<<","<<std::accumulate(following_stored_path_times_.begin(),following_stored_path_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"calculate_heuristic"<<","<<heuristic_times_.size()<<","<<std::accumulate(heuristic_times_.begin(),heuristic_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"reconstruct_lookup"<<","<<reconstruct_lookup_times_.size()<<","<<std::accumulate(reconstruct_lookup_times_.begin(),reconstruct_lookup_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"reconstruct_full"<<","<<reconstruct_full_times_.size()<<","<<std::accumulate(reconstruct_full_times_.begin(),reconstruct_full_times_.end(),0.0)<<"\n";
+    benchmark_file_time<<"save_data_contianers"<<","<<save_data_contianer_times_.size()<<","<<std::accumulate(save_data_contianer_times_.begin(),save_data_contianer_times_.end(),0.0)<<"\n";
+
+    //Benchmark containers
+    int id = 0;
+    std::ofstream search_early_exit_file(path+"early_exit.csv");
+    search_early_exit_file << "time\n";
+
+    std::ofstream search_sequence_match_file(path+"sequence_match.csv");
+    search_sequence_match_file << "time\n";
+
+    for(auto it = search_early_exit_times_.begin(); it!= search_early_exit_times_.end(); it++){
+        search_early_exit_file<<(*it)<<"\n";
+    }
+
+    for(auto it=search_sequence_match_times_.begin(); it!= search_sequence_match_times_.end(); it++){
+        search_sequence_match_file<<(*it)<<"\n";
+    }
+
+    search_early_exit_file.close();
+    search_sequence_match_file.close();
 }
 
 AStarROS::AStarROS(ros::NodeHandle& nh, GraphManager* gm, MapService* map_service):

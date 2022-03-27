@@ -18,6 +18,7 @@ class AStar{
         //For visualization/debugging
         std::vector<Vertex*> getPath();
         void saveDataContainers(int search_id);
+        void dumpSearchBenchmark();
     protected:
     std::string mission_name_;
         std::vector<Vertex*> path_;
@@ -37,6 +38,16 @@ class AStar{
         std::unordered_map<int,double> distance_lookup_table_;
 
         std::vector<Vertex*> match_sequence_;
+
+        //Benchmark tools
+        std::vector<double> search_early_exit_times_;
+        std::vector<double> search_sequence_match_times_;
+        std::vector<double> update_lookup_table_times_;
+        std::vector<double> following_stored_path_times_;
+        std::vector<double> heuristic_times_;
+        std::vector<double> reconstruct_lookup_times_;
+        std::vector<double> reconstruct_full_times_;
+        std::vector<double> save_data_contianer_times_;
 
         
         int search_id_;

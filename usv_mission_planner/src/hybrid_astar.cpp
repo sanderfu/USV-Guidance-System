@@ -537,7 +537,6 @@ void HybridAStar::dumpSearchBenchmark(){
     benchmark_file_misc<<"accumulated_distance_land"<<","<<accumulated_distance_to_land*1e5<<"\n";
 
 
-
     ROS_INFO_STREAM("Search took: " << ros::Duration(end_search_-start_search_).toSec());
     ROS_INFO_STREAM("Check for leaf " << leaf_time_.size() << " times. Total time spent: " << std::accumulate(leaf_time_.begin(),leaf_time_.end(),0.0));
     ROS_INFO_STREAM("Check for collision " << collision_time_.size() << " times. Total time spent: " << std::accumulate(collision_time_.begin(),collision_time_.end(),0.0));
@@ -550,6 +549,9 @@ void HybridAStar::dumpSearchBenchmark(){
     benchmark_file_time<<"simulate"<<","<<simulate_time_.size()<<","<<std::accumulate(simulate_time_.begin(),simulate_time_.end(),0.0)<<"\n";
     benchmark_file_time<<"calculate_heuristic"<<","<<heuristic_time_.size()<<","<<std::accumulate(heuristic_time_.begin(),heuristic_time_.end(),0.0)<<"\n";
     benchmark_file_time<<"calculate_sim_time"<<","<<calc_sim_time_.size()<<","<<std::accumulate(calc_sim_time_.begin(),calc_sim_time_.end(),0.0)<<"\n";
+
+    ROS_INFO_STREAM("Grid search algorithm:");
+    grid_search_alg_->dumpSearchBenchmark();
 }
 
 HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):

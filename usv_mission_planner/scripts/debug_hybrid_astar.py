@@ -51,7 +51,7 @@ GREEN = '#4F7942'
 def main():
     rospack = rospkg.RosPack()
     map_name = "trondheim_hitra_4x"
-    mission_name = "test_matchsequence_trondheim_4x_105"
+    mission_name = "test_adaptive_TRD_ON"
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
     if ds==None:
@@ -132,9 +132,9 @@ def main():
 
 
     #Plot quadtree
-    #quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
-    #quadtree_df = pd.read_csv(quadtree_path)
-    #lines = []
+    quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
+    quadtree_df = pd.read_csv(quadtree_path)
+    lines = []
     #for index,row in quadtree_df.iterrows():
     #    line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
     #    lines.append(line)

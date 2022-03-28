@@ -190,17 +190,17 @@ double Region::getOccupiedArea(){
     std::vector<OGRGeometry*> geometries_to_check;
     std::vector<OGRFeature*> related_features;
 
+    comparison_layer_->ResetReading();
     while((feat = comparison_layer_->GetNextFeature()) != NULL){
         geometries_to_check.push_back(feat->GetGeometryRef()); 
         related_features.push_back(feat);
     }
 
+    unknown_layer_->ResetReading();
     while((feat = unknown_layer_->GetNextFeature()) != NULL){
         geometries_to_check.push_back(feat->GetGeometryRef()); 
         related_features.push_back(feat);
     }
-
-
 
     #pragma omp parallel for reduction(+:total_area)
         for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){

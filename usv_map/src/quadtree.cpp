@@ -16,6 +16,18 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, s
     mission_region_(mission_region),
     map_service_(map_service){
     gm_ = new GraphManager;
+
+    //Load parameters
+    //Load parameters
+    bool parameter_load_error = false;
+    if(!ros::param::get("map_preprocessing/quadtree/fixed_divisor_flag",fixed_divisor_flag_)) parameter_load_error = true;
+    if(!ros::param::get("map_preprocessing/quadtree/fixed_divisor_value",fixed_divisor_value_)) parameter_load_error = true;
+    if(!ros::param::get("map_preprocessing/quadtree/max_length_divisor_value",max_length_divisor_value_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
+    benchmark_data_.vertices=0;
     ros::Time start = ros::Time::now();
     if (build_immediately){
         build();
@@ -215,15 +227,18 @@ void Quadtree::dumpBenchmark(){
 
     std::cout << "Buildtime total: " << benchmark_data_.build_time << std::endl;
     std::cout << "Regions: " << benchmark_data_.splitRegion_time.size()*4 << std::endl;
+    std::cout << "Vertices: " << benchmark_data_.vertices << std::endl;
     std::cout << "Region build time total: " << std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0) << std::endl;
     std::cout << "Get occupancy of region total: " << std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0) << std::endl;
     std::cout << "Get Frame points: " << std::accumulate(benchmark_data_.getFramePoints_time.begin(),benchmark_data_.getFramePoints_time.end(),0.0) << std::endl;
 
     benchmark_file_misc<<"regions"<<","<< benchmark_data_.splitRegion_time.size()*4 << "\n";
+    benchmark_file_misc<<"vertices"<<","<< benchmark_data_.vertices << "\n";
     benchmark_file_time<<"build"<<","<<1<<","<<benchmark_data_.build_time<<"\n";
     benchmark_file_time<<"get_occipied_area"<<","<<benchmark_data_.getOccupiedArea_time.size()<<","<<std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0)<<"\n";
     benchmark_file_time<<"split_region"<<","<<benchmark_data_.splitRegion_time.size()<<","<<std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0)<<"\n";
     benchmark_file_time<<"get_frame_points"<<","<<benchmark_data_.getFramePoints_time.size()<<","<<std::accumulate(benchmark_data_.getFramePoints_time.begin(),benchmark_data_.getFramePoints_time.end(),0.0)<<"\n";
+
 
 }
 
@@ -293,29 +308,29 @@ void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evalu
 std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Region* region){
     ros::Time start = ros::Time::now();
     std::unordered_map<regionEdge,std::vector<StateVec>> frame_points;
-    //Determine divisor based on region area. If sufficiently small only edge points
-    int divisor = 4;
-    double max_edge_length = 300;
+    int divisor_NS, divisor_EW;
+    if(!fixed_divisor_flag_){
+        //Determine divisor for N/S edge
+        double length_NS;
+        geod_.Inverse(region->lower_left_.getY(),region->lower_left_.getX(),region->lower_left_.getY(),region->upper_right_.getX(),length_NS);
+        length_NS = abs(length_NS);
+        divisor_NS = std::round(length_NS/max_length_divisor_value_+0.5);
+        if(divisor_NS!=1 && divisor_NS%2!=0){
+            divisor_NS++;
+        }
 
-    //Determine divisor for N/S edge
-    double length_NS;
-    geod_.Inverse(region->lower_left_.getY(),region->lower_left_.getX(),region->lower_left_.getY(),region->upper_right_.getX(),length_NS);
-    length_NS = abs(length_NS);
-    int divisor_NS = std::round(length_NS/max_edge_length+0.5);
-    if(divisor_NS!=1 && divisor_NS%2!=0){
-        divisor_NS++;
+        //Determine divisor for E/W edge
+        double length_EW;
+        geod_.Inverse(region->lower_left_.getY(),region->lower_left_.getX(),region->upper_right_.getY(),region->lower_left_.getX(),length_EW);
+        length_EW = abs(length_EW);
+        divisor_EW = std::round(length_EW/max_length_divisor_value_+0.5);
+        if(divisor_EW!=1 && divisor_EW%2!=0){
+            divisor_EW++;
+        }
+    } else{
+        divisor_NS = fixed_divisor_value_;
+        divisor_EW = fixed_divisor_value_;
     }
-
-     //Determine divisor for E/W edge
-    double length_EW;
-    geod_.Inverse(region->lower_left_.getY(),region->lower_left_.getX(),region->upper_right_.getY(),region->lower_left_.getX(),length_EW);
-    length_EW = abs(length_EW);
-    int divisor_EW = std::round(length_EW/max_edge_length+0.5);
-    if(divisor_EW!=1 && divisor_EW%2!=0){
-        divisor_EW++;
-    }
-    //std::cout << "length_NS:  " << length_NS << " length_EW: " << length_EW << std::endl;
-    //std::cout << "divisor_NS: " << divisor_NS << " divisor_EW: " << divisor_EW << std::endl;
 
     //Determine points for south edge and north edge
     for (double x=region->lower_left_.getX(); x<=region->upper_right_.getX();x+=region->getWidth()/divisor_NS){
@@ -323,6 +338,7 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
         frame_points[regionEdge::S].push_back(StateVec(x,region->lower_left_.getY(),0,0));
         //North
         frame_points[regionEdge::N].push_back(StateVec(x,region->upper_right_.getY(),0,0));
+        benchmark_data_.vertices+=2;
     }
 
     //Determine points for west and east edge
@@ -331,6 +347,7 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
         frame_points[regionEdge::W].push_back(StateVec(region->lower_left_.getX(),y,0,0));
         //East
         frame_points[regionEdge::E].push_back(StateVec(region->upper_right_.getX(),y,0,0));
+        benchmark_data_.vertices+=2;
     }
     benchmark_data_.getFramePoints_time.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return frame_points;

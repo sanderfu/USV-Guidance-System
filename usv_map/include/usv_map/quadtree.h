@@ -26,6 +26,7 @@
 typedef struct {
     //Overall info
     double build_time;
+    int vertices;
 
     std::vector<double> splitRegion_time;
     std::vector<double> getOccupiedArea_time;
@@ -75,6 +76,11 @@ class Quadtree{
         void splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate);
         void setCustomVertex(Vertex* s);
         std::string mission_region_;
+
+        //Parameters
+        bool fixed_divisor_flag_;
+        int fixed_divisor_value_;
+        double max_length_divisor_value_;
 
         //Debug
         std::vector<Region*> region_sequence_;

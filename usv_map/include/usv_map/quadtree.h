@@ -14,6 +14,7 @@
 #include "geotf/geodetic_converter.h"
 #include "iostream"
 #include "fstream"
+#include "usv_map/map_service.h"
 
 //Dependencies for quadtree RVIZ visualization
 #include "visualization_msgs/Marker.h"
@@ -28,6 +29,7 @@ typedef struct {
 
     std::vector<double> splitRegion_time;
     std::vector<double> getOccupiedArea_time;
+    std::vector<double> getFramePoints_time;
 
 } quadtree_benchmark_t;
 
@@ -38,7 +40,7 @@ typedef struct {
  */
 class Quadtree{
     public:
-        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region, bool build_immediately=true);
+        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region, MapService* map_service,bool build_immediately=true);
         
         void setStart(double lon, double lat);
         void setGoal(double lon, double lat);
@@ -61,6 +63,7 @@ class Quadtree{
         int region_id_=0;
 
         GeographicLib::Geodesic geod_;
+        MapService* map_service_;
 
         //Benchmark
         quadtree_benchmark_t benchmark_data_;

@@ -13,13 +13,14 @@
  * @param own_region A description of the regions position w.r.t. to the parent region centorid.
  * @param ds The datasource from which a map to counstruct a quadtree around is located.
  */
-Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds):
+Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, MapService* map_service):
     ds_(ds),
     lower_left_(lower_left),
     upper_right_(upper_right),
     depth_(depth),
     id_(id),
-    parent_id_(parent_id){
+    parent_id_(parent_id),
+    map_service_(map_service){
     OGRLinearRing tmp;
     tmp.addPoint(&lower_left);
     tmp.addPoint(lower_left.getX(),upper_right.getY());
@@ -29,6 +30,9 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
 
     region_polygon_ = new OGRPolygon;
     region_polygon_->addRingDirectly(new OGRLinearRing(&tmp));
+
+    random_distribution_x = new std::uniform_real_distribution<double>(lower_left_.getX(),upper_right_.getX());
+    random_distribution_y = new std::uniform_real_distribution<double>(lower_left_.getY(),upper_right_.getY());
 
     if(!region_polygon_->IsValid())
     {
@@ -56,7 +60,9 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
  * @param own_region A description of the regions position w.r.t. to the parent region centorid.
  * @param ds The datasource from which a map to counstruct a quadtree around is located.
  */
-Region::Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds){
+Region::Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, MapService* map_service){
+    map_service_ = map_service;
+    
     depth_ = depth;
     id_ = id;
     parent_id_ = parent_id;
@@ -78,6 +84,9 @@ Region::Region(double lon_lower, double lat_lower, double width, double height, 
 
     region_polygon_ = new OGRPolygon;
     region_polygon_->addRingDirectly(new OGRLinearRing(&tmp));
+
+    random_distribution_x = new std::uniform_real_distribution<double>(lower_left_.getX(),upper_right_.getX());
+    random_distribution_y = new std::uniform_real_distribution<double>(lower_left_.getY(),upper_right_.getY());
 
     if(!region_polygon_->IsValid())
     {

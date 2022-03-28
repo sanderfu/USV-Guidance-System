@@ -31,12 +31,12 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
     extractor.run();
 
     //Build quadtree
+    MapService map_service(db);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,true);
+    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,&map_service,true);
 
     //Build voronoi skeleton
-    MapService map_service(db);
     GeographicLib::Geodesic geod(GeographicLib::Geodesic::WGS84());
     VoronoiSkeletonGenerator vs_gen("collision_dissolved",lower_left_,upper_right_,db,&tree,&map_service,&geod);
     vs_gen.run();
@@ -84,9 +84,10 @@ GDALDataset* MapPreprocessor::extractENC(std::string mission_region_name,extract
 }
 
 void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds){
+    MapService map_service(ds);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,true);
+    Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,&map_service,true);
 }
 
 void MapPreprocessor::generateVoronoi(extractorRegion& region, GDALDataset* ds){

@@ -12,23 +12,20 @@ Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, s
     ds_(ds),
     lower_left_(lower_left),
     upper_right_(upper_right),
-    geod_(GeographicLib::Geodesic::WGS84()){
+    geod_(GeographicLib::Geodesic::WGS84()),
+    mission_region_(mission_region){
     gm_ = new GraphManager;
     ros::Time start = ros::Time::now();
     if (build_immediately){
         build();
         save(mission_region);
+        benchmark_data_.build_time = ros::Duration(ros::Time::now()-start).toSec();
+        dumpBenchmark();
     } 
     else load(mission_region);
     ros::Time end = ros::Time::now();
 
-    benchmark_data_.build_time = ros::Duration(end-start).toSec();
-    std::cout << "Quadtree built, benchmark data: " << std::endl;
-    std::cout << "Buildtime total: " << benchmark_data_.build_time << std::endl;
-    std::cout << "Regions: " << benchmark_data_.splitRegion_time.size()*4 << std::endl;
-    std::cout << "Region build time total: " << std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0) << std::endl;
-    std::cout << "Get occupancy of region total: " << std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0) << std::endl;
-    std::cout << "Size of tree root: " << sizeof(tree_root_) << std::endl;
+    
 }
 
 /**
@@ -202,6 +199,29 @@ void Quadtree::load(const std::string& mission_region){
         current_depth++;   
     }
     ROS_INFO_STREAM("Quadtree loaded succesfully");
+}
+
+void Quadtree::dumpBenchmark(){
+    std::string path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region_+"/benchmark/quadtree/";
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directories(path);
+    }
+
+    std::ofstream benchmark_file_time(path+"benchmark_time.csv");
+    std::ofstream benchmark_file_misc(path+"benchmark_misc.csv");
+    benchmark_file_time<<"name,times_run,total_time\n";
+    benchmark_file_misc<<"name,value\n";
+
+    std::cout << "Buildtime total: " << benchmark_data_.build_time << std::endl;
+    std::cout << "Regions: " << benchmark_data_.splitRegion_time.size()*4 << std::endl;
+    std::cout << "Region build time total: " << std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0) << std::endl;
+    std::cout << "Get occupancy of region total: " << std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0) << std::endl;
+
+    benchmark_file_misc<<"regions"<<","<< benchmark_data_.splitRegion_time.size()*4 << "\n";
+    benchmark_file_time<<"build"<<","<<1<<","<<benchmark_data_.build_time<<"\n";
+    benchmark_file_time<<"get_occipied_area"<<","<<benchmark_data_.splitRegion_time.size()<<","<<std::accumulate(benchmark_data_.getOccupiedArea_time.begin(),benchmark_data_.getOccupiedArea_time.end(),0.0)<<"\n";
+    benchmark_file_time<<"split_region"<<","<<benchmark_data_.splitRegion_time.size()<<","<<std::accumulate(benchmark_data_.splitRegion_time.begin(),benchmark_data_.splitRegion_time.end(),0.0)<<"\n";
+
 }
 
 /**

@@ -47,6 +47,7 @@ class Quadtree{
 
         void save(const std::string& mission_region);
         void load(const std::string& Mission_region);
+        void dumpBenchmark();
 
     protected:
         GDALDataset* ds_;
@@ -70,6 +71,7 @@ class Quadtree{
         int generateRegionID();
         void splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate);
         void setCustomVertex(Vertex* s);
+        std::string mission_region_;
 
         //Debug
         std::vector<Region*> region_sequence_;

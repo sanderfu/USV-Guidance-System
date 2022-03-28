@@ -6,6 +6,8 @@
 #include "vector"
 #include "unordered_map"
 #include "omp.h"
+#include "usv_map/map_service.h"
+#include <random>
 
 /**
  * @brief Enum describing the four edges of a region.
@@ -29,8 +31,8 @@ enum childRegion{
  */
 class Region{
     public:
-        Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds);
-        Region(double lon_lower, double lat_lower, double lon_upper, double lat_upper, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds);
+        Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, MapService* map_service);
+        Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds,MapService* map_service);
         
         int getID();
         int getDepth();
@@ -59,6 +61,11 @@ class Region{
         GDALDataset* ds_;
         OGRLayer* comparison_layer_;
         OGRLayer* unknown_layer_;
+        MapService* map_service_;
+
+        std::uniform_real_distribution<double>* random_distribution_x;
+        std::uniform_real_distribution<double>* random_distribution_y;
+        std::default_random_engine random_engine_;
 
         int depth_;
         int id_;

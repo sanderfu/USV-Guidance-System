@@ -1,0 +1,8 @@
+map_preprocessing:
+  quadtree:
+    #If true, every region edge is split into a fixed amount of parts
+    fixed_divisor_flag: false
+    #Parts to split region edge into if fixed.
+    fixed_divisor_value: 4
+    #Max length of a edge part if not fixed
+    max_length_divisor_value: 300 #m 

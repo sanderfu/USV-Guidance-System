@@ -5,6 +5,8 @@ function clone_dependencies() {
     git clone git@github.com:catkin/catkin_simple.git
     git clone git@github.com:ethz-asl/geodetic_utils.git
     git clone git@github.com:sanderfu/rviz_polygon_filled.git
+    git clone git@github.com:sanderfu/enc-extraction.git
+    git clone git@github.com:sanderfu/planner_commons.git
 }
 
 function install_plotjuggler {

@@ -368,6 +368,9 @@ double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, doub
 std::vector<extendedVertex*> HybridAStar::reconstructPath() {
     ros::Time start = ros::Time::now();
     std::vector<extendedVertex*> path;
+    if(v_goal_!=v_close_){
+        path.push_back(v_goal_);
+    }
     extendedVertex* current = v_close_;
     while (current != v_start_) {
         path.push_back(current);

@@ -1,3 +1,6 @@
+a_star:
+  mission_data:
+    save_search_data: false
 hybrid_a_star:
   static_simulation_time:
     default_sim_time: 120 #s
@@ -16,10 +19,12 @@ hybrid_a_star:
   heuristic:
     distance_scaling_factor: 1.05
     voronoi_field_cost_weight: 0.005
-
+  mission_data:
+    save_search_data: true
+    save_benchmark_data: true
 mission_planner:
   #Name of mission, for path and debug data storage
-  mission_name: "test_adaptive_TRD_ON"
+  mission_name: "test_test"
   #If path determined in advance and stored to gpx, load it and publish
   load_from_gpx: false
   #Load from this gpx or save to this gpx
@@ -27,7 +32,7 @@ mission_planner:
   #Preprocessing has been run for mission region
   preprocessed_map: true
   #Preprocessed data to load (or save). Loads/saves collision db, voronoi db and quadtree 
-  map_name: "trondheim_hitra_4x"
+  map_name: "outside_ny_max_300"
   # Two coordinates defining the mission region. Discarded if preprocessed_map=true (min_lon,min_lat,max_lon,max_lat)
   map_extent: [9.26396,63.40249,10.49051,63.73362]
   #Desired speed of the vessel planning for

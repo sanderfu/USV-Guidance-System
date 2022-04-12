@@ -39,6 +39,10 @@ class AStar{
 
         std::vector<Vertex*> match_sequence_;
 
+        //Parameters
+        bool save_search_data_;
+        bool save_benchmark_data_;
+
         //Benchmark tools
         std::vector<double> search_early_exit_times_;
         std::vector<double> search_sequence_match_times_;

@@ -70,6 +70,9 @@ class HybridAStar{
         //Heuristic
         double voronoi_field_cost_weight_;
         double distance_scaling_factor_;
+        //Data storage
+        bool save_search_data_;
+        bool save_benchmark_data_;
 
         int vertex_id_=0;
         int generateVertexID();
@@ -102,6 +105,10 @@ class HybridAStar{
         std::vector<double> simulate_time_;
         std::vector<double> heuristic_time_;
         std::vector<double> calc_sim_time_;
+        std::vector<double> similar_closed_time_;
+        std::vector<double> get_next_vertex_time_;
+        std::vector<double> get_distance_time_;
+        std::vector<double> reconstruct_path_time_;
         void dumpSearchBenchmark();
 
 };

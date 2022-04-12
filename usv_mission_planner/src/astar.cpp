@@ -6,6 +6,12 @@ geod_(GeographicLib::Geodesic::WGS84()),
 map_service_(map_service),
 mission_name_(mission_name){
     search_id_ = 0;
+    bool parameter_load_error = false;
+    if(!ros::param::get("a_star/mission_data/save_search_data",save_search_data_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
 }
 
 /**
@@ -62,7 +68,7 @@ bool AStar::search(){
             //std::cout << "Not following stored path" << std::endl;
             bool path_reconstructed = reconstructPath();
             updateLookupTable();
-            saveDataContainers(id);
+            if (save_search_data_) saveDataContainers(id);
             search_early_exit_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
             return path_reconstructed;
         }
@@ -71,16 +77,18 @@ bool AStar::search(){
             //std::cout << "Following stored path" << std::endl;
             bool path_reconstructed = reconstructPathFromLookup(current);
             updateLookupTable();
-            saveDataContainers(id);
+            if (save_search_data_) saveDataContainers(id);
             search_sequence_match_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
             return path_reconstructed;
         }
         
+        
         if(!ros::ok()){
             std::cout << "Stopping A* prematurely" << std::endl;
-            saveDataContainers(generateSearchID());
+            if (save_search_data_) saveDataContainers(generateSearchID());
             return false;
         }
+        
 
         std::vector<Vertex*> neighbors;
         gm_->getConnectedNeighbors(current->id,neighbors);

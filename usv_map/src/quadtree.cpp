@@ -315,8 +315,15 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
         geod_.Inverse(region->lower_left_.getY(),region->lower_left_.getX(),region->lower_left_.getY(),region->upper_right_.getX(),length_NS);
         length_NS = abs(length_NS);
         divisor_NS = std::round(length_NS/max_length_divisor_value_+0.5);
-        if(divisor_NS!=1 && divisor_NS%2!=0){
-            divisor_NS++;
+        if(divisor_NS!=1){
+            int i = 1;
+            while(divisor_NS!=pow(2,i)){
+                if(divisor_NS<pow(2,i)){
+                    divisor_NS = pow(2,i);
+                } else{
+                    i++;
+                }
+            }
         }
 
         //Determine divisor for E/W edge
@@ -324,8 +331,15 @@ std::unordered_map<regionEdge,std::vector<StateVec>> Quadtree::getFramePoints(Re
         geod_.Inverse(region->lower_left_.getY(),region->lower_left_.getX(),region->upper_right_.getY(),region->lower_left_.getX(),length_EW);
         length_EW = abs(length_EW);
         divisor_EW = std::round(length_EW/max_length_divisor_value_+0.5);
-        if(divisor_EW!=1 && divisor_EW%2!=0){
-            divisor_EW++;
+        if(divisor_EW!=1){
+            int i = 1;
+            while(divisor_EW!=pow(2,i)){
+                if(divisor_EW<pow(2,i)){
+                    divisor_EW = pow(2,i);
+                } else{
+                    i++;
+                }
+            }
         }
     } else{
         divisor_NS = fixed_divisor_value_;

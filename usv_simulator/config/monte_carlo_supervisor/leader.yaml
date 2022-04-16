@@ -1,0 +1,7 @@
+monte_carlo_supervisor:
+  leader: true
+  simulation_collection_name: "test_from_config_"
+  simulations: 2
+  predefined_mission: false
+  predefined_mission_name: "None"
+  goal_pose: [-74.01067,40.58611,0]

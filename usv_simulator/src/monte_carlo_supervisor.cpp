@@ -12,17 +12,31 @@ MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
     q.setRPY(0,0,global_position_vec_[2]);
 
     //Monte Carlo parameters
+    bool parameter_load_error = false;
+    if(!ros::param::get("monte_carlo_supervisor/leader",leader_supervisor_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/simulation_collection_name",simulation_collection_name_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/simulations",simulations_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/predefined_mission",predefined_mission_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/predefined_mission_name",predefined_mission_name_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/goal_pose",goal_pose_)) parameter_load_error = true;
+    if(parameter_load_error){
+        ROS_ERROR_STREAM("Failed to load a parameter");
+        ros::shutdown();
+    }
 
+    //If leader, advertise to leader topics
+    if(leader_supervisor_){
+        leader_done_pub_ = nh_.advertise<std_msgs::Bool>("/monte_carlo_leader_supervisor/done",10);
+    }
 }
 
 void MonteCarloSupervisor::runSimulations(){
-    std::string simulation_name = "test_mc_";
     int sim_id = 0;
-    while(true){
+    while(sim_id<simulations_){
         //Reinit all actual parts of guidance system
         usv_msgs::reinit reinit_msg;
         reinit_msg.header.stamp = ros::Time::now();
-        reinit_msg.mission_name.data = simulation_name + std::to_string(sim_id);
+        reinit_msg.mission_name.data = simulation_collection_name_ + std::to_string(sim_id);
         reinit_msg.initial_pose.position.x = global_position_vec_[0];
         reinit_msg.initial_pose.position.y = global_position_vec_[1];
 
@@ -34,11 +48,18 @@ void MonteCarloSupervisor::runSimulations(){
 
         //Send mission to mission planner (blocks until search done)
         std::cout << "Sending mission, blocking until done" << std::endl;
-        sendMission(simulation_name+std::to_string(sim_id));
+        sendMission(simulation_collection_name_+std::to_string(sim_id));
         std::cout << "Mission done" << std::endl;
 
-        std::cout << "Waiting 10s and starting over" << std::endl;
-        ros::Duration(10.0).sleep();
+        std::cout << "Wait for goal reached" << std::endl;
+        if(leader_supervisor_){
+            std::cout << "Leader waiting for mission finish" << std::endl;
+            ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/done");
+            leader_done_pub_.publish(std_msgs::Bool());
+        } else{
+            std::cout << "Follower waiting for leader" << std::endl;
+            ros::topic::waitForMessage<std_msgs::Bool>("/monte_carlo_leader_supervisor/done");
+        }
         sim_id++;
     }
 
@@ -48,5 +69,9 @@ void MonteCarloSupervisor::sendMission(std::string mission_name){
     MissionPlannerClient mission_planner_client(nh_);
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
     ros::Duration(2).sleep();
-    mission_planner_client.searchFromOdom(-73.839272,40.641694,mission_name);
+    if(!predefined_mission_){
+        mission_planner_client.searchFromOdom(goal_pose_[0],goal_pose_[1],mission_name);
+    } else{
+        mission_planner_client.loadPredefined(predefined_mission_name_);
+    }
 }

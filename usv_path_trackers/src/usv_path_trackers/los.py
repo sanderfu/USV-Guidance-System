@@ -27,6 +27,7 @@ class LOS:
         self.debug_alongtrack = rospy.Publisher("los/alongtrack",Float32,queue_size=1,tcp_nodelay=True)
         self.setpoint_pub = rospy.Publisher("los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
         self.corrected_setpoint_pub = rospy.Publisher("los/corrected_setpoint",Twist, queue_size=1,tcp_nodelay=1)
+        self.waypoint_reached_pub = rospy.Publisher("los/waypoint_reached",Pose,queue_size=1,tcp_nodelay=True)
 
         self.reference_pub = rospy.Publisher("los/desired_yaw",Float32,queue_size=1,tcp_nodelay=True)
 
@@ -92,6 +93,7 @@ class LOS:
         if self.euclidean_distance(msg.pose.pose,self.current_waypoint)<10:
             #print("Within circle of acceptance, switching waypoint")
             self.switch_waypoint()
+            self.waypoint_reached_pub.publish(self.current_waypoint)
 
         if self.stop==True:
             self.desired_speed = 0

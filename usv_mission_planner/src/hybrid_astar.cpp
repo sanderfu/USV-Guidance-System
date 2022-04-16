@@ -63,6 +63,11 @@ void HybridAStar::setGoal(double lon, double lat, double yaw){
     v_goal_ = new extendedVertex(generateVertexID(),state);
 }
 
+void HybridAStar::setMissionName(std::string mission_name){
+    mission_name_ = mission_name;
+    grid_search_alg_->setMissionName(mission_name);
+}
+
 /**
  * @brief Clear all data containers. 
  * Helping function to avoid leftover data whenever more than one search is requested form the same object.

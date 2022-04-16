@@ -40,6 +40,10 @@ void AStar::setGoal(double lon,double lat){
     gm_->getNearestVertex(&goal,&v_goal_);
 }
 
+void AStar::setMissionName(std::string mission_name){
+    mission_name_ = mission_name;
+}
+
 /**
  * @brief Search for a graph-optimal path.
  * 

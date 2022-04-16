@@ -31,6 +31,7 @@ class HybridAStar{
         HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name);
         void setStart(double lon, double lat, double yaw);
         void setGoal(double lon, double lat, double yaw);
+        void setMissionName(std::string mission_name);
         void search();
         std::vector<extendedVertex*> getPath();
     

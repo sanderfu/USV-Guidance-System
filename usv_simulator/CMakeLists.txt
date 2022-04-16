@@ -23,6 +23,7 @@ cs_add_library(${PROJECT_NAME}
   src/sim_vessel.cpp
   src/sim_land.cpp
   src/sim_tracker.cpp
+  src/monte_carlo_supervisor.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -58,6 +59,11 @@ cs_add_executable(sim_tracker_node
   src/sim_tracker_node.cpp
 )
 target_link_libraries(sim_tracker_node ${PROJECT_NAME})
+
+cs_add_executable(monte_carlo_supervisor_node
+  src/monte_carlo_supervisor_node.cpp
+)
+target_link_libraries(monte_carlo_supervisor_node ${PROJECT_NAME})
 
 
 

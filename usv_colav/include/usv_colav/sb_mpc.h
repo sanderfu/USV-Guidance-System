@@ -3,6 +3,7 @@
 #include "ros/ros.h"
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Twist.h"
+#include "usv_msgs/reinit.h"
 #include "std_msgs/Bool.h"
 #include "gdal/ogrsf_frmts.h"
 #include "usv_map/map_service.h"
@@ -36,6 +37,7 @@ class SimulationBasedMPC{
         ros::Subscriber odom_sub_;
         ros::Subscriber los_setpoint_sub_;
         ros::Subscriber obstacle_sub_;
+        ros::Subscriber system_reinit_sub_;
         ros::Publisher correction_pub_;
         ros::Timer main_loop_timer_;
         MapService* map_service_;
@@ -51,6 +53,7 @@ class SimulationBasedMPC{
         void losSetpointSub(const geometry_msgs::Twist& msg);
         void obstacleCb(const usv_simulator::obstacle& msg);
         void mainLoop(const ros::TimerEvent& e);
+        void reinitCb(const usv_msgs::reinit& msg);
 
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
         double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, ModelLibrary::simulatedHorizon& obstacle_horizon, double P_ca, double Chi_ca, int k);

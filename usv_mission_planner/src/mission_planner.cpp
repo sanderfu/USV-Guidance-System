@@ -110,6 +110,15 @@ void MissionPlanner::publishSpeed(){
  */
 bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res){
     ROS_INFO_STREAM("Start search in mission planner");
+
+    //Crate mission directory, add timestamp before name
+    mission_path_ = ros::package::getPath("usv_mission_planner")+"/data/missions/"+req.mission_name.data+"/";
+    if(!boost::filesystem::exists(mission_path_)){
+        boost::filesystem::create_directories(mission_path_);
+    }
+
+    search_alg_->setMissionName(req.mission_name.data);
+
     if (req.use_odom){
         latest_gps_ = *ros::topic::waitForMessage<geometry_msgs::PoseStamped>("pose",nh_);
         std::cout << "Latest odom: " << latest_gps_.pose.position.x << latest_gps_.pose.position.y << std::endl;
@@ -178,12 +187,13 @@ MissionPlannerClient::MissionPlannerClient(ros::NodeHandle& nh): nh_(nh){
  * @param goal_lat Goal latitude
  * @param publish_path Should path be published in ROS network?
  */
-void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,bool publish_path){
+void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat, std::string mission_name, bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=true;
     srv.request.publish_path = publish_path;
     srv.request.goal_lon = goal_lon;
     srv.request.goal_lat = goal_lat;
+    srv.request.mission_name.data = mission_name;
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }
 
@@ -197,7 +207,7 @@ void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,bool 
  * @param goal_lat Goal latitude
  * @param publish_path Should path be published in ROS network?
  */
-void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, bool publish_path){
+void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, std::string mission_name, bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=false;
     srv.request.publish_path = publish_path;
@@ -206,6 +216,7 @@ void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, d
     srv.request.custom_start_heading = start_heading;
     srv.request.goal_lon = goal_lon;
     srv.request.goal_lat = goal_lat;
+    srv.request.mission_name.data = mission_name;
     ROS_INFO_STREAM("Calling search in MissionPlanner");
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }

@@ -51,6 +51,7 @@ K_DCHI_P_(1.2)			//   1.2
     odom_sub_ = nh_.subscribe("odom",1,&SimulationBasedMPC::odomCb,this);
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
+    system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
     main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
@@ -239,6 +240,24 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     ros::Time stop = ros::Time::now();
     ROS_INFO_STREAM("Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
     ROS_INFO_STREAM("Getting offset took: " << (stop-start).toSec() << " [s]");
+}
+
+void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
+    main_loop_timer_.stop();
+
+    ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
+    latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
+    latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
+    ROS_INFO_STREAM("Odometry and LOS setpoint received");
+
+    geo_converter_.removeFrame("global_enu");
+    geo_converter_.addFrameByENUOrigin("global_enu",msg.initial_pose.position.x,msg.initial_pose.position.y,0);
+    
+    main_loop_timer_.start();
+
+
+
+
 }
 
 /**

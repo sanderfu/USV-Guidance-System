@@ -5,13 +5,13 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), geo_conve
     if(!nh_.getParam("initial_position",global_position_vec)){
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
-    Eigen::Vector3d global_initial_position(global_position_vec.data());
+    std::cout <<"global position vec: " << global_position_vec[0] << " " << global_position_vec[1] << std::endl;
+    Eigen::Vector3d global_initial_position(global_position_vec[0],global_position_vec[1],0);
     Eigen::Vector3d local_initial_position;
     while(!geo_converter_.convert("WGS84",global_initial_position,"global_enu",local_initial_position));
-
     x_[0] = local_initial_position(0);
     x_[1] = local_initial_position(1);
-    x_[2] = global_initial_position(2);
+    x_[2] = global_position_vec[2];
     x_[3] = 0;
     x_[4] = 0;
     x_[5] = 0;
@@ -31,6 +31,9 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), geo_conve
 
     //Set up driving timer
     loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulatedVessel::updateLoop,this);
+
+    //Setup Monte Carlo Compatebility
+    reinit_state_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulatedVessel::reinitCb,this);
     
 }
 /**
@@ -107,3 +110,30 @@ void SimulatedVessel::cmdCb(const geometry_msgs::Twist& msg){
     u_d_ = msg.linear.x;
     psi_d_ = msg.angular.z;
 }
+
+void SimulatedVessel::reinitCb(const usv_msgs::reinit msg){
+    //Stop update timer
+    loop_timer_.stop();
+
+    Eigen::Vector3d global_initial_position(msg.initial_pose.position.x,msg.initial_pose.position.y,0);
+    Eigen::Vector3d local_initial_position;
+    while(!geo_converter_.convert("WGS84",global_initial_position,"global_enu",local_initial_position));
+
+    tf::Quaternion q;
+    tf::quaternionMsgToTF(msg.initial_pose.orientation,q);
+    tf::Matrix3x3 m(q);
+    double roll, pitch,yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    x_[0] = local_initial_position(0);
+    x_[1] = local_initial_position(1);
+    x_[2] = yaw;
+    x_[3] = 0;
+    x_[4] = 0;
+    x_[5] = 0;
+
+    //Reinit done, start update timer again
+    loop_timer_.start();
+}
+
+

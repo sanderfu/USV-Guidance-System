@@ -13,6 +13,7 @@ class AStar{
         AStar(GraphManager* gm,MapService* map_service, std::string mission_name);
         void setStart(double lon, double lat);
         void setGoal(double lon, double lat);
+        void setMissionName(std::string mission_name);
         bool search();
 
         //For visualization/debugging

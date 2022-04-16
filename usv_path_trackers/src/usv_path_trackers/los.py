@@ -4,6 +4,7 @@ import numpy as np
 import math
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion
+from usv_msgs.msg import reinit
 from std_msgs.msg import Float32, Bool
 from visualization_msgs.msg import Marker
 import queue
@@ -19,7 +20,7 @@ class LOS:
         rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
-        rospy.Subscriber("external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mc/system_reinit",reinit, self.reset,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
 
         self.debug_crosstrack = rospy.Publisher("los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)

@@ -62,8 +62,8 @@ class MissionPlanner{
 class MissionPlannerClient{
     public:
         MissionPlannerClient(ros::NodeHandle& nh);
-        void searchFromOdom(double goal_lon, double goal_lat, bool publish_path=true);
-        void searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, bool publish_path=true);
+        void searchFromOdom(double goal_lon, double goal_lat, std::string mission_name, bool publish_path=true);
+        void searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, std::string mission_name, bool publish_path=true);
         
     private:
         ros::NodeHandle nh_;

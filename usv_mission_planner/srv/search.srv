@@ -1,5 +1,7 @@
 Header header
 
+std_msgs/String mission_name
+
 bool use_odom
 bool publish_path
 

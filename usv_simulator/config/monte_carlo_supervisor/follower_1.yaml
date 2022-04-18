@@ -1,7 +1,7 @@
 monte_carlo_supervisor:
-  leader: true
+  leader: false
   simulation_collection_name: "test_from_config_"
   simulations: 2
   predefined_mission: true
-  predefined_mission_name: "usv_headon"
-  goal_pose: [-74.01067,40.58611,0]
+  predefined_mission_name: "obstacle_headon"
+  goal_pose: [-73.839272,40.641694,0]

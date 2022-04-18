@@ -2,12 +2,12 @@
 <robot name="ship1">
   <link name="ship1">
     <visual>
-      <origin rpy="1.570796326 0.0 3.14159265" xyz="3. -0.8 -0.5"/>
+      <origin rpy="1.570796326 0.0 1.570796326" xyz="-4.15 -1.6 -1.5"/>
       <geometry>
-        <mesh filename="package://asv_simulator/meshes/Revolt.STL" scale="0.0001 0.0001 0.0001"/>
-      </geometry>
-      <material name="yellowish">
-        <color rgba="0.8 0.6 0.4 1"/>
+        <mesh filename="package://usv_simulator/meshes/viknes.STL" scale="0.001 0.001 0.001"/>
+     </geometry>
+      <material name="red">
+        <color rgba="0.4 0.4 1 1"/>
       </material>
     </visual>
   </link>

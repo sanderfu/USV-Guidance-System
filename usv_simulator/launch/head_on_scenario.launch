@@ -1,0 +1,134 @@
+﻿<launch>
+  <!--<arg name="vessel_param_file" default="$(find usv_simulator)/config/parameters/viknes.yaml" />-->
+  <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
+  <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
+  <arg name="initial_position_usv" default="[-73.875040779,40.553142487,0]" />
+  <arg name="initial_position_obstacle" default="[-73.858437202,40.558856560,-3.14]" />
+  <arg name="sim_origin" default="[-74.001588,40.590419,0]" /> 
+  <!--<arg name="initial_position_usv" default="[10.3853429,63.4511024,0]" />
+  <arg name="sim_origin" default="[10.3853429,63.4511024,0]" />
+  -->
+  <arg name="use_vo" default="False" />
+  <arg name="use_sb_mpc" default="True" />
+  <arg name="shipname" default="Viknes830" />
+
+  <group ns="$(arg shipname)">
+      <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
+      <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
+      <node pkg="usv_simulator"
+            name="sim"
+            type="sim_vessel_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="usv_path_trackers"
+            name="LOSNode"
+            type="los_controller_node.py"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <node pkg="robot_state_publisher"
+          type="robot_state_publisher"
+          name="tf_broadcaster" />
+
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+      
+      <node pkg="usv_colav"
+            name="sb_mpc"
+            type="sb_mpc_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="rviz"
+        type="rviz"
+        name="rviz"
+        args="-d $(find usv_simulator)/config/rviz/default.rviz" />
+
+      <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/leader.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+      </node>
+  </group>
+
+  <group ns="ship1">
+      <param name="initial_position" type="yaml" value = "$(arg initial_position_obstacle)"/>
+      <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
+      <node pkg="usv_simulator"
+            name="sim"
+            type="sim_vessel_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="usv_path_trackers"
+            name="LOSNode"
+            type="los_controller_node.py"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <node pkg="robot_state_publisher"
+          type="robot_state_publisher"
+          name="tf_broadcaster" />
+
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+
+      <!--
+      <node pkg="usv_colav"
+            name="sb_mpc"
+            type="sb_mpc_node"
+            respawn="false"
+            output="screen">
+      </node>
+      -->
+
+      <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <param name="id" value="1"/>
+      <node pkg="usv_simulator"
+            name="sim_tracker"
+            type="sim_tracker_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/follower_1.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+      </node>
+  </group>
+
+
+
+  
+    
+</launch>

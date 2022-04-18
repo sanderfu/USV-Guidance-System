@@ -96,8 +96,6 @@ class LOS:
 
 
         #Check if should switch waypoint
-        #Issue right now is here, wgs vs enu
-
         if abs(vincenty((position_wgs[0],position_wgs[1]),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)

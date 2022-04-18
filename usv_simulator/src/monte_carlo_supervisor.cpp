@@ -47,21 +47,17 @@ void MonteCarloSupervisor::runSimulations(){
         system_reinit_pub_.publish(reinit_msg);
 
         //Send mission to mission planner (blocks until search done)
-        std::cout << "Sending mission, blocking until done" << std::endl;
         sendMission(simulation_collection_name_+std::to_string(sim_id));
-        std::cout << "Mission done" << std::endl;
 
-        std::cout << "Wait for goal reached" << std::endl;
         if(leader_supervisor_){
-            std::cout << "Leader waiting for mission finish" << std::endl;
             ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/done");
             leader_done_pub_.publish(std_msgs::Bool());
         } else{
-            std::cout << "Follower waiting for leader" << std::endl;
             ros::topic::waitForMessage<std_msgs::Bool>("/monte_carlo_leader_supervisor/done");
         }
         sim_id++;
     }
+    ros::shutdown();
 
 }
 

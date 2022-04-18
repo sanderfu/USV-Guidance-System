@@ -10,6 +10,7 @@ from visualization_msgs.msg import Marker
 import queue
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
 from usv_map.geotf_ros_python import GeodeticConverterClient
+from vincenty import vincenty
 
 
 class LOS:
@@ -17,12 +18,6 @@ class LOS:
         LOS controller for the USV
     """
     def __init__(self) -> None:
-        rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
-        rospy.Subscriber("mc/system_reinit",reinit, self.reset,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
-
         self.debug_crosstrack = rospy.Publisher("los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
         self.debug_alongtrack = rospy.Publisher("los/alongtrack",Float32,queue_size=1,tcp_nodelay=True)
         self.setpoint_pub = rospy.Publisher("los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
@@ -66,6 +61,13 @@ class LOS:
         self.los_vector_pub = rospy.Publisher("los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
         self.visualize_timer = rospy.Timer(rospy.Duration(0.1),self.visualize_los_vector)
         self.initialize_visualization()
+
+        #Register subscribers
+        rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
+        rospy.Subscriber("mc/system_reinit",reinit, self.reset,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
         
 
     def reset(self, msg:Bool):
@@ -84,16 +86,22 @@ class LOS:
 
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
-
+        position_wgs = self.converter_client.convert("global_enu",[msg.pose.pose.position.x,msg.pose.pose.position.y,msg.pose.pose.position.z],"WGS84")
         if self.current_waypoint==Pose():
             #print("Current waypoint not set, setting using odometry")
-            self.current_waypoint.position = msg.pose.pose.position
+            self.current_waypoint.position.x = position_wgs[0]
+            self.current_waypoint.position.y = position_wgs[1]
+            self.current_waypoint.position.z = position_wgs[2]
+            #self.current_waypoint.position = msg.pose.pose.position
+
 
         #Check if should switch waypoint
-        if self.euclidean_distance(msg.pose.pose,self.current_waypoint)<10:
+        #Issue right now is here, wgs vs enu
+
+        if abs(vincenty((position_wgs[0],position_wgs[1]),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
             #print("Within circle of acceptance, switching waypoint")
-            self.switch_waypoint()
             self.waypoint_reached_pub.publish(self.current_waypoint)
+            self.switch_waypoint()
 
         if self.stop==True:
             self.desired_speed = 0
@@ -110,10 +118,10 @@ class LOS:
 
     def geo_waypoint_cb(self,msg:Pose) -> None:
         #Convert to cartesian coordinates
-        wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
-        wpt = Pose(Point(wpt_cart[0],wpt_cart[1],wpt_cart[2]),Quaternion(0,0,0,1))
+        wpt = Pose(Point(msg.position.x,msg.position.y,msg.position.z),Quaternion(0,0,0,1))
         self.waypoint_queue.put(wpt)
-        self.waypoints_viz.points.append(wpt.position)
+        wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
+        self.waypoints_viz.points.append(Point(wpt_cart[0],wpt_cart[1],wpt_cart[2]))
         self.visualize_waypoints()
     
     def speed_cb(self,msg:Twist) -> None:
@@ -127,19 +135,22 @@ class LOS:
         else:
             self.stop=False
 
-        self.last_waypoint.position.x = self.current_waypoint.position.x
-        self.last_waypoint.position.y = self.current_waypoint.position.y
+        wpt_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
+        self.last_waypoint.position.x = wpt_cart[0]
+        self.last_waypoint.position.y = wpt_cart[1]
+
         self.last_waypoint.orientation.x = self.current_waypoint.orientation.x
         self.last_waypoint.orientation.y = self.current_waypoint.orientation.y
         self.last_waypoint.orientation.z = self.current_waypoint.orientation.z
         self.last_waypoint.orientation.w = self.current_waypoint.orientation.w
 
         self.current_waypoint = self.waypoint_queue.get()
+        current_waypoint_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
 
         #Determine current tangential frame of spline between last and current
         self.spline_coord_center[0] = self.last_waypoint.position.x
         self.spline_coord_center[1] = self.last_waypoint.position.y
-        rotation_angle = math.atan2((self.current_waypoint.position.y-self.last_waypoint.position.y),(self.current_waypoint.position.x-self.last_waypoint.position.x))
+        rotation_angle = math.atan2((current_waypoint_cart[1]-self.last_waypoint.position.y),(current_waypoint_cart[0]-self.last_waypoint.position.x))
         R_ab = np.array([[math.cos(rotation_angle),-math.sin(rotation_angle)],[math.sin(rotation_angle),math.cos(rotation_angle)]])
         r_ab_a = self.spline_coord_center.reshape((2,1))
 

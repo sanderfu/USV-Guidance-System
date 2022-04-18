@@ -36,7 +36,8 @@
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
-      <include file="$(find usv_mission_planner)/launch/mission_planner_client.launch"/>
+      <!--<include file="$(find usv_mission_planner)/launch/mission_planner_client.launch"/>
+      -->
 
       <node pkg="usv_colav"
             name="sb_mpc"
@@ -56,6 +57,19 @@
             respawn="false"
             output="screen">
       </node>
+
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/leader.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+            
+      </node>
+
+
+
   </group>
 
   

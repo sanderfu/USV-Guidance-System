@@ -13,7 +13,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
     region_available_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/region_available",1,true);
-    mission_done_pub_ = nh_.advertise<std_msgs::Bool>("misison_planner/done",1,false);
+    mission_done_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/done",1,false);
     waypoint_reached_sub_ = nh_.subscribe("los/waypoint_reached",1,&MissionPlanner::waypointReachedCb,this);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
@@ -197,7 +197,7 @@ void MissionPlanner::waypointReachedCb(const geometry_msgs::Pose& msg){
     if(path_.empty()) return;
     extendedVertex* goal = *(path_.end()-1);
     if(goal->pose->x()==msg.position.x && goal->pose->y()==msg.position.y){
-        ROS_WARN_STREAM("Goal reached, informing");
+        //ROS_WARN_STREAM("Goal reached, informing");
         mission_done_pub_.publish(std_msgs::Bool());
     }
 }

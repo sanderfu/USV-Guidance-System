@@ -6,7 +6,7 @@
 #include "geometry_msgs/Vector3.h"
 #include "usv_msgs/reinit.h"
 #include "nav_msgs/Odometry.h"
-#include "usv_map/geotf_ros.h"
+#include "geotf/geodetic_converter.h"
 #include "ros/ros.h"
 #include "ros/package.h"
 #include "vector"

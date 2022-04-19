@@ -39,6 +39,7 @@ cs_add_library(${PROJECT_NAME}
   src/geotf_ros.cpp
   src/map_service.cpp
   src/map_preprocessor.cpp
+  src/geotf_sync.cpp
 )
 target_link_libraries(${PROJECT_NAME} region ${GeographicLib_LIBRARIES})
 

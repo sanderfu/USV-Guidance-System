@@ -12,6 +12,7 @@
 #include "tf/tf.h"
 #include "visualization_msgs/Marker.h"
 #include "geotf/geodetic_converter.h"
+#include "usv_map/geotf_sync.h"
 #include "usv_simulator/obstacle.h"
 #include "map"
 
@@ -41,8 +42,8 @@ class SimulationBasedMPC{
         ros::Publisher correction_pub_;
         ros::Timer main_loop_timer_;
         MapService* map_service_;
-
-        geotf::GeodeticConverter geo_converter_;
+    
+        geotf::GeodeticConverterSynchronized geo_converter_;
 
         ModelLibrary::Viknes830 usv_;
         nav_msgs::Odometry latest_odom_;

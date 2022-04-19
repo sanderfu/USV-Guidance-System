@@ -18,7 +18,8 @@ K_P_(4.0),				//   2.5  // 4.0
 K_CHI_(1.3),			//   1.3
 K_DP_(3.5),				//   2.0  // 3.5
 K_DCHI_SB_(0.9),		//   0.9
-K_DCHI_P_(1.2)			//   1.2
+K_DCHI_P_(1.2),			//   1.2
+geo_converter_(nh_)
 {   
     bool parameter_load_error = false;
     std::string map_name;
@@ -43,8 +44,8 @@ K_DCHI_P_(1.2)			//   1.2
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
 
-    geo_converter_.addFrameByEPSG("WGS84",4326);
-    geo_converter_.addFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
+    geo_converter_.addSyncedFrameByEPSG("WGS84",4326);
+    geo_converter_.addSyncedFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
 
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
 
@@ -186,7 +187,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 point_local(0) = hor_it->at(0);
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
-                geo_converter_.convert("global_enu",point_local,"WGS84",&point_global);
+                geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
                 path.addPoint(point_global(0),point_global(1));
             }
 
@@ -250,8 +251,8 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
     ROS_INFO_STREAM("Odometry and LOS setpoint received");
 
-    geo_converter_.removeFrame("global_enu");
-    geo_converter_.addFrameByENUOrigin("global_enu",msg.initial_pose.position.x,msg.initial_pose.position.y,0);
+    geo_converter_.removeSyncedFrame("global_enu");
+    geo_converter_.addSyncedFrameByENUOrigin("global_enu",msg.initial_pose.position.x,msg.initial_pose.position.y,0);
     
     main_loop_timer_.start();
 
@@ -455,7 +456,7 @@ void SimulationBasedMPC::visualizePath(OGRLineString& path){
         global_point(1) = path.getY(i);
         global_point(2) = 0;
         Eigen::Vector3d local_point;
-        geo_converter_.convert("WGS84",global_point,"global_enu",&local_point);
+        geo_converter_.convertSynced("WGS84",global_point,"global_enu",&local_point);
 
         point1.x = local_point(0);
         point1.y = local_point(1);

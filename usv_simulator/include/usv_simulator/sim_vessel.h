@@ -34,7 +34,7 @@ class SimulatedVessel{
         ros::Subscriber cmd_sub_;
         ros::Timer loop_timer_;
 
-        geotf::GeodeticConverterClient geo_converter_;
+        geotf::GeodeticConverter converter_;
 
         double u_d_;
         double psi_d_;

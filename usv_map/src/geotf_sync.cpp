@@ -2,7 +2,8 @@
 
 namespace geotf{
 
-GeodeticConverterSynchronized::GeodeticConverterSynchronized(ros::NodeHandle& nh) : nh_(nh){
+GeodeticConverterSynchronized::GeodeticConverterSynchronized(const ros::NodeHandle& nh) : nh_(nh){
+    std::cout << "Sync init" << std::endl;
     epsg_frame_sub_ = nh_.subscribe("geotf/epsg_frame",1,&GeodeticConverterSynchronized::EPSGFrameCb,this);
     enu_frame_sub_ = nh_.subscribe("geotf/enu_frame",1,&GeodeticConverterSynchronized::ENUFrameCb,this);
     remove_frame_sub_ = nh_.subscribe("geotf/remove_frame",1,&GeodeticConverterSynchronized::removeFrameCb,this);
@@ -13,6 +14,7 @@ GeodeticConverterSynchronized::GeodeticConverterSynchronized(ros::NodeHandle& nh
 }
 
 void GeodeticConverterSynchronized::addSyncedFrameByEPSG(std::string name, int code){
+    ROS_WARN_STREAM("EPSG callback");
     usv_map::EPSG msg;
     msg.frame_name = name;
     msg.epsg_code = code;
@@ -20,6 +22,7 @@ void GeodeticConverterSynchronized::addSyncedFrameByEPSG(std::string name, int c
 }
 
 void GeodeticConverterSynchronized::addSyncedFrameByENUOrigin(std::string name, double lon, double lat, double alt){
+    ROS_WARN_STREAM("ENU callback");
     usv_map::ENU msg;
     msg.frame_name = name;
     msg.lon = lon;
@@ -30,6 +33,14 @@ void GeodeticConverterSynchronized::addSyncedFrameByENUOrigin(std::string name, 
 
 bool GeodeticConverterSynchronized::convertSynced(std::string input_frame, const Eigen::Vector3d &input, const std::string &output_frame, Eigen::Vector3d *output){
     return convert(input_frame,input,output_frame,output);
+}
+
+bool GeodeticConverterSynchronized::canConvertSynced(std::string input_frame,std::string output_frame){
+    return canConvert(input_frame,output_frame);
+}
+
+bool GeodeticConverterSynchronized::hasFrameSynced(std::string frame){
+    return hasFrame(frame);
 }
 
 void GeodeticConverterSynchronized::removeSyncedFrame(std::string name){

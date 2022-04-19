@@ -7,7 +7,6 @@
 #include "std_msgs/Bool.h"
 #include "gdal/ogrsf_frmts.h"
 #include "usv_map/map_service.h"
-#include "usv_map/geotf_ros.h"
 #include "usv_model/model_library.h"
 #include "tf/tf.h"
 #include "visualization_msgs/Marker.h"

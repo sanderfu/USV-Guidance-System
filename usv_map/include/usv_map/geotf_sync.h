@@ -12,7 +12,7 @@ class GeodeticConverterSynchronized : private GeodeticConverter{
     public:
         GeodeticConverterSynchronized(const ros::NodeHandle& nh);
         void addSyncedFrameByEPSG(std::string name, int code);
-        void addSyncedFrameByENUOrigin(std::string name, double lon, double lat, double alt);
+        void addSyncedFrameByENUOrigin(std::string name, double lat, double lon, double alt);
         void removeSyncedFrame(std::string name);
         bool convertSynced(std::string input_frame, const Eigen::Vector3d &input, const std::string &output_frame, Eigen::Vector3d *output);
         bool canConvertSynced(std::string input_frame, std::string output_frame);

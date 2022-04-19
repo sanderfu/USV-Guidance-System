@@ -9,7 +9,7 @@ from std_msgs.msg import Float32, Bool
 from visualization_msgs.msg import Marker
 import queue
 from tf.transformations import euler_from_quaternion, quaternion_from_euler
-from usv_map.geotf_ros_python import GeodeticConverterClient
+from usv_map.geotf_client import GeodeticConverterClient
 from vincenty import vincenty
 
 

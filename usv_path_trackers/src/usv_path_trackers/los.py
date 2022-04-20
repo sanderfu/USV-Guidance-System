@@ -86,13 +86,15 @@ class LOS:
 
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
+        #The sim vessel must give lon lat, not enu as this is not the same enu frame anymore!!
         position_wgs = self.converter_client.convert("global_enu",[msg.pose.pose.position.x,msg.pose.pose.position.y,msg.pose.pose.position.z],"WGS84")
+        
         if self.current_waypoint==Pose():
             #print("Current waypoint not set, setting using odometry")
             self.current_waypoint.position.x = position_wgs[0]
             self.current_waypoint.position.y = position_wgs[1]
             self.current_waypoint.position.z = position_wgs[2]
-            #self.current_waypoint.position = msg.pose.pose.position
+            self.last_waypoint.position = self.current_waypoint.position
 
 
         #Check if should switch waypoint
@@ -100,6 +102,7 @@ class LOS:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
+            #self.converter_client.add_frame("global_enu",self.last_waypoint.position.x,self.last_waypoint.position.y,0,True)
 
         if self.stop==True:
             self.desired_speed = 0
@@ -133,9 +136,8 @@ class LOS:
         else:
             self.stop=False
 
-        wpt_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
-        self.last_waypoint.position.x = wpt_cart[0]
-        self.last_waypoint.position.y = wpt_cart[1]
+        last_wpt_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
+        self.last_waypoint.position = self.current_waypoint.position
 
         self.last_waypoint.orientation.x = self.current_waypoint.orientation.x
         self.last_waypoint.orientation.y = self.current_waypoint.orientation.y
@@ -146,9 +148,9 @@ class LOS:
         current_waypoint_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
 
         #Determine current tangential frame of spline between last and current
-        self.spline_coord_center[0] = self.last_waypoint.position.x
-        self.spline_coord_center[1] = self.last_waypoint.position.y
-        rotation_angle = math.atan2((current_waypoint_cart[1]-self.last_waypoint.position.y),(current_waypoint_cart[0]-self.last_waypoint.position.x))
+        self.spline_coord_center[0] = last_wpt_cart[0]
+        self.spline_coord_center[1] = last_wpt_cart[1]
+        rotation_angle = math.atan2((current_waypoint_cart[1]-last_wpt_cart[1]),(current_waypoint_cart[0]-last_wpt_cart[0]))
         R_ab = np.array([[math.cos(rotation_angle),-math.sin(rotation_angle)],[math.sin(rotation_angle),math.cos(rotation_angle)]])
         r_ab_a = self.spline_coord_center.reshape((2,1))
 

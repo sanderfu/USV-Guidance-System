@@ -29,9 +29,12 @@ bool GeodeticConverterServer::frameConversion(usv_map::frame_conversion::Request
 }
 
 bool GeodeticConverterServer::addFrame(usv_map::add_frame::Request& req, usv_map::add_frame::Response& res){
-    if(hasFrameSynced(req.frame_name)){
+    if(hasFrameSynced(req.frame_name) && !req.replace){
         ROS_WARN_STREAM("Frame name already in use");
         return false;
+    } else if (req.replace){
+        ROS_WARN_STREAM("Replacing frame");
+        removeSyncedFrame(req.frame_name);
     }
     addSyncedFrameByENUOrigin(req.frame_name,req.longitude,req.latitude,req.altitude);
     return true;

@@ -92,8 +92,13 @@ void SimulatedVessel::publishData(){
     odom.header.frame_id = "map";
     odom.child_frame_id = nh_.getNamespace();
 
-    odom.pose.pose.position.x = x_[0];
-    odom.pose.pose.position.y = x_[1];
+    //Pose publish (global frame, LLA)
+    Eigen::Vector3d local_initial_position(x_[0],x_[1],0);
+    Eigen::Vector3d global_initial_position;
+    while(!converter_.convert("local",local_initial_position,"global",&global_initial_position));
+
+    odom.pose.pose.position.x = global_initial_position.x();
+    odom.pose.pose.position.y = global_initial_position.y();
 
     tf::quaternionTFToMsg(q, odom.pose.pose.orientation);
 
@@ -102,10 +107,6 @@ void SimulatedVessel::publishData(){
     odom.twist.twist.angular.z = x_[5];
     odom_pub_.publish(odom);
 
-    //Pose publish (global frame, LLA)
-    Eigen::Vector3d local_initial_position(x_[0],x_[1],0);
-    Eigen::Vector3d global_initial_position;
-    while(!converter_.convert("local",local_initial_position,"global",&global_initial_position));
     pose.pose.position.x = global_initial_position.x();
     pose.pose.position.y = global_initial_position.y();
     tf::quaternionTFToMsg(q, pose.pose.orientation);

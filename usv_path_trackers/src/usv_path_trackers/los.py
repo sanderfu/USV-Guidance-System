@@ -86,19 +86,17 @@ class LOS:
 
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
-        #The sim vessel must give lon lat, not enu as this is not the same enu frame anymore!!
-        position_wgs = self.converter_client.convert("global_enu",[msg.pose.pose.position.x,msg.pose.pose.position.y,msg.pose.pose.position.z],"WGS84")
         
         if self.current_waypoint==Pose():
             #print("Current waypoint not set, setting using odometry")
-            self.current_waypoint.position.x = position_wgs[0]
-            self.current_waypoint.position.y = position_wgs[1]
-            self.current_waypoint.position.z = position_wgs[2]
+            self.current_waypoint.position.x = self.pose.position.x
+            self.current_waypoint.position.y = self.pose.position.y
+            self.current_waypoint.position.z = self.pose.position.z
             self.last_waypoint.position = self.current_waypoint.position
 
 
         #Check if should switch waypoint
-        if abs(vincenty((position_wgs[0],position_wgs[1]),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
+        if abs(vincenty((self.pose.position.x,self.pose.position.y),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
@@ -185,7 +183,8 @@ class LOS:
         self.correction = msg
 
     def calculate_crosstrack_error(self):
-        tangential_pose_homogenous = self.tangential_transform@np.array([self.pose.position.x,self.pose.position.y,1]).reshape((3,1))
+        position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")
+        tangential_pose_homogenous = self.tangential_transform@np.array([position_enu[0],position_enu[1],1]).reshape((3,1))
         tangential_pose = tangential_pose_homogenous[:2]
         self.debug_crosstrack.publish(Float32(tangential_pose[1]))
         self.debug_alongtrack.publish(Float32(tangential_pose[0]))
@@ -220,7 +219,9 @@ class LOS:
     
     def visualize_los_vector(self,timer):
         try: 
-            self.los_vector_viz.pose.position = self.pose.position
+            position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")
+            self.los_vector_viz.pose.position.x = position_enu[0]
+            self.los_vector_viz.pose.position.y = position_enu[1]
             q = quaternion_from_euler(0,0,self.desired_yaw)
             self.los_vector_viz.scale.x = 10*self.desired_speed
             self.los_vector_viz.pose.orientation.x = q[0]

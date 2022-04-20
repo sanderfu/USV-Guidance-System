@@ -3,7 +3,7 @@ namespace geotf {
 
 GeodeticConverterServer::GeodeticConverterServer(const ros::NodeHandle& nh): 
 nh_(nh),
-GeodeticConverterSynchronized(nh) {
+GeodeticConverterSynchronized("SERVER",true,true,nh) {
     addSyncedFrameByEPSG("WGS84",4326);
 
     std::vector<double> global_position_vec;
@@ -32,11 +32,8 @@ bool GeodeticConverterServer::addFrame(usv_map::add_frame::Request& req, usv_map
     if(hasFrameSynced(req.frame_name) && !req.replace){
         ROS_WARN_STREAM("Frame name already in use");
         return false;
-    } else if (req.replace){
-        ROS_WARN_STREAM("Replacing frame");
-        removeSyncedFrame(req.frame_name);
     }
-    addSyncedFrameByENUOrigin(req.frame_name,req.latitude,req.longitude,req.altitude);
+    addSyncedFrameByENUOrigin(req.frame_name,req.latitude,req.longitude,req.altitude,req.replace);
     return true;
 }
 

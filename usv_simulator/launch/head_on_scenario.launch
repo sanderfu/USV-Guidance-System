@@ -37,13 +37,14 @@
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
-      
+
       <node pkg="usv_colav"
             name="sb_mpc"
             type="sb_mpc_node"
             respawn="false"
             output="screen">
       </node>
+      
       
       <node pkg="rviz"
         type="rviz"
@@ -65,7 +66,15 @@
             output="screen"
             required="true">
       </node>
+
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
+      </node>
   </group>
+
 
   <group ns="ship1">
       <param name="initial_position" type="yaml" value = "$(arg initial_position_obstacle)"/>
@@ -93,15 +102,6 @@
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
 
-      <!--
-      <node pkg="usv_colav"
-            name="sb_mpc"
-            type="sb_mpc_node"
-            respawn="false"
-            output="screen">
-      </node>
-      -->
-
       <node pkg="usv_simulator"
             name="land"
             type="sim_land_node"
@@ -126,6 +126,9 @@
             required="true">
       </node>
   </group>
+  
+  
+  
 
 
 

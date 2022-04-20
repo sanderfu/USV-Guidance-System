@@ -21,7 +21,7 @@ SystemVisualization::SystemVisualization(const ros::NodeHandle& nh): nh_(nh){
     odom_sub_ = nh_.subscribe("odom",1,&SystemVisualization::odomCb,this);
     geo_waypoint_sub_ = nh_.subscribe("mission_planner/geo_waypoint",1,&SystemVisualization::waypointCb,this);
     los_vector_sub_ = nh_.subscribe("los/setpoint",1,&SystemVisualization::losVectorCb,this);
-    //reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SystemVisualization::reinitCb,this);
+    reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SystemVisualization::reinitCb,this);
 }
 
 void SystemVisualization::markerInit(){

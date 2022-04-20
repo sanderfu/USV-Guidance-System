@@ -19,7 +19,7 @@ K_CHI_(1.3),			//   1.3
 K_DP_(3.5),				//   2.0  // 3.5
 K_DCHI_SB_(0.9),		//   0.9
 K_DCHI_P_(1.2),			//   1.2
-geo_converter_(nh_)
+geo_converter_("COLAV",false,true,nh)
 {   
     bool parameter_load_error = false;
     std::string map_name;
@@ -43,9 +43,6 @@ geo_converter_(nh_)
     if(!nh_.getParam("initial_position",global_position_vec)){
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
-
-    geo_converter_.addSyncedFrameByEPSG("WGS84",4326);
-    geo_converter_.addSyncedFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
 
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
 
@@ -256,9 +253,6 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
     ROS_INFO_STREAM("Odometry and LOS setpoint received");
-
-    geo_converter_.removeSyncedFrame("global_enu");
-    geo_converter_.addSyncedFrameByENUOrigin("global_enu",msg.initial_pose.position.x,msg.initial_pose.position.y,0);
     
     main_loop_timer_.start();
 

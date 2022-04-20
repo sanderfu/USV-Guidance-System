@@ -68,6 +68,13 @@
             
       </node>
 
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
+      </node>
+
 
 
   </group>

@@ -74,11 +74,14 @@ class LOS:
         self.pose = msg.pose.pose
         
         if self.current_waypoint==Pose():
-            #print("Current waypoint not set, setting using odometry")
-            self.current_waypoint.position.x = self.pose.position.x
-            self.current_waypoint.position.y = self.pose.position.y
-            self.current_waypoint.position.z = self.pose.position.z
-            self.last_waypoint.position = self.current_waypoint.position
+            if self.waypoint_queue.qsize()==0:
+            #print("No waypoint in queue, stopping and waiting for new")
+                self.stop = True
+                return
+            else:
+                self.current_waypoint = self.waypoint_queue.get()
+                self.stop=False
+                return
 
 
         #Check if should switch waypoint
@@ -116,10 +119,7 @@ class LOS:
             return
         else:
             self.stop=False
-
-        print("Switch waypoint, changing frame")
-        self.converter_client.add_frame("global_enu",self.last_waypoint.position.x,self.last_waypoint.position.y,0,True)
-        print("Done")
+        self.converter_client.add_frame("global_enu",self.current_waypoint.position.x,self.current_waypoint.position.y,0,True)
 
         last_wpt_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
         self.last_waypoint.position = self.current_waypoint.position

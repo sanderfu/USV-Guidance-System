@@ -110,8 +110,11 @@ void SimulationBasedMPC::losSetpointSub(const geometry_msgs::Twist& msg){
  */
 void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
     state_type state(6);
-    state[0]=msg.odom.pose.pose.position.x;
-    state[1]=msg.odom.pose.pose.position.y;
+    Eigen::Vector3d position_wgs(msg.odom.pose.pose.position.x,msg.odom.pose.pose.position.y,msg.odom.pose.pose.position.z);
+    Eigen::Vector3d point_enu;
+    geo_converter_.convertSynced("WGS84",position_wgs,"global_enu",&point_enu);
+    state[0]=point_enu.x();
+    state[1]=point_enu.y();
     tf::Quaternion q;
     tf::quaternionMsgToTF(msg.odom.pose.pose.orientation,q);
     tf::Matrix3x3 mat(q);
@@ -152,8 +155,11 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
         obstacles_horizon.insert(it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
     }
     state_type state(6);
-    state[0] = latest_odom_.pose.pose.position.x; 
-    state[1] = latest_odom_.pose.pose.position.y;
+    Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
+    Eigen::Vector3d point_enu;
+    geo_converter_.convertSynced("WGS84",position_wgs,"global_enu",&point_enu);
+    state[0] = point_enu.x();
+    state[1] = point_enu.y();
     tf::quaternionMsgToTF(latest_odom_.pose.pose.orientation,q);
     tf::Matrix3x3 mat(q);
     mat.getRPY(roll,pitch,yaw);

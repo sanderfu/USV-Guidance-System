@@ -36,7 +36,7 @@ bool GeodeticConverterServer::addFrame(usv_map::add_frame::Request& req, usv_map
         ROS_WARN_STREAM("Replacing frame");
         removeSyncedFrame(req.frame_name);
     }
-    addSyncedFrameByENUOrigin(req.frame_name,req.longitude,req.latitude,req.altitude);
+    addSyncedFrameByENUOrigin(req.frame_name,req.latitude,req.longitude,req.altitude);
     return true;
 }
 

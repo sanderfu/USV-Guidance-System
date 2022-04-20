@@ -18,6 +18,6 @@ class GeodeticConverterClient:
             resp = self.convert_point_client_(from_frame=from_frame,from_point=from_point,to_frame=to_frame)
             return [resp.to_point.x,resp.to_point.y,resp.to_point.z]  
         except rospy.ServiceException as e:
-            #rospy.logerr("Failed to convert coordinates!")
+            rospy.logerr("Failed to convert coordinates!")
             return None
     

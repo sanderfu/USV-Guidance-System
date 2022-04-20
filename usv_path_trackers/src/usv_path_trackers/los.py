@@ -100,7 +100,6 @@ class LOS:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
-            #self.converter_client.add_frame("global_enu",self.last_waypoint.position.x,self.last_waypoint.position.y,0,True)
 
         if self.stop==True:
             self.desired_speed = 0
@@ -133,6 +132,10 @@ class LOS:
             return
         else:
             self.stop=False
+
+        print("Switch waypoint, changing frame")
+        self.converter_client.add_frame("global_enu",self.last_waypoint.position.x,self.last_waypoint.position.y,0,True)
+        print("Done")
 
         last_wpt_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
         self.last_waypoint.position = self.current_waypoint.position

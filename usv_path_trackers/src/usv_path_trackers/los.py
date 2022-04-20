@@ -6,9 +6,8 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion
 from usv_msgs.msg import reinit
 from std_msgs.msg import Float32, Bool
-from visualization_msgs.msg import Marker
 import queue
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
+from tf.transformations import euler_from_quaternion
 from usv_map.geotf_client import GeodeticConverterClient
 from vincenty import vincenty
 
@@ -53,15 +52,6 @@ class LOS:
         self.converter_client = GeodeticConverterClient()
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
-        #Visualization
-        self.first_viz = True
-        self.waypoints_viz = Marker()
-        self.los_vector_viz = Marker()
-        self.waypoints_pub = rospy.Publisher("los/visualize_waypoints",Marker,queue_size=1,tcp_nodelay=True)
-        self.los_vector_pub = rospy.Publisher("los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
-        self.visualize_timer = rospy.Timer(rospy.Duration(0.1),self.visualize_los_vector)
-        self.initialize_visualization()
-
         #Register subscribers
         rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
         rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
@@ -78,10 +68,6 @@ class LOS:
         self.tangential_transform = np.eye(3)
         self.spline_coord_center = np.array([0,0])
         self.pi_p = None
-
-        #Reset visualization
-        self.waypoints_viz.points.clear()
-        self.visualize_waypoints()
 
 
     def odom_cb(self,msg: Odometry) -> None:
@@ -119,8 +105,6 @@ class LOS:
         wpt = Pose(Point(msg.position.x,msg.position.y,msg.position.z),Quaternion(0,0,0,1))
         self.waypoint_queue.put(wpt)
         wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
-        self.waypoints_viz.points.append(Point(wpt_cart[0],wpt_cart[1],wpt_cart[2]))
-        self.visualize_waypoints()
     
     def speed_cb(self,msg:Twist) -> None:
         self.desired_speed = msg.linear.x
@@ -192,47 +176,4 @@ class LOS:
         self.debug_crosstrack.publish(Float32(tangential_pose[1]))
         self.debug_alongtrack.publish(Float32(tangential_pose[0]))
         return tangential_pose[1]
-
-    def initialize_visualization(self):
-        self.waypoints_viz.header.frame_id="map"
-        self.waypoints_viz.header.stamp = rospy.Time.now()
-        self.waypoints_viz.ns = "waypoints"
-        self.waypoints_viz.id = 0
-        self.waypoints_viz.type = Marker.SPHERE_LIST
-        self.waypoints_viz.scale.x = 10
-        self.waypoints_viz.scale.y = 10
-        self.waypoints_viz.scale.z = 10
-        self.waypoints_viz.action = Marker.ADD
-        self.waypoints_viz.color.a = 1.0
-        self.waypoints_viz.color.r = 1.0
-        self.waypoints_viz.pose.orientation.w = 1.0
-
-        self.los_vector_viz.header.frame_id="map"
-        self.waypoints_viz.header.stamp = rospy.Time.now()
-        self.los_vector_viz.ns= "los_vector"
-        self.los_vector_viz.type = Marker.ARROW
-        self.los_vector_viz.scale.x = 10*self.desired_speed
-        self.los_vector_viz.scale.y = 1
-        self.los_vector_viz.scale.z = 1
-        self.los_vector_viz.color.a = 1.0
-        self.los_vector_viz.color.b = 1.0
-
-    def visualize_waypoints(self):
-        self.waypoints_pub.publish(self.waypoints_viz)
-    
-    def visualize_los_vector(self,timer):
-        try: 
-            position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")
-            self.los_vector_viz.pose.position.x = position_enu[0]
-            self.los_vector_viz.pose.position.y = position_enu[1]
-            q = quaternion_from_euler(0,0,self.desired_yaw)
-            self.los_vector_viz.scale.x = 10*self.desired_speed
-            self.los_vector_viz.pose.orientation.x = q[0]
-            self.los_vector_viz.pose.orientation.y = q[1]
-            self.los_vector_viz.pose.orientation.z = q[2]
-            self.los_vector_viz.pose.orientation.w = q[3]
-
-            self.los_vector_pub.publish(self.los_vector_viz)
-        except AttributeError as e:
-            return
 

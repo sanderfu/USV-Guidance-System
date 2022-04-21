@@ -18,7 +18,8 @@ K_P_(4.0),				//   2.5  // 4.0
 K_CHI_(1.3),			//   1.3
 K_DP_(3.5),				//   2.0  // 3.5
 K_DCHI_SB_(0.9),		//   0.9
-K_DCHI_P_(1.2)			//   1.2
+K_DCHI_P_(1.2),			//   1.2
+geo_converter_("COLAV",false,true,nh)
 {   
     bool parameter_load_error = false;
     std::string map_name;
@@ -43,14 +44,12 @@ K_DCHI_P_(1.2)			//   1.2
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
 
-    geo_converter_.addFrameByEPSG("WGS84",4326);
-    geo_converter_.addFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
-
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
 
     odom_sub_ = nh_.subscribe("odom",1,&SimulationBasedMPC::odomCb,this);
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
+    system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
     main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
@@ -108,8 +107,11 @@ void SimulationBasedMPC::losSetpointSub(const geometry_msgs::Twist& msg){
  */
 void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
     state_type state(6);
-    state[0]=msg.odom.pose.pose.position.x;
-    state[1]=msg.odom.pose.pose.position.y;
+    Eigen::Vector3d position_wgs(msg.odom.pose.pose.position.x,msg.odom.pose.pose.position.y,msg.odom.pose.pose.position.z);
+    Eigen::Vector3d point_enu;
+    geo_converter_.convertSynced("WGS84",position_wgs,"global_enu",&point_enu);
+    state[0]=point_enu.x();
+    state[1]=point_enu.y();
     tf::Quaternion q;
     tf::quaternionMsgToTF(msg.odom.pose.pose.orientation,q);
     tf::Matrix3x3 mat(q);
@@ -150,8 +152,11 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
         obstacles_horizon.insert(it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
     }
     state_type state(6);
-    state[0] = latest_odom_.pose.pose.position.x; 
-    state[1] = latest_odom_.pose.pose.position.y;
+    Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
+    Eigen::Vector3d point_enu;
+    geo_converter_.convertSynced("WGS84",position_wgs,"global_enu",&point_enu);
+    state[0] = point_enu.x();
+    state[1] = point_enu.y();
     tf::quaternionMsgToTF(latest_odom_.pose.pose.orientation,q);
     tf::Matrix3x3 mat(q);
     mat.getRPY(roll,pitch,yaw);
@@ -185,7 +190,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 point_local(0) = hor_it->at(0);
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
-                geo_converter_.convert("global_enu",point_local,"WGS84",&point_global);
+                geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
                 path.addPoint(point_global(0),point_global(1));
             }
 
@@ -239,6 +244,21 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     ros::Time stop = ros::Time::now();
     ROS_INFO_STREAM("Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
     ROS_INFO_STREAM("Getting offset took: " << (stop-start).toSec() << " [s]");
+}
+
+void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
+    main_loop_timer_.stop();
+
+    ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
+    latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
+    latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
+    ROS_INFO_STREAM("Odometry and LOS setpoint received");
+    
+    main_loop_timer_.start();
+
+
+
+
 }
 
 /**
@@ -436,7 +456,7 @@ void SimulationBasedMPC::visualizePath(OGRLineString& path){
         global_point(1) = path.getY(i);
         global_point(2) = 0;
         Eigen::Vector3d local_point;
-        geo_converter_.convert("WGS84",global_point,"global_enu",&local_point);
+        geo_converter_.convertSynced("WGS84",global_point,"global_enu",&local_point);
 
         point1.x = local_point(0);
         point1.y = local_point(1);

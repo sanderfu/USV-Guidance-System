@@ -1,14 +1,16 @@
 #!/usr/bin/env python
+from audioop import cross
 import rospy
 import numpy as np
 import math
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Pose, Twist, Point, Quaternion
+from usv_msgs.msg import reinit
 from std_msgs.msg import Float32, Bool
-from visualization_msgs.msg import Marker
 import queue
-from tf.transformations import euler_from_quaternion, quaternion_from_euler
-from usv_map.geotf_ros_python import GeodeticConverterClient
+from tf.transformations import euler_from_quaternion
+from usv_map.geotf_client import GeodeticConverterClient
+from vincenty import vincenty
 
 
 class LOS:
@@ -16,16 +18,11 @@ class LOS:
         LOS controller for the USV
     """
     def __init__(self) -> None:
-        rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
-        rospy.Subscriber("external_reset/los",Bool, self.reset,queue_size=1,tcp_nodelay=True)
-        rospy.Subscriber("colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
-
         self.debug_crosstrack = rospy.Publisher("los/crosstrack_error",Float32,queue_size=1,tcp_nodelay=True)
         self.debug_alongtrack = rospy.Publisher("los/alongtrack",Float32,queue_size=1,tcp_nodelay=True)
         self.setpoint_pub = rospy.Publisher("los/setpoint",Twist, queue_size=1,tcp_nodelay=1)
         self.corrected_setpoint_pub = rospy.Publisher("los/corrected_setpoint",Twist, queue_size=1,tcp_nodelay=1)
+        self.waypoint_reached_pub = rospy.Publisher("los/waypoint_reached",Pose,queue_size=1,tcp_nodelay=True)
 
         self.reference_pub = rospy.Publisher("los/desired_yaw",Float32,queue_size=1,tcp_nodelay=True)
 
@@ -56,14 +53,12 @@ class LOS:
         self.converter_client = GeodeticConverterClient()
         rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
-        #Visualization
-        self.first_viz = True
-        self.waypoints_viz = Marker()
-        self.los_vector_viz = Marker()
-        self.waypoints_pub = rospy.Publisher("los/visualize_waypoints",Marker,queue_size=1,tcp_nodelay=True)
-        self.los_vector_pub = rospy.Publisher("los/visualize_vector",Marker,queue_size=1,tcp_nodelay=True)
-        self.visualize_timer = rospy.Timer(rospy.Duration(0.1),self.visualize_los_vector)
-        self.initialize_visualization()
+        #Register subscribers
+        rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/desired_speed",Twist,self.speed_cb,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("mission_planner/geo_waypoint",Pose,self.geo_waypoint_cb,queue_size=10,tcp_nodelay=True)
+        rospy.Subscriber("mc/system_reinit",reinit, self.reset,queue_size=1,tcp_nodelay=True)
+        rospy.Subscriber("colav/correction",Twist,self.correction_cb,queue_size=1,tcp_nodelay=True)
         
 
     def reset(self, msg:Bool):
@@ -75,21 +70,25 @@ class LOS:
         self.spline_coord_center = np.array([0,0])
         self.pi_p = None
 
-        #Reset visualization
-        self.waypoints_viz.points.clear()
-        self.visualize_waypoints()
-
 
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
-
+        
         if self.current_waypoint==Pose():
-            #print("Current waypoint not set, setting using odometry")
-            self.current_waypoint.position = msg.pose.pose.position
+            if self.waypoint_queue.qsize()==0:
+            #print("No waypoint in queue, stopping and waiting for new")
+                self.stop = True
+                return
+            else:
+                self.current_waypoint = self.waypoint_queue.get()
+                self.stop=False
+                return
+
 
         #Check if should switch waypoint
-        if self.euclidean_distance(msg.pose.pose,self.current_waypoint)<10:
+        if abs(vincenty((self.pose.position.x,self.pose.position.y),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
             #print("Within circle of acceptance, switching waypoint")
+            self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
 
         if self.stop==True:
@@ -98,6 +97,9 @@ class LOS:
 
         #Calculate crosstrack
         crosstrack_error = self.calculate_crosstrack_error()
+        if crosstrack_error is None:
+            rospy.logerr("[LOS] Failed to calculate crosstrack due to frame conversion, skipping iteration")
+            return
 
         #Calculate desired yaw
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
@@ -107,11 +109,9 @@ class LOS:
 
     def geo_waypoint_cb(self,msg:Pose) -> None:
         #Convert to cartesian coordinates
-        wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
-        wpt = Pose(Point(wpt_cart[0],wpt_cart[1],wpt_cart[2]),Quaternion(0,0,0,1))
+        wpt = Pose(Point(msg.position.x,msg.position.y,msg.position.z),Quaternion(0,0,0,1))
         self.waypoint_queue.put(wpt)
-        self.waypoints_viz.points.append(wpt.position)
-        self.visualize_waypoints()
+        wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
     
     def speed_cb(self,msg:Twist) -> None:
         self.desired_speed = msg.linear.x
@@ -123,20 +123,23 @@ class LOS:
             return
         else:
             self.stop=False
+        self.converter_client.add_frame("global_enu",self.current_waypoint.position.x,self.current_waypoint.position.y,0,True)
 
-        self.last_waypoint.position.x = self.current_waypoint.position.x
-        self.last_waypoint.position.y = self.current_waypoint.position.y
+        last_wpt_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
+        self.last_waypoint.position = self.current_waypoint.position
+
         self.last_waypoint.orientation.x = self.current_waypoint.orientation.x
         self.last_waypoint.orientation.y = self.current_waypoint.orientation.y
         self.last_waypoint.orientation.z = self.current_waypoint.orientation.z
         self.last_waypoint.orientation.w = self.current_waypoint.orientation.w
 
         self.current_waypoint = self.waypoint_queue.get()
+        current_waypoint_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
 
         #Determine current tangential frame of spline between last and current
-        self.spline_coord_center[0] = self.last_waypoint.position.x
-        self.spline_coord_center[1] = self.last_waypoint.position.y
-        rotation_angle = math.atan2((self.current_waypoint.position.y-self.last_waypoint.position.y),(self.current_waypoint.position.x-self.last_waypoint.position.x))
+        self.spline_coord_center[0] = last_wpt_cart[0]
+        self.spline_coord_center[1] = last_wpt_cart[1]
+        rotation_angle = math.atan2((current_waypoint_cart[1]-last_wpt_cart[1]),(current_waypoint_cart[0]-last_wpt_cart[0]))
         R_ab = np.array([[math.cos(rotation_angle),-math.sin(rotation_angle)],[math.sin(rotation_angle),math.cos(rotation_angle)]])
         r_ab_a = self.spline_coord_center.reshape((2,1))
 
@@ -171,50 +174,12 @@ class LOS:
         self.correction = msg
 
     def calculate_crosstrack_error(self):
-        tangential_pose_homogenous = self.tangential_transform@np.array([self.pose.position.x,self.pose.position.y,1]).reshape((3,1))
+        position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")
+        if position_enu is None:
+            return None
+        tangential_pose_homogenous = self.tangential_transform@np.array([position_enu[0],position_enu[1],1]).reshape((3,1))
         tangential_pose = tangential_pose_homogenous[:2]
         self.debug_crosstrack.publish(Float32(tangential_pose[1]))
         self.debug_alongtrack.publish(Float32(tangential_pose[0]))
         return tangential_pose[1]
-
-    def initialize_visualization(self):
-        self.waypoints_viz.header.frame_id="map"
-        self.waypoints_viz.header.stamp = rospy.Time.now()
-        self.waypoints_viz.ns = "waypoints"
-        self.waypoints_viz.id = 0
-        self.waypoints_viz.type = Marker.SPHERE_LIST
-        self.waypoints_viz.scale.x = 10
-        self.waypoints_viz.scale.y = 10
-        self.waypoints_viz.scale.z = 10
-        self.waypoints_viz.action = Marker.ADD
-        self.waypoints_viz.color.a = 1.0
-        self.waypoints_viz.color.r = 1.0
-        self.waypoints_viz.pose.orientation.w = 1.0
-
-        self.los_vector_viz.header.frame_id="map"
-        self.waypoints_viz.header.stamp = rospy.Time.now()
-        self.los_vector_viz.ns= "los_vector"
-        self.los_vector_viz.type = Marker.ARROW
-        self.los_vector_viz.scale.x = 10*self.desired_speed
-        self.los_vector_viz.scale.y = 1
-        self.los_vector_viz.scale.z = 1
-        self.los_vector_viz.color.a = 1.0
-        self.los_vector_viz.color.b = 1.0
-
-    def visualize_waypoints(self):
-        self.waypoints_pub.publish(self.waypoints_viz)
-    
-    def visualize_los_vector(self,timer):
-        try: 
-            self.los_vector_viz.pose.position = self.pose.position
-            q = quaternion_from_euler(0,0,self.desired_yaw)
-            self.los_vector_viz.scale.x = 10*self.desired_speed
-            self.los_vector_viz.pose.orientation.x = q[0]
-            self.los_vector_viz.pose.orientation.y = q[1]
-            self.los_vector_viz.pose.orientation.z = q[2]
-            self.los_vector_viz.pose.orientation.w = q[3]
-
-            self.los_vector_pub.publish(self.los_vector_viz)
-        except AttributeError as e:
-            return
 

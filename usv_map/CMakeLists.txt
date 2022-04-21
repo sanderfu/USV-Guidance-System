@@ -36,9 +36,10 @@ cs_add_library(${PROJECT_NAME}
   src/quadtree.cpp
   src/skeleton_generator.cpp
   src/jc_voronoi.cpp
-  src/geotf_ros.cpp
+  src/geotf_server.cpp
   src/map_service.cpp
   src/map_preprocessor.cpp
+  src/geotf_sync.cpp
 )
 target_link_libraries(${PROJECT_NAME} region ${GeographicLib_LIBRARIES})
 
@@ -56,10 +57,10 @@ target_link_libraries(${PROJECT_NAME} region ${GeographicLib_LIBRARIES})
 #)
 #target_link_libraries(sim_land_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
-cs_add_executable(geotf_ros_node
-  src/geotf_ros_node.cpp
+cs_add_executable(geotf_server_node
+  src/geotf_server_node.cpp
 )
-target_link_libraries(geotf_ros_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+target_link_libraries(geotf_server_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
 cs_add_executable(map_preprocessor_node
   src/map_preprocessor_node.cpp

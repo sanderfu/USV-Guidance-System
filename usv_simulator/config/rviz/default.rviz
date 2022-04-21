@@ -7,7 +7,10 @@ Panels:
         - /Grid1
         - /TF1/Frames1
         - /usv1
+        - /usv1/Waypoints1
+        - /usv1/LosVector1
         - /usv1/Marker1
+        - /Ship11
         - /Ship11/LosVector1
         - /Ship11/Ship11
         - /Ship11/Waypoints1
@@ -108,7 +111,7 @@ Visualization Manager:
           Visual Enabled: true
         - Class: rviz/Marker
           Enabled: true
-          Marker Topic: /Viknes830/los/visualize_waypoints
+          Marker Topic: /Viknes830/systemViz/waypoints
           Name: Waypoints
           Namespaces:
             waypoints: true
@@ -116,7 +119,7 @@ Visualization Manager:
           Value: true
         - Class: rviz/Marker
           Enabled: true
-          Marker Topic: /Viknes830/los/visualize_vector
+          Marker Topic: /Viknes830/systemViz/los
           Name: LosVector
           Namespaces:
             los_vector: true
@@ -210,7 +213,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 207.22743225097656
+      Distance: 388.4486083984375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -218,17 +221,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 8.697528839111328
+        Y: -0.2631378173828125
+        Z: 3.03997802734375
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.40479743480682373
+      Pitch: 0.4150885343551636
       Target Frame: Viknes830
-      Yaw: 2.8784594535827637
+      Yaw: 0.44855552911758423
     Saved: ~
 Window Geometry:
   Displays:

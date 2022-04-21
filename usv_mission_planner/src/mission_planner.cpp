@@ -13,11 +13,11 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     path_pub_ = nh_.advertise<geometry_msgs::Pose>("mission_planner/geo_waypoint",1,false);
     speed_pub_ = nh_.advertise<geometry_msgs::Twist>("mission_planner/desired_speed",1,true);
     region_available_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/region_available",1,true);
+    mission_done_pub_ = nh_.advertise<std_msgs::Bool>("mission_planner/done",1,false);
+    waypoint_reached_sub_ = nh_.subscribe("los/waypoint_reached",1,&MissionPlanner::waypointReachedCb,this);
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
     bool parameter_load_error = false;
-    if(!ros::param::get("mission_planner/mission_name",mission_name_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/load_from_gpx",load_from_gpx_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/gpx_name",gpx_name_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/preprocessed_map",preprocessed_map_)) parameter_load_error = true;
     if(!ros::param::get("mission_planner/map_name",map_name_)) parameter_load_error = true;
@@ -26,30 +26,6 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
-    }
-
-    //Crate mission directory, add timestamp before name
-    mission_path_ = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/";
-    if(!boost::filesystem::exists(mission_path_)){
-        boost::filesystem::create_directories(mission_path_);
-    }
-
-    if(load_from_gpx_){
-        std::string gpx_path = mission_path_+gpx_name_+".gpx";
-        GDALDataset* gpx_ds = (GDALDataset*) GDALOpenEx(gpx_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-        if(gpx_ds == NULL){
-            ROS_ERROR_STREAM("Failed to load gpx path file: " << gpx_path);
-            ros::shutdown();
-        }
-        OGRLineString* route = gpx_ds->GetLayerByName("routes")->GetFeature(0)->GetGeometryRef()->toLineString();
-        for(int i=0; i<route->getNumPoints(); i++){
-            state_type state = {route->getX(i),route->getY(i),0,0,0,0};
-            path_.push_back(new extendedVertex(i,state));
-        }
-        ros::Duration(1.0).sleep();
-        publishPath();
-        publishSpeed();
-        return;
     }
 
     if(!preprocessed_map_){
@@ -67,8 +43,6 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     vessel_model_ = new ModelLibrary::Viknes830();
     search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_,mission_name_);
     ROS_INFO_STREAM("Done initializing MissionPlanner");
-
-
 
 }
 
@@ -110,6 +84,32 @@ void MissionPlanner::publishSpeed(){
  */
 bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res){
     ROS_INFO_STREAM("Start search in mission planner");
+    //Crate mission directory, add timestamp before name
+    mission_path_ = ros::package::getPath("usv_mission_planner")+"/data/missions/"+req.mission_name.data+"/";
+    if(!boost::filesystem::exists(mission_path_)){
+        boost::filesystem::create_directories(mission_path_);
+    }
+
+    if(req.predefined){
+        std::string gpx_path = mission_path_+gpx_name_+".gpx";
+        GDALDataset* gpx_ds = (GDALDataset*) GDALOpenEx(gpx_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
+        if(gpx_ds == NULL){
+            ROS_ERROR_STREAM("Failed to load gpx path file: " << gpx_path);
+            ros::shutdown();
+        }
+        OGRLineString* route = gpx_ds->GetLayerByName("routes")->GetFeature(0)->GetGeometryRef()->toLineString();
+        for(int i=0; i<route->getNumPoints(); i++){
+            state_type state = {route->getX(i),route->getY(i),0,0,0,0};
+            path_.push_back(new extendedVertex(i,state));
+        }
+        ros::Duration(1.0).sleep();
+        publishPath();
+        publishSpeed();
+        return true;
+    }
+
+    search_alg_->setMissionName(req.mission_name.data);
+
     if (req.use_odom){
         latest_gps_ = *ros::topic::waitForMessage<geometry_msgs::PoseStamped>("pose",nh_);
         std::cout << "Latest odom: " << latest_gps_.pose.position.x << latest_gps_.pose.position.y << std::endl;
@@ -167,6 +167,15 @@ void MissionPlanner::savePath(){
     ROS_INFO_STREAM("Done writing waypoints to gpx");
 }
 
+void MissionPlanner::waypointReachedCb(const geometry_msgs::Pose& msg){
+    if(path_.empty()) return;
+    extendedVertex* goal = *(path_.end()-1);
+    if(goal->pose->x()==msg.position.x && goal->pose->y()==msg.position.y){
+        //ROS_WARN_STREAM("Goal reached, informing");
+        mission_done_pub_.publish(std_msgs::Bool());
+    }
+}
+
 MissionPlannerClient::MissionPlannerClient(ros::NodeHandle& nh): nh_(nh){
     search_client_ = nh_.serviceClient<usv_mission_planner::search>("SearchGlobalPath");
 }
@@ -178,12 +187,13 @@ MissionPlannerClient::MissionPlannerClient(ros::NodeHandle& nh): nh_(nh){
  * @param goal_lat Goal latitude
  * @param publish_path Should path be published in ROS network?
  */
-void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,bool publish_path){
+void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat, std::string mission_name, bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=true;
     srv.request.publish_path = publish_path;
     srv.request.goal_lon = goal_lon;
     srv.request.goal_lat = goal_lat;
+    srv.request.mission_name.data = mission_name;
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }
 
@@ -197,7 +207,7 @@ void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,bool 
  * @param goal_lat Goal latitude
  * @param publish_path Should path be published in ROS network?
  */
-void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, bool publish_path){
+void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, std::string mission_name, bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=false;
     srv.request.publish_path = publish_path;
@@ -206,6 +216,15 @@ void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, d
     srv.request.custom_start_heading = start_heading;
     srv.request.goal_lon = goal_lon;
     srv.request.goal_lat = goal_lat;
+    srv.request.mission_name.data = mission_name;
+    ROS_INFO_STREAM("Calling search in MissionPlanner");
+    if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
+}
+
+void MissionPlannerClient::loadPredefined(std::string predefined_mission_name){
+    usv_mission_planner::search srv;
+    srv.request.predefined = true;
+    srv.request.mission_name.data = predefined_mission_name;
     ROS_INFO_STREAM("Calling search in MissionPlanner");
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }

@@ -1,7 +1,7 @@
-#include "usv_map/geotf_ros.h"
+#include "usv_map/geotf_server.h"
 
 int main(int argc, char** argv){
-    ros::init(argc,argv,"geotf_ros");
+    ros::init(argc,argv,"geotf_server");
     ros::NodeHandle nh;
 
     geotf::GeodeticConverterServer converter(nh);

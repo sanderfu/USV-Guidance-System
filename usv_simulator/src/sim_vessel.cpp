@@ -1,17 +1,30 @@
 # include "usv_simulator/sim_vessel.h"
 
-SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), geo_converter_(&nh_), x_(6){
+SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), x_(6){
     std::vector<double> global_position_vec;
     if(!nh_.getParam("initial_position",global_position_vec)){
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
-    Eigen::Vector3d global_initial_position(global_position_vec.data());
+    std::cout <<"global position vec: " << global_position_vec[0] << " " << global_position_vec[1] << std::endl;
+    Eigen::Vector3d global_initial_position(global_position_vec[0],global_position_vec[1],0);
     Eigen::Vector3d local_initial_position;
-    while(!geo_converter_.convert("WGS84",global_initial_position,"global_enu",local_initial_position));
 
+    std::vector<double> sim_origin_vec;
+    if(!nh_.getParam("sim_origin",sim_origin_vec)){
+        ROS_ERROR_STREAM("Failed to load initial position parameter");
+    }
+
+    converter_.addFrameByENUOrigin("local",sim_origin_vec[1],sim_origin_vec[0],0);
+    converter_.addFrameByEPSG("global",4326);
+    if(!converter_.canConvert("global","local")){
+        ROS_ERROR_STREAM_NAMED("sim_land","Frame conversion error");
+        ros::shutdown();
+    }
+
+    while(!converter_.convert("global",global_initial_position,"local",&local_initial_position));
     x_[0] = local_initial_position(0);
     x_[1] = local_initial_position(1);
-    x_[2] = global_initial_position(2);
+    x_[2] = global_position_vec[2];
     x_[3] = 0;
     x_[4] = 0;
     x_[5] = 0;
@@ -31,6 +44,9 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), geo_conve
 
     //Set up driving timer
     loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulatedVessel::updateLoop,this);
+
+    //Setup Monte Carlo Compatebility
+    reinit_state_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulatedVessel::reinitCb,this);
     
 }
 /**
@@ -76,8 +92,13 @@ void SimulatedVessel::publishData(){
     odom.header.frame_id = "map";
     odom.child_frame_id = nh_.getNamespace();
 
-    odom.pose.pose.position.x = x_[0];
-    odom.pose.pose.position.y = x_[1];
+    //Pose publish (global frame, LLA)
+    Eigen::Vector3d local_initial_position(x_[0],x_[1],0);
+    Eigen::Vector3d global_initial_position;
+    while(!converter_.convert("local",local_initial_position,"global",&global_initial_position));
+
+    odom.pose.pose.position.x = global_initial_position.x();
+    odom.pose.pose.position.y = global_initial_position.y();
 
     tf::quaternionTFToMsg(q, odom.pose.pose.orientation);
 
@@ -86,10 +107,6 @@ void SimulatedVessel::publishData(){
     odom.twist.twist.angular.z = x_[5];
     odom_pub_.publish(odom);
 
-    //Pose publish (global frame, LLA)
-    Eigen::Vector3d local_initial_position(x_[0],x_[1],0);
-    Eigen::Vector3d global_initial_position;
-    while(!geo_converter_.convert("global_enu",local_initial_position,"WGS84",global_initial_position));
     pose.pose.position.x = global_initial_position.x();
     pose.pose.position.y = global_initial_position.y();
     tf::quaternionTFToMsg(q, pose.pose.orientation);
@@ -107,3 +124,30 @@ void SimulatedVessel::cmdCb(const geometry_msgs::Twist& msg){
     u_d_ = msg.linear.x;
     psi_d_ = msg.angular.z;
 }
+
+void SimulatedVessel::reinitCb(const usv_msgs::reinit msg){
+    //Stop update timer
+    loop_timer_.stop();
+
+    Eigen::Vector3d global_initial_position(msg.initial_pose.position.x,msg.initial_pose.position.y,0);
+    Eigen::Vector3d local_initial_position;
+    while(!converter_.convert("global",global_initial_position,"local",&local_initial_position));
+
+    tf::Quaternion q;
+    tf::quaternionMsgToTF(msg.initial_pose.orientation,q);
+    tf::Matrix3x3 m(q);
+    double roll, pitch,yaw;
+    m.getRPY(roll, pitch, yaw);
+
+    x_[0] = local_initial_position(0);
+    x_[1] = local_initial_position(1);
+    x_[2] = yaw;
+    x_[3] = 0;
+    x_[4] = 0;
+    x_[5] = 0;
+
+    //Reinit done, start update timer again
+    loop_timer_.start();
+}
+
+

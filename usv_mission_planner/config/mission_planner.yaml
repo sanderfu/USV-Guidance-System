@@ -23,12 +23,8 @@ hybrid_a_star:
     save_search_data: true
     save_benchmark_data: true
 mission_planner:
-  #Name of mission, for path and debug data storage
-  mission_name: "test_test"
-  #If path determined in advance and stored to gpx, load it and publish
-  load_from_gpx: false
   #Load from this gpx or save to this gpx
-  gpx_name: "debug"
+  gpx_name: "path"
   #Preprocessing has been run for mission region
   preprocessed_map: true
   #Preprocessed data to load (or save). Loads/saves collision db, voronoi db and quadtree 

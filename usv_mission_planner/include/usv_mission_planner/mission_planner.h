@@ -21,8 +21,9 @@ class MissionPlanner{
         ros::Publisher path_pub_;
         ros::Publisher speed_pub_;
         ros::Publisher region_available_pub_;
-        ros::Subscriber odom_sub_;
-        ros::Subscriber goal_sub_;
+        ros::Publisher mission_done_pub_;
+        ros::Subscriber waypoint_reached_sub_;
+
         ros::ServiceServer search_service_;
         
         Quadtree* tree_;
@@ -57,13 +58,16 @@ class MissionPlanner{
         void publishPath();
         void publishSpeed();
         void savePath();
+
+        void waypointReachedCb(const geometry_msgs::Pose& msg);
 };
 
 class MissionPlannerClient{
     public:
         MissionPlannerClient(ros::NodeHandle& nh);
-        void searchFromOdom(double goal_lon, double goal_lat, bool publish_path=true);
-        void searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, bool publish_path=true);
+        void searchFromOdom(double goal_lon, double goal_lat, std::string mission_name, bool publish_path=true);
+        void searchFromCustom(double start_lon,double start_lat, double start_heading, double goal_lon, double goal_lat, std::string mission_name, bool publish_path=true);
+        void loadPredefined(std::string predefined_mission_name);
         
     private:
         ros::NodeHandle nh_;

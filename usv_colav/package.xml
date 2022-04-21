@@ -25,6 +25,7 @@
   <depend>roslib</depend>
   <depend>geotf</depend>
   <depend>usv_simulator</depend>
+  <depend>usv_msgs</depend>
   <test_depend>rosunit</test_depend>
 
 </package>

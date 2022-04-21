@@ -8,7 +8,6 @@ class GeodeticConverterClient:
         self.convert_point_client_ = rospy.ServiceProxy('/map/frame_conversion',frame_conversion)
     def add_frame(self, name:str, lon:float, lat:float, alt:float,replace)->None:
         try:
-            print("Trying to add frame: ", lon,lat,alt,replace)
             resp = self.add_frame_client_(frame_name=name,latitude=lat,longitude=lon,altitude=alt,replace=replace)
         except rospy.ServiceException as e:
             rospy.logerr("Failed to add frame!")

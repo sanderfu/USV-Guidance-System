@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from audioop import cross
 import rospy
 import numpy as np
 import math
@@ -96,6 +97,9 @@ class LOS:
 
         #Calculate crosstrack
         crosstrack_error = self.calculate_crosstrack_error()
+        if crosstrack_error is None:
+            rospy.logerr("[LOS] Failed to calculate crosstrack due to frame conversion, skipping iteration")
+            return
 
         #Calculate desired yaw
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
@@ -171,6 +175,8 @@ class LOS:
 
     def calculate_crosstrack_error(self):
         position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")
+        if position_enu is None:
+            return None
         tangential_pose_homogenous = self.tangential_transform@np.array([position_enu[0],position_enu[1],1]).reshape((3,1))
         tangential_pose = tangential_pose_homogenous[:2]
         self.debug_crosstrack.publish(Float32(tangential_pose[1]))

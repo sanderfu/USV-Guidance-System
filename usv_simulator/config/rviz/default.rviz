@@ -74,8 +74,6 @@ Visualization Manager:
           Value: true
         map:
           Value: true
-        ship1:
-          Value: true
       Marker Alpha: 1
       Marker Scale: 50
       Name: TF
@@ -85,8 +83,6 @@ Visualization Manager:
       Tree:
         map:
           Viknes830:
-            {}
-          ship1:
             {}
       Update Interval: 0
       Value: true
@@ -159,11 +155,6 @@ Visualization Manager:
             Expand Link Details: false
             Expand Tree: false
             Link Tree Style: Links in Alphabetic Order
-            ship1:
-              Alpha: 1
-              Show Axes: false
-              Show Trail: false
-              Value: true
           Name: Ship1
           Robot Description: ship1/robot_description
           TF Prefix: ""
@@ -222,7 +213,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 2438.023681640625
+      Distance: 388.4486083984375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -230,17 +221,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 1283.7490234375
-        Y: 460.96826171875
-        Z: 5.720726013183594
+        X: 8.697528839111328
+        Y: -0.2631378173828125
+        Z: 3.03997802734375
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.15001831948757172
+      Pitch: 0.4150885343551636
       Target Frame: Viknes830
-      Yaw: 3.535364866256714
+      Yaw: 0.44855552911758423
     Saved: ~
 Window Geometry:
   Displays:

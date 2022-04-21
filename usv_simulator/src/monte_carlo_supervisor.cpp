@@ -2,8 +2,7 @@
 
 MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
     //Register publishers
-    vessel_reinit_pub_ = nh_.advertise<nav_msgs::Odometry>("mc/reinit_vessel_state",10);
-    system_reinit_pub_ = nh_.advertise<usv_msgs::reinit>("mc/system_reinit",10);
+    system_reinit_pub_ = nh_.advertise<usv_msgs::reinit>("mc/system_reinit",10,true);
 
     if(!nh_.getParam("initial_position",global_position_vec_)){
         ROS_ERROR_STREAM("Failed to load initial position parameter");

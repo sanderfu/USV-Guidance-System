@@ -11,7 +11,6 @@ class MonteCarloSupervisor{
         void runSimulations();
     private:
         ros::NodeHandle nh_;
-        ros::Publisher vessel_reinit_pub_;
         ros::Publisher system_reinit_pub_;
         ros::Publisher leader_done_pub_; //Only the supervisor set as "leader" registers for publishing to this topic
 

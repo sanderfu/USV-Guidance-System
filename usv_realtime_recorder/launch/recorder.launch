@@ -1,0 +1,7 @@
+<launch>
+ <node pkg="usv_realtime_recorder"
+            name="recorder"
+            type="recorder_node"
+            respawn="false"
+            output="screen"/>
+</launch>

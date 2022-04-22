@@ -45,6 +45,7 @@ geo_converter_("COLAV",false,true,nh)
     }
 
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
+    colav_data_pub_ = nh_.advertise<usv_msgs::Colav>("colav/debug",1,false);
 
     odom_sub_ = nh_.subscribe("odom",1,&SimulationBasedMPC::odomCb,this);
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
@@ -144,6 +145,10 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     Eigen::Vector3d point_global;
     OGRLineString choosen_path;
 
+    //Clear last path options and cost options
+    colav_msg_.path_options.clear();
+    colav_msg_.cost_options.clear();
+
     std::map<int,ModelLibrary::simulatedHorizon> obstacles_horizon;
     for(auto obst_it=obstacle_vessels_.begin(); obst_it!=obstacle_vessels_.end(); obst_it++){
         std::map<int,ModelLibrary::simulatedHorizon>::iterator it = obstacles_horizon.begin();
@@ -184,28 +189,37 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it) + Delta_Chi(*chi_it);
             }
 
-            //Simulation horizon to LineString
+            //Simulation horizon to LineString and add to data message
             OGRLineString path;
+            usv_msgs::ColavPath msg_path;
+            usv_msgs::ColavPathElement path_element;
             for(auto hor_it = horizon.state.begin(); hor_it!=horizon.state.end();hor_it++){
                 point_local(0) = hor_it->at(0);
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
                 geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
                 path.addPoint(point_global(0),point_global(1));
+
+                //Add path to path options
+                path_element.lon = hor_it->at(0);
+                path_element.lat = hor_it->at(1);
+                path_element.lon = hor_it->at(5);
+                msg_path.path.push_back(path_element);
             }
+            colav_msg_.path_options.push_back(msg_path);
 
             //Check path for collision
             if (map_service_->intersects(&path,LayerID::COLLISION)){
                 cost_i += 100;
             }
             
-            
-
             //TEMPORARY cost func, prioritize small manueuvers
             //cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
             //cost_i += abs(*chi_it/(M_PI/2));
             //cost_i += 10*abs(*p_it-1); 
-
+            
+            //Add cost option to msg
+            colav_msg_.cost_options.push_back(cost_i);
             
             //Choose action based on minimized cost
             if (cost_i<cost){
@@ -213,16 +227,22 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 u_corr_best = *p_it;
                 psi_corr_best = *chi_it; 
                 choosen_path = path;
+
+                //Update colav message
+                colav_msg_.path = msg_path;
+                colav_msg_.cost = cost;
+                colav_msg_.speed_correction = u_corr_best;
+                colav_msg_.course_correction = psi_corr_best;
             }
 
         }
     }
-    clearVisualPath();
-    visualizePath(choosen_path);
-    ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
-    ROS_INFO_STREAM("Best cost: " << cost);
     P_ca_last_ = u_corr_best;
 	Chi_ca_last_ = psi_corr_best;
+    ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
+    ROS_INFO_STREAM("Best cost: " << cost);
+    clearVisualPath();
+    visualizePath(choosen_path);
 }
 
 /**
@@ -237,10 +257,14 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     ros::Time start = ros::Time::now();
     getBestControlOffset(u_os,psi_os);
 
+    //Publish COLAV correction
     geometry_msgs::Twist offset;
     offset.linear.x = u_os;
     offset.angular.z = psi_os;
     correction_pub_.publish(offset);
+
+    //Publish debug/post-visualization message
+    colav_data_pub_.publish(colav_msg_);
     ros::Time stop = ros::Time::now();
     ROS_INFO_STREAM("Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
     ROS_INFO_STREAM("Getting offset took: " << (stop-start).toSec() << " [s]");

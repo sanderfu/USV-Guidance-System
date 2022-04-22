@@ -32,7 +32,7 @@
 *  POSSIBILITY OF SUCH DAMAGE.
 ********************************************************************/
 
-#include "usv_rosbag_recorder/recorder.h"
+#include "usv_realtime_recorder/recorder.h"
 
 #include <sys/stat.h>
 #include <sys/statvfs.h>
@@ -138,7 +138,7 @@ void Recorder::reinitCb(const usv_msgs::reinit& msg){
     queue_ = nullptr;
     queue_ = new std::queue<OutgoingMessage>;
     reinit_flag_ = false;
-    options_.prefix = ros::package::getPath("usv_rosbag_recorder")+"/data/missions/"+msg.mission_name.data+"/";
+    options_.prefix = ros::package::getPath("usv_realtime_recorder")+"/data/missions/"+msg.mission_name.data+"/";
     if(!boost::filesystem::exists(options_.prefix)){
         boost::filesystem::create_directories(options_.prefix);
     }

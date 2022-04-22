@@ -1,4 +1,4 @@
-#include "usv_rosbag_recorder/recorder.h"
+#include "usv_realtime_recorder/recorder.h"
 
 int main(int argc, char** argv){
     ros::init(argc,argv,"recorder");

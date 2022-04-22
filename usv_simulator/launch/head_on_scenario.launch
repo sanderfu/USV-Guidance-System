@@ -74,7 +74,7 @@
             output="screen">
       </node>
 
-      <include file="$(find usv_rosbag_recorder)/launch/recorder.launch"/>
+      <include file="$(find usv_realtime_recorder)/launch/recorder.launch"/>
   </group>
 
 

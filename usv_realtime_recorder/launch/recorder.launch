@@ -1,5 +1,5 @@
 <launch>
- <node pkg="usv_rosbag_recorder"
+ <node pkg="usv_realtime_recorder"
             name="recorder"
             type="recorder_node"
             respawn="false"

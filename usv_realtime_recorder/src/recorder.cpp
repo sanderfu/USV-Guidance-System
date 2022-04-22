@@ -123,16 +123,16 @@ Recorder::Recorder(RecorderOptions const& options) :
         check_master_timer = nh.createTimer(ros::Duration(1.0), boost::bind(&Recorder::doCheckMaster, this, _1, boost::ref(nh)));
 
     reinit_sub_ = nh.subscribe("mc/system_reinit",1,&Recorder::reinitCb,this);
-    ROS_INFO_STREAM("[RECORDER] Initialized");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Initialized");
 }
 
 void Recorder::reinitCb(const usv_msgs::reinit& msg){
-    ROS_INFO_STREAM("[RECORDER] Reinit received, stopping run if active and starting new");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Reinit received, stopping run if active and starting new");
     reinit_flag_ = true;
 
-    ROS_INFO_STREAM("[RECORDER] Waiting for recorder thread to shut down");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Waiting for recorder thread to shut down");
     if(record_thread.joinable())record_thread.join();
-    ROS_INFO_STREAM("[RECORDER] Recorder thread shut down, initializing new run");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Recorder thread shut down, initializing new run");
 
     delete queue_;
     queue_ = nullptr;
@@ -146,20 +146,20 @@ void Recorder::reinitCb(const usv_msgs::reinit& msg){
     record_thread = boost::thread(boost::bind(&Recorder::doRecord, this));
 
     queue_condition_.notify_all();
-    ROS_INFO_STREAM("[RECORDER] Reinit done, recording mission: " << msg.mission_name.data);
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Reinit done, recording mission: " << msg.mission_name.data);
 }
 
 Recorder::~Recorder(){
-    ROS_INFO_STREAM("[RECORDER] Recorder destructor called, normally due to ROS shutdown");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Recorder destructor called, normally due to ROS shutdown");
     reinit_flag_ = true;
-    ROS_INFO_STREAM("[RECORDER] Waiting for recorder thread to shut down");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Waiting for recorder thread to shut down");
     if(record_thread.joinable())record_thread.join();
-    ROS_INFO_STREAM("[RECORDER] Recorder thread shut down");
+    ROS_INFO_STREAM_COND(options_.verbose,"[RECORDER] Recorder thread shut down");
     delete queue_;
 }
 
 shared_ptr<ros::Subscriber> Recorder::subscribe(string const& topic) {
-	ROS_INFO("Subscribing to %s", topic.c_str());
+	if(options_.verbose) ROS_INFO("Subscribing to %s", topic.c_str());
 
     ros::NodeHandle nh;
     shared_ptr<int> count(new int(options_.limit));
@@ -221,9 +221,6 @@ void Recorder::doQueue(ros::MessageEvent<topic_tools::ShapeShifter const> msg_ev
     if(queue_==nullptr or reinit_flag_) return;
     //void Recorder::doQueue(topic_tools::ShapeShifter::ConstPtr msg, string const& topic, shared_ptr<ros::Subscriber> subscriber, shared_ptr<int> count) {
     Time rectime = Time::now();
-    
-    if (options_.verbose)
-        cout << "Received message on topic " << subscriber->getTopic() << endl;
 
     OutgoingMessage out(topic, msg_event.getMessage(), msg_event.getConnectionHeaderPtr(), rectime);
     
@@ -303,11 +300,11 @@ void Recorder::startWriting() {
         exit_code_ = 1;
         ros::shutdown();
     }
-    ROS_INFO("Recording to %s.", target_filename_.c_str());
+    ROS_INFO_COND(options_.verbose,"[RECORDER] Recording to %s.", target_filename_.c_str());
 }
 
 void Recorder::stopWriting() {
-    ROS_INFO("Closing %s.", target_filename_.c_str());
+    ROS_INFO_COND(options_.verbose,"[RECORDER] Closing %s.", target_filename_.c_str());
     bag_.close();
     rename(write_filename_.c_str(), target_filename_.c_str());
 }
@@ -409,7 +406,6 @@ void Recorder::doRecord() {
         if (scheduledCheckDisk() && checkLogging())
             bag_.write(out.topic, out.time, *out.msg, out.connection_header);
     }
-    std::cout << "Stop writing" << std::endl;
     stopWriting();
 }
 

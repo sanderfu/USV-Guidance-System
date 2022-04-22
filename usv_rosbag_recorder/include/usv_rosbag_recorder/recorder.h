@@ -88,13 +88,11 @@ struct RecorderOptions
 {
     RecorderOptions();
 
-    bool            trigger;
     bool            record_all;
     bool            regex;
     bool            do_exclude;
     bool            quiet;
     bool            append_date;
-    bool            snapshot;
     bool            verbose;
     rosbag::CompressionType compression;
     std::string     prefix;
@@ -114,17 +112,9 @@ class Recorder
 {
 public:
     Recorder(RecorderOptions const& options);
-
-    void doTrigger();
-
-    bool isSubscribed(std::string const& topic) const;
-
-    boost::shared_ptr<ros::Subscriber> subscribe(std::string const& topic);
-
-    int run();
-
-    //Additions
     ~Recorder();
+    bool isSubscribed(std::string const& topic) const;
+    boost::shared_ptr<ros::Subscriber> subscribe(std::string const& topic);
 
 private:
     void printUsage();
@@ -137,13 +127,10 @@ private:
     bool scheduledCheckDisk();
     bool checkDisk();
 
-    void snapshotTrigger(std_msgs::Empty::ConstPtr trigger);
-    //    void doQueue(topic_tools::ShapeShifter::ConstPtr msg, std::string const& topic, boost::shared_ptr<ros::Subscriber> subscriber, boost::shared_ptr<int> count);
     void doQueue(ros::MessageEvent<topic_tools::ShapeShifter const> msg_event, std::string const& topic, boost::shared_ptr<ros::Subscriber> subscriber, boost::shared_ptr<int> count);
     void doRecord();
     bool checkSize();
     bool checkDuration(const ros::Time&);
-    void doRecordSnapshotter();
     void doCheckMaster(ros::TimerEvent const& e, ros::NodeHandle& node_handle);
 
     bool shouldSubscribeToTopic(std::string const& topic, bool from_node = false);
@@ -154,7 +141,7 @@ private:
 private:
     RecorderOptions               options_;
 
-    rosbag::Bag                           bag_;
+    rosbag::Bag                   bag_;
 
     std::string                   target_filename_;
     std::string                   write_filename_;

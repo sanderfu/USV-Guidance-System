@@ -4,6 +4,8 @@
 #include "nav_msgs/Odometry.h"
 #include "geometry_msgs/Twist.h"
 #include "usv_msgs/reinit.h"
+#include "usv_msgs/Colav.h"
+#include "usv_msgs/ColavPath.h"
 #include "std_msgs/Bool.h"
 #include "gdal/ogrsf_frmts.h"
 #include "usv_map/map_service.h"
@@ -63,6 +65,8 @@ class SimulationBasedMPC{
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
         std::map<int,obstacleVessel*> obstacle_vessels_;
+
+        OGRLineString choosen_path_;
       
         double Chi_ca_last_;
 		double P_ca_last_;
@@ -91,7 +95,9 @@ class SimulationBasedMPC{
 
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;
+        ros::Publisher colav_data_pub_;
         visualization_msgs::Marker path_viz_;
+        usv_msgs::Colav colav_msg_;
         void visualizePath(OGRLineString& path);
         void clearVisualPath();
 };

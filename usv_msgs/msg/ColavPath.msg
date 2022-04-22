@@ -1,0 +1,1 @@
+usv_msgs/ColavPathElement[] path

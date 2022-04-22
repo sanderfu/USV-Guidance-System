@@ -143,6 +143,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     tf::Quaternion q;
     Eigen::Vector3d point_local;
     Eigen::Vector3d point_global;
+    OGRLineString choosen_path;
 
     //Clear last path options and cost options
     colav_msg_.path_options.clear();
@@ -225,7 +226,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 cost = cost_i;
                 u_corr_best = *p_it;
                 psi_corr_best = *chi_it; 
-                choosen_path_ = path;
+                choosen_path = path;
 
                 //Update colav message
                 colav_msg_.path = msg_path;
@@ -238,8 +239,10 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     }
     P_ca_last_ = u_corr_best;
 	Chi_ca_last_ = psi_corr_best;
-    ROS_INFO_STREAM("Path num points: " << choosen_path_.getNumPoints());
+    ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
     ROS_INFO_STREAM("Best cost: " << cost);
+    clearVisualPath();
+    visualizePath(choosen_path);
 }
 
 /**
@@ -253,9 +256,6 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     double u_os, psi_os;
     ros::Time start = ros::Time::now();
     getBestControlOffset(u_os,psi_os);
-
-    clearVisualPath();
-    visualizePath(choosen_path_);
 
     //Publish COLAV correction
     geometry_msgs::Twist offset;

@@ -65,8 +65,6 @@ class SimulationBasedMPC{
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
         std::map<int,obstacleVessel*> obstacle_vessels_;
-
-        OGRLineString choosen_path_;
       
         double Chi_ca_last_;
 		double P_ca_last_;

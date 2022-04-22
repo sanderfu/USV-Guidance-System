@@ -145,12 +145,21 @@ void Recorder::reinitCb(const usv_msgs::reinit& msg){
         boost::filesystem::create_directories(options_.prefix);
     }
 
-
     record_thread = boost::thread(boost::bind(&Recorder::doRecord, this));
 
     queue_condition_.notify_all();
     ROS_INFO_STREAM("[RECORDER] Reinit done, recording mission: " << msg.mission_name.data);
 }
+
+Recorder::~Recorder(){
+    ROS_INFO_STREAM("[RECORDER] Recorder destructor called, normally due to ROS shutdown");
+    reinit_flag_ = true;
+    ROS_INFO_STREAM("[RECORDER] Waiting for recorder thread to shut down");
+    if(record_thread.joinable())record_thread.join();
+    ROS_INFO_STREAM("[RECORDER] Recorder thread shut down");
+    delete queue_;
+}
+
 
 int Recorder::run() {
     if (options_.trigger) {

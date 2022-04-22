@@ -59,6 +59,7 @@
 
 //Additions
 #include "usv_msgs/reinit.h"
+#include "std_msgs/Bool.h"
 
 namespace usv_rosbag {
 
@@ -121,6 +122,9 @@ public:
     boost::shared_ptr<ros::Subscriber> subscribe(std::string const& topic);
 
     int run();
+
+    //Additions
+    ~Recorder();
 
 private:
     void printUsage();

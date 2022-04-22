@@ -56,6 +56,7 @@ void MonteCarloSupervisor::runSimulations(){
         }
         sim_id++;
     }
+    ros::Duration(2.0).sleep();
     ros::shutdown();
 
 }

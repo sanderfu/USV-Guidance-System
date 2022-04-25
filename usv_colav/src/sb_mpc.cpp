@@ -54,7 +54,7 @@ geo_converter_("COLAV",false,true,nh)
     main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
-    double courseOffsets[] = {89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
+    double courseOffsets[] = {-89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
     double sizeCO = sizeof(courseOffsets)/sizeof(courseOffsets[0]);
     for (int i = 0; i < sizeCO; i++){
     	courseOffsets[i] *= DEG2RAD;
@@ -62,7 +62,7 @@ geo_converter_("COLAV",false,true,nh)
     Chi_ca_.assign(courseOffsets, courseOffsets + sizeof(courseOffsets)/sizeof(courseOffsets[0]));
 
     //Set speed action alternatives
-    double speedOffsets[] = {-1,0,0.5,1};
+    double speedOffsets[] = {1};
     P_ca_.assign(speedOffsets, speedOffsets + sizeof(speedOffsets)/sizeof(speedOffsets[0]));
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
@@ -170,6 +170,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     state[4] = latest_odom_.twist.twist.linear.y;
     state[5] = latest_odom_.twist.twist.angular.z;
 
+
+    control_candidate_map.clear();
     for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
         for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
             double cost_i = 0.0;
@@ -190,7 +192,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             }
 
             //Simulation horizon to LineString and add to data message
-            OGRLineString path;
+            
             usv_msgs::ColavPath msg_path;
             usv_msgs::ColavPathElement path_element;
             for(auto hor_it = horizon.state.begin(); hor_it!=horizon.state.end();hor_it++){
@@ -198,45 +200,48 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
                 geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
-                path.addPoint(point_global(0),point_global(1));
-
-                //Add path to path options
-                path_element.lon = hor_it->at(0);
-                path_element.lat = hor_it->at(1);
-                path_element.lon = hor_it->at(5);
+                path_element.lon = point_global.x();
+                path_element.lat = point_global.y();
+                path_element.course = hor_it->at(2);
                 msg_path.path.push_back(path_element);
             }
             colav_msg_.path_options.push_back(msg_path);
-
-            //Check path for collision
-            if (map_service_->intersects(&path,LayerID::COLLISION)){
-                cost_i += 100;
-            }
-            
-            //TEMPORARY cost func, prioritize small manueuvers
-            //cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
-            //cost_i += abs(*chi_it/(M_PI/2));
-            //cost_i += 10*abs(*p_it-1); 
-            
-            //Add cost option to msg
             colav_msg_.cost_options.push_back(cost_i);
             
-            //Choose action based on minimized cost
-            if (cost_i<cost){
-                cost = cost_i;
-                u_corr_best = *p_it;
-                psi_corr_best = *chi_it; 
-                choosen_path = path;
 
-                //Update colav message
-                colav_msg_.path = msg_path;
-                colav_msg_.cost = cost;
-                colav_msg_.speed_correction = u_corr_best;
-                colav_msg_.course_correction = psi_corr_best;
-            }
+            //Add candidate to candidate list
+            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,*chi_it,horizon,cost_i)));
 
         }
     }
+
+    //Find best candidate from candidate map (lowest cost without collision)
+    for(auto it = control_candidate_map.begin(); it!=control_candidate_map.end(); it++){
+        OGRLineString path;
+        usv_msgs::ColavPath msg_path;
+        usv_msgs::ColavPathElement path_element;
+        for(auto hor_it = (*it).second.horizon_.state.begin(); hor_it!=(*it).second.horizon_.state.end();hor_it++){
+            point_local(0) = hor_it->at(0);
+            point_local(1) = hor_it->at(1);
+            point_local(2) = 0;
+            geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
+            path.addPoint(point_global(0),point_global(1));
+        }
+        if(!map_service_->intersects(&path,LayerID::COLLISION)){
+            cost = (*it).second.cost_;
+            u_corr_best = (*it).second.p_cand_;
+            psi_corr_best = (*it).second.chi_cand_; 
+            choosen_path = path;
+
+            //Update colav message
+            colav_msg_.path = msg_path;
+            colav_msg_.cost = cost;
+            colav_msg_.speed_correction = u_corr_best;
+            colav_msg_.course_correction = psi_corr_best;
+            break;
+        }
+    }
+
     P_ca_last_ = u_corr_best;
 	Chi_ca_last_ = psi_corr_best;
     ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());

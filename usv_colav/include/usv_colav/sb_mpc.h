@@ -30,6 +30,14 @@ struct obstacleVessel{
     state_type latest_obstacle_state_;
 };
 
+struct controlCandidate{
+    controlCandidate(double p_cand, double chi_cand, ModelLibrary::simulatedHorizon horizon,double cost):p_cand_(p_cand),chi_cand_(chi_cand),horizon_(horizon),cost_(cost){};
+    double p_cand_;
+    double chi_cand_;
+    ModelLibrary::simulatedHorizon horizon_;
+    double cost_;
+};
+
 class SimulationBasedMPC{
     public:
         SimulationBasedMPC(const ros::NodeHandle& nh);
@@ -65,6 +73,8 @@ class SimulationBasedMPC{
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
         std::map<int,obstacleVessel*> obstacle_vessels_;
+
+        std::map<double,controlCandidate> control_candidate_map;
       
         double Chi_ca_last_;
 		double P_ca_last_;

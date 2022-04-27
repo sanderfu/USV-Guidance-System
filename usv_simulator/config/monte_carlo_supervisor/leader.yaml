@@ -1,6 +1,6 @@
 monte_carlo_supervisor:
   leader: true
-  simulation_collection_name: "test_from_config_"
+  simulation_collection_name: "headon_colav_debug_bugfix_"
   simulations: 2
   predefined_mission: true
   predefined_mission_name: "usv_headon"

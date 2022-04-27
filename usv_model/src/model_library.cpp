@@ -116,7 +116,7 @@ simulatedHorizon Viknes830::simulateHorizon(state_type x_init, double u_d, doubl
     this->u_d = u_d;
     this->psi_d = psi_d;
     runge_kutta4< state_type > stepper;
-    sim_hor.steps = integrate_const(stepper,*this,x_init,0.0,T,0.5,simulatedHorizonObserver(sim_hor));
+    sim_hor.steps = integrate_const(stepper,*this,x_init,0.0,T,0.1,simulatedHorizonObserver(sim_hor));
     return sim_hor;
 }
 
@@ -188,8 +188,12 @@ void LinearObstacleShip::operator()(const state_type& x, state_type &dxdt, const
 simulatedHorizon LinearObstacleShip::simulateHorizon(state_type x_init, double T){
   simulatedHorizon sim_hor;
   runge_kutta4< state_type > stepper;
-  sim_hor.steps = integrate_const(stepper,*this,x_init,0.0,T,0.5,simulatedHorizonObserver(sim_hor));
+  sim_hor.steps = integrate_const(stepper,*this,x_init,0.0,T,0.1,simulatedHorizonObserver(sim_hor));
   return sim_hor;
+}
+
+void LinearObstacleShip::simulateToTime(state_type& x, double T){
+  size_t steps = integrate(*this,x,0.0,T,0.1);
 }
 
 

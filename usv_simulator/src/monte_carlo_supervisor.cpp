@@ -7,8 +7,6 @@ MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
     if(!nh_.getParam("initial_position",global_position_vec_)){
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
-    tf::Quaternion q;
-    q.setRPY(0,0,global_position_vec_[2]);
 
     //Monte Carlo parameters
     bool parameter_load_error = false;

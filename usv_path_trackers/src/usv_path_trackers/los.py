@@ -38,7 +38,8 @@ class LOS:
         self.first_wpt_set = False
         self.stop = True
 
-
+        #Coordinate conversion client
+        self.converter_client = GeodeticConverterClient()
         first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
         _,_,yaw = euler_from_quaternion([first_odom.pose.pose.orientation.x,first_odom.pose.pose.orientation.y,first_odom.pose.pose.orientation.z,first_odom.pose.pose.orientation.w])
         self.desired_yaw = yaw
@@ -46,12 +47,11 @@ class LOS:
         self.correction = Twist()
         self.correction.linear.x = 1
 
+        self.converter_client.add_frame("global_enu",first_odom.pose.pose.position.x,first_odom.pose.pose.position.y,0,True)
+
         #Configuration
         self.los_distance = 40
-
-        #Coordinate conversion client
-        self.converter_client = GeodeticConverterClient()
-        rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
+        self.reference_publish_timer = rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
         #Register subscribers
         rospy.Subscriber("odom",Odometry,self.odom_cb,queue_size=1,tcp_nodelay=True)
@@ -62,47 +62,55 @@ class LOS:
         
 
     def reset(self, msg:Bool):
-        print("LOS reset")
-        self.current_waypoint = Pose()
+        print("LOS reset start")
+        self.pose = None
+        self.current_waypoint = None
+        self.waypoint_queue = queue.Queue()
         self.last_waypoint = Pose()
-        self.waypoint_queue.queue.clear()
+
         self.tangential_transform = np.eye(3)
         self.spline_coord_center = np.array([0,0])
         self.pi_p = None
 
+        self.stop = True
+
+        first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
+        _,_,yaw = euler_from_quaternion([first_odom.pose.pose.orientation.x,first_odom.pose.pose.orientation.y,first_odom.pose.pose.orientation.z,first_odom.pose.pose.orientation.w])
+        self.converter_client.add_frame("global_enu",first_odom.pose.pose.position.x,first_odom.pose.pose.position.y,0,True)
+        self.desired_yaw = yaw
+        self.desired_speed = 0
+        self.correction = Twist()
+        self.correction.linear.x = 1
+
+        
 
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
-        
-        if self.current_waypoint==Pose():
-            if self.waypoint_queue.qsize()==0:
-            #print("No waypoint in queue, stopping and waiting for new")
-                self.stop = True
-                return
-            else:
-                self.current_waypoint = self.waypoint_queue.get()
-                self.stop=False
-                return
 
+        if self.current_waypoint is None:
+            #rospy.logwarn_throttle(1,"Current waypoint is none")
+            return
 
         #Check if should switch waypoint
         if abs(vincenty((self.pose.position.x,self.pose.position.y),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
-
-        if self.stop==True:
-            self.desired_speed = 0
-            return
-
+        
         #Calculate crosstrack
         crosstrack_error = self.calculate_crosstrack_error()
         if crosstrack_error is None:
-            rospy.logerr("[LOS] Failed to calculate crosstrack due to frame conversion, skipping iteration")
+            #rospy.logerr("[LOS] Failed to calculate crosstrack due to frame conversion, skipping iteration")
             return
 
         #Calculate desired yaw
+        if self.pi_p is None:
+            #rospy.logerr("[LOS] pi_p is none, skipping iteration")
+            return
+
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
+        
+
 
     def euclidean_distance(self,point_a:Pose,point_b:Pose)->float:
         return np.sqrt(pow(point_a.position.x-point_b.position.x,2)+pow(point_a.position.y-point_b.position.y,2))
@@ -110,8 +118,10 @@ class LOS:
     def geo_waypoint_cb(self,msg:Pose) -> None:
         #Convert to cartesian coordinates
         wpt = Pose(Point(msg.position.x,msg.position.y,msg.position.z),Quaternion(0,0,0,1))
-        self.waypoint_queue.put(wpt)
-        wpt_cart = self.converter_client.convert("WGS84",[msg.position.x,msg.position.y,msg.position.z],"global_enu")
+        if self.current_waypoint is None:
+            self.current_waypoint = wpt
+        else:
+            self.waypoint_queue.put(wpt)
     
     def speed_cb(self,msg:Twist) -> None:
         self.desired_speed = msg.linear.x
@@ -155,14 +165,18 @@ class LOS:
         self.has_received_wp = True
 
     def publish_reference_cb(self,timer):
-        if self.pose==None:
-            #print("publishReferenceCb but no pose yet received, thus ignore")
+        if self.pose==None or self.current_waypoint==None:
+            #rospy.logerr_throttle(1,f"PublishReference requested but pose is none: {self.pose==None} and waypoint is none:  {self.current_waypoint==None}")
             return
+
         msg_corrected = Twist()
-        msg_corrected.linear.x = self.desired_speed*self.correction.linear.x
         msg_corrected.angular.z = self.desired_yaw+self.correction.angular.z
 
         msg = Twist()
+        if(self.stop):
+            msg_corrected.linear.x = 0
+        else:
+            msg_corrected.linear.x = self.desired_speed*self.correction.linear.x
         msg.linear.x = self.desired_speed
         msg.angular.z = self.desired_yaw
 

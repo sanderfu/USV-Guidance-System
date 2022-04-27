@@ -5,7 +5,7 @@ int main(int argc, char** argv){
 
     usv_rosbag::RecorderOptions options;
     options.record_all=true;
-    options.verbose = false;
+    options.verbose = true;
     usv_rosbag::Recorder recorder(options);
 
     ros::MultiThreadedSpinner s(10);

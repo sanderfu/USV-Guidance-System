@@ -146,6 +146,9 @@ void SimulatedVessel::reinitCb(const usv_msgs::reinit msg){
     x_[4] = 0;
     x_[5] = 0;
 
+    u_d_ = 0;
+    psi_d_ = 0; 
+
     //Reinit done, start update timer again
     loop_timer_.start();
 }

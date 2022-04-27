@@ -85,6 +85,7 @@ void MissionPlanner::publishSpeed(){
 bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_mission_planner::search::Response &res){
     ROS_INFO_STREAM("Start search in mission planner");
     //Crate mission directory, add timestamp before name
+    path_.clear();
     mission_path_ = ros::package::getPath("usv_mission_planner")+"/data/missions/"+req.mission_name.data+"/";
     if(!boost::filesystem::exists(mission_path_)){
         boost::filesystem::create_directories(mission_path_);

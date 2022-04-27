@@ -159,7 +159,7 @@ Recorder::~Recorder(){
 }
 
 shared_ptr<ros::Subscriber> Recorder::subscribe(string const& topic) {
-	if(options_.verbose) ROS_INFO("Subscribing to %s", topic.c_str());
+	//if(options_.verbose) ROS_INFO("Subscribing to %s", topic.c_str());
 
     ros::NodeHandle nh;
     shared_ptr<int> count(new int(options_.limit));

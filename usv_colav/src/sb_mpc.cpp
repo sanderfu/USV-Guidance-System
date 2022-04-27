@@ -2,12 +2,10 @@
 
 SimulationBasedMPC::SimulationBasedMPC(const ros::NodeHandle& nh) : 
 nh_(nh),
-T_(300.0), 				// 150.0  //300
-DT_(0.5), 				//   0.05 // 0.5
 P_(1), 					//   1.0
 Q_(4.0), 				//   4.0
 D_CLOSE_(200.0),		// 200.0
-D_SAFE_(40.0),			//  40.0
+D_SAFE_(60.0),			//  40.0
 K_COLL_(0.5),			//   0.5
 PHI_AH_(15.0),			//  15.0
 PHI_OT_(68.5),			//  68.5
@@ -15,7 +13,7 @@ PHI_HO_(22.5),			//  22.5
 PHI_CR_(68.5),			//  68.0
 KAPPA_(2.0),			//   3.0
 K_P_(4.0),				//   2.5  // 4.0
-K_CHI_(1.3),			//   1.3
+K_CHI_(1.21),			//   1.3
 K_DP_(3.5),				//   2.0  // 3.5
 K_DCHI_SB_(0.9),		//   0.9
 K_DCHI_P_(1.2),			//   1.2
@@ -39,11 +37,6 @@ geo_converter_("COLAV",false,true,nh)
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
     ROS_INFO_STREAM("Odometry and LOS setpoint received");
 
-    std::vector<double> global_position_vec;
-    if(!nh_.getParam("initial_position",global_position_vec)){
-        ROS_ERROR_STREAM("Failed to load initial position parameter");
-    }
-
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
     colav_data_pub_ = nh_.advertise<usv_msgs::Colav>("colav/debug",1,false);
 
@@ -51,10 +44,10 @@ geo_converter_("COLAV",false,true,nh)
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
     system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
-    main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
+    main_loop_timer_ = nh_.createTimer(ros::Duration(1.0),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
-    double courseOffsets[] = {89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
+    double courseOffsets[] = {-89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
     double sizeCO = sizeof(courseOffsets)/sizeof(courseOffsets[0]);
     for (int i = 0; i < sizeCO; i++){
     	courseOffsets[i] *= DEG2RAD;
@@ -62,7 +55,7 @@ geo_converter_("COLAV",false,true,nh)
     Chi_ca_.assign(courseOffsets, courseOffsets + sizeof(courseOffsets)/sizeof(courseOffsets[0]));
 
     //Set speed action alternatives
-    double speedOffsets[] = {-1,0,0.5,1};
+    double speedOffsets[] = {1};
     P_ca_.assign(speedOffsets, speedOffsets + sizeof(speedOffsets)/sizeof(speedOffsets[0]));
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
@@ -148,14 +141,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     //Clear last path options and cost options
     colav_msg_.path_options.clear();
     colav_msg_.cost_options.clear();
+    colav_msg_.obstacles_odom.clear();
 
-    std::map<int,ModelLibrary::simulatedHorizon> obstacles_horizon;
-    for(auto obst_it=obstacle_vessels_.begin(); obst_it!=obstacle_vessels_.end(); obst_it++){
-        std::map<int,ModelLibrary::simulatedHorizon>::iterator it = obstacles_horizon.begin();
-        state_type test = obst_it->second->latest_obstacle_state_;
-        obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60);
-        obstacles_horizon.insert(it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
-    }
     state_type state(6);
     Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
     Eigen::Vector3d point_enu;
@@ -170,19 +157,37 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     state[4] = latest_odom_.twist.twist.linear.y;
     state[5] = latest_odom_.twist.twist.angular.z;
 
+    //Push back odom to colav message
+    colav_msg_.ownship_odom = latest_odom_;
+
+    control_candidate_map.clear();
     for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
         for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
             double cost_i = 0.0;
             //Simulate vessel
-            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizon(state,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),60);
+            state_type state_copy = state;
+            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizonAdaptive(state_copy,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),60);
             
             //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
             if(obstacle_vessels_.size()!=0){
                 for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
                     double key = it->first;
-                    cost_k = costFnc(horizon, obstacles_horizon[key], *p_it, *chi_it, key);
+                    cost_k = costFnc(horizon, *(*it).second, *p_it, *chi_it, key);
                     if (cost_k > cost_i){
                         cost_i = cost_k;	// Maximizing cost associated with this scenario
+                    }
+                    //Add obstacle odometries to colav message if first option
+                    if(chi_it == Chi_ca_.begin() && p_it==P_ca_.begin()){
+                        nav_msgs::Odometry obstacle_odom;
+                        obstacle_odom.pose.pose.position.x = (*it).second->latest_obstacle_state_[0];
+                        obstacle_odom.pose.pose.position.y = (*it).second->latest_obstacle_state_[1];
+                        tf::Quaternion q;
+                        q.setRPY(0,0,(*it).second->latest_obstacle_state_[2]);
+                        tf::quaternionTFToMsg(q,obstacle_odom.pose.pose.orientation);
+                        obstacle_odom.twist.twist.linear.x = (*it).second->latest_obstacle_state_[3];
+                        obstacle_odom.twist.twist.linear.y = (*it).second->latest_obstacle_state_[4];
+                        obstacle_odom.twist.twist.angular.z = (*it).second->latest_obstacle_state_[5];
+                        colav_msg_.obstacles_odom.push_back(obstacle_odom);
                     }
 			    }
             } else{
@@ -190,7 +195,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             }
 
             //Simulation horizon to LineString and add to data message
-            OGRLineString path;
+            
             usv_msgs::ColavPath msg_path;
             usv_msgs::ColavPathElement path_element;
             for(auto hor_it = horizon.state.begin(); hor_it!=horizon.state.end();hor_it++){
@@ -198,45 +203,49 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
                 geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
-                path.addPoint(point_global(0),point_global(1));
-
-                //Add path to path options
-                path_element.lon = hor_it->at(0);
-                path_element.lat = hor_it->at(1);
-                path_element.lon = hor_it->at(5);
+                path_element.lon = point_global.x();
+                path_element.lat = point_global.y();
+                path_element.course = hor_it->at(2);
                 msg_path.path.push_back(path_element);
             }
             colav_msg_.path_options.push_back(msg_path);
-
-            //Check path for collision
-            if (map_service_->intersects(&path,LayerID::COLLISION)){
-                cost_i += 100;
-            }
-            
-            //TEMPORARY cost func, prioritize small manueuvers
-            //cost_i += 0.55*abs((*chi_it+latest_los_setpoint_.angular.z)-yaw);
-            //cost_i += abs(*chi_it/(M_PI/2));
-            //cost_i += 10*abs(*p_it-1); 
-            
-            //Add cost option to msg
             colav_msg_.cost_options.push_back(cost_i);
             
-            //Choose action based on minimized cost
-            if (cost_i<cost){
-                cost = cost_i;
-                u_corr_best = *p_it;
-                psi_corr_best = *chi_it; 
-                choosen_path = path;
 
-                //Update colav message
-                colav_msg_.path = msg_path;
-                colav_msg_.cost = cost;
-                colav_msg_.speed_correction = u_corr_best;
-                colav_msg_.course_correction = psi_corr_best;
-            }
+            //Add candidate to candidate list
+            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,*chi_it,horizon,cost_i)));
 
         }
     }
+
+    //Find best candidate from candidate map (lowest cost without collision)
+    for(auto it = control_candidate_map.begin(); it!=control_candidate_map.end(); it++){
+        OGRLineString path;
+        usv_msgs::ColavPath msg_path;
+        usv_msgs::ColavPathElement path_element;
+        for(auto hor_it = (*it).second.horizon_.state.begin(); hor_it!=(*it).second.horizon_.state.end();hor_it++){
+            point_local(0) = hor_it->at(0);
+            point_local(1) = hor_it->at(1);
+            point_local(2) = 0;
+            geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
+            path.addPoint(point_global(0),point_global(1));
+        }
+        if(!map_service_->intersects(&path,LayerID::COLLISION)){
+            cost = (*it).second.cost_;
+            u_corr_best = (*it).second.p_cand_;
+            psi_corr_best = (*it).second.chi_cand_; 
+            choosen_path = path;
+
+            //Update colav message
+            colav_msg_.path = msg_path;
+            colav_msg_.cost = cost;
+            colav_msg_.speed_correction = u_corr_best;
+            colav_msg_.course_correction = psi_corr_best;
+            colav_msg_.time = ros::Time::now();
+            break;
+        }
+    }
+
     P_ca_last_ = u_corr_best;
 	Chi_ca_last_ = psi_corr_best;
     ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
@@ -273,10 +282,13 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
 void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
     main_loop_timer_.stop();
 
-    ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
+    //ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
-    ROS_INFO_STREAM("Odometry and LOS setpoint received");
+    //ROS_INFO_STREAM("Odometry and LOS setpoint received");
+
+    Chi_ca_last_ = 0.0;
+    P_ca_last_ = 1.0;
     
     main_loop_timer_.start();
 
@@ -297,7 +309,7 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
  * @param k ID of obstacle ship
  * @return double Cost of action candidate.
  */
-double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,ModelLibrary::simulatedHorizon& obstacle_horizon, double P_ca, double Chi_ca, int k)
+double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k)
 {
 	double dist, phi, psi_o, phi_o, psi_rel, R, C, k_coll, d_safe_i;
 	Eigen::Vector2d d, los, los_inv, v_o, v_s;
@@ -315,9 +327,11 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 	for (int i = 0; i < usv_horizon.steps; i++){
 
         t = usv_horizon.time[i];
+        state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
+        obstacle_vessel.model_.simulateToTime(obstacle_state,t);
 
-		d(0) = obstacle_horizon.state[i][0] - usv_horizon.state[i][0];
-		d(1) = obstacle_horizon.state[i][1] - usv_horizon.state[i][1];
+		d(0) = obstacle_state[0] - usv_horizon.state[i][0];
+		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
 		dist = d.norm();
 
 		R = 0;
@@ -326,15 +340,15 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 
 		if (dist < D_CLOSE_){
 
-			v_o(0) = obstacle_horizon.state[i][3];
-			v_o(1) = obstacle_horizon.state[i][4];
-			rot2d(obstacle_horizon.state[i][2],v_o);
+			v_o(0) = obstacle_state[3];
+			v_o(1) = obstacle_state[4];
+			rot2d(obstacle_state[2],v_o);
 
 			v_s(0) = usv_horizon.state[i][3];
 			v_s(1) = usv_horizon.state[i][3];
 			rot2d(usv_horizon.state[i][2],v_s);
 
-			psi_o = obstacle_horizon.state[i][2];
+			psi_o = obstacle_state[2];
 			while(psi_o <= -M_PI) phi += 2*M_PI;
 			while (psi_o > M_PI) phi -= 2*M_PI;
 
@@ -358,7 +372,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 				d_safe_i = d_safe + usv_.getW()/2;
 			}
 
-			phi_o = atan2(-d(1),-d(0)) - obstacle_horizon.state[i][2];
+			phi_o = atan2(-d(1),-d(0)) - obstacle_state[2];
 			while(phi_o <= -M_PI) phi_o += 2*M_PI;
 			while (phi_o > M_PI) phi_o -= 2*M_PI;
 

@@ -4,8 +4,8 @@ from geometry_msgs.msg import Point
 
 class GeodeticConverterClient:
     def __init__(self) -> None:
-        self.add_frame_client_ = rospy.ServiceProxy('/map/add_frame',add_frame)
-        self.convert_point_client_ = rospy.ServiceProxy('/map/frame_conversion',frame_conversion)
+        self.add_frame_client_ = rospy.ServiceProxy('map/add_frame',add_frame)
+        self.convert_point_client_ = rospy.ServiceProxy('map/frame_conversion',frame_conversion)
     def add_frame(self, name:str, lon:float, lat:float, alt:float,replace)->None:
         try:
             resp = self.add_frame_client_(frame_name=name,latitude=lat,longitude=lon,altitude=alt,replace=replace)

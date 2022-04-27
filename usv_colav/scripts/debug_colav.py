@@ -1,8 +1,6 @@
 #To remove error with typing of list[object]
 from __future__ import annotations
 
-from dataclasses import dataclass
-from email import message
 import rospy
 import rosbag
 import rospkg
@@ -16,6 +14,7 @@ from osgeo import ogr, osr, gdal
 from descartes import PolygonPatch
 from shapely.geometry import Polygon
 from shapely.wkt import loads
+from nav_msgs.msg import Odometry
 
 try:
     # installed with "pip install SciencePLots" (https://github.com/garrettj403/SciencePlots.git)
@@ -63,6 +62,8 @@ GREEN = '#4F7942'
 #Class object for the COLAV Debug message (immutable)
 class COLAVDebug:
     time:float
+    ownship_odom:Odometry
+    obstacle_odom:list[Odometry]
     speed_correction:float
     course_correction:float
     cost:float
@@ -78,12 +79,14 @@ class COLAVDebug:
 def main():
     rospack = rospkg.RosPack()
     base_path:str = rospack.get_path('usv_realtime_recorder')+"/data/missions/"
-    mission_name:str = "colav_crossing_right_0/"
+    mission_name:str = "colav_crossing_right_v2_0/"
     map_name:str = "outside_ny_max_300"
     print("File path: ",base_path+mission_name+"data.bag")
 
     figure,ax = plt.subplots(1,1)
-    
+    figure_2,ax_2 = plt.subplots(1,1)
+    figure_3,ax_3 = plt.subplots(1,1)
+
     ##Plot background
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
@@ -92,13 +95,13 @@ def main():
     collision_layer:ogr.Layer = ds.GetLayerByName("collision_dissolved")
 
     #Plot background
-    collision_layer.ResetReading()
-    for feat in collision_layer:
-        for geom in feat.GetGeometryRef():
-            wkt = geom.ExportToWkt()
-            poly:Polygon = Polygon(loads(wkt))
-            patch1 = PolygonPatch(poly, fc=GREEN, ec=GREEN, alpha=1, zorder=2)
-            ax.add_patch(patch1)
+    #collision_layer.ResetReading()
+    #for feat in collision_layer:
+    #    for geom in feat.GetGeometryRef():
+    #        wkt = geom.ExportToWkt()
+    #        poly:Polygon = Polygon(loads(wkt))
+    #        patch1 = PolygonPatch(poly, fc=GREEN, ec=GREEN, alpha=1, zorder=2)
+    #        ax.add_patch(patch1)
 
     bag = rosbag.Bag(base_path+mission_name+"data.bag")
 
@@ -107,6 +110,8 @@ def main():
         container:COLAVDebug = COLAVDebug()
         typed_msg:Colav = msg
         container.time = typed_msg.time
+        container.ownship_odom = typed_msg.ownship_odom
+        container.obstacle_odom = typed_msg.obstacles_odom
         container.speed_correction = typed_msg.speed_correction
         container.course_correction = typed_msg.course_correction
         container.cost = typed_msg.cost
@@ -131,16 +136,16 @@ def main():
         message_list.append(container)
 
 
-    cost_option_max_clipping_mask = 25
-    counter = 0
-    for message in message_list:
+    cost_option_max_clipping_mask = 10
+    figure_2_message_num = 1
+    figure_3_message_num = 90
+    for message_num,message in enumerate(message_list):
         #Clip cost options due to presence of huge values occasionally (TODO: Chedk why these huge values occur)
         np.clip(message.cost_options,0,cost_option_max_clipping_mask,out=message.cost_options)
 
         #Normalize cost values to lie in range(0,1)
         cost_options_normalized = (message.cost_options-min(message.cost_options))/(max(message.cost_options)-min(message.cost_options))
-        colors = plt.cm.get_cmap("cool",len(np.unique(cost_options_normalized.round(decimals=4)))*2)
-        color_matrix = np.eye(4)
+        colors = plt.cm.get_cmap("cool")
 
         colors_array=[]
         lines_array=[]
@@ -156,7 +161,7 @@ def main():
             segment_count = len(path_option[:,0])
             alpha_grade = np.flip(np.linspace(0,1,segment_count)**2)
             for i in range(segment_count-1):
-                alpha_matrix[3,3] = alpha_grade[i]*0.75
+                alpha_matrix[3,3] = alpha_grade[i]*0.5
                 colors_array.append(alpha_matrix@color_array)
                 line = [(path_option[i,0],path_option[i,1]),(path_option[i+1,0],path_option[i+1,1])]
                 lines_array.append(line)
@@ -166,6 +171,60 @@ def main():
         colors_array.reverse()
         lc = mc.LineCollection(lines_array,colors=colors_array,linewidth=2.5,zorder=2)
         ax.add_collection(lc)
+
+        if message_num==figure_2_message_num:
+            #Plot options
+            colors_array=[]
+            lines_array=[]
+            for option_index,path_option in enumerate(sorted_options):
+                color_array = np.array(colors(sorted_costs_normalized[option_index]))
+                alpha_matrix = np.eye(4)
+                segment_count = len(path_option[:,0])
+                alpha_grade = np.flip(np.linspace(0,1,segment_count))
+                for i in range(segment_count-1):
+                    alpha_matrix[3,3] = alpha_grade[i]
+                    colors_array.append(alpha_matrix@color_array)
+                    line = [(path_option[i,0],path_option[i,1]),(path_option[i+1,0],path_option[i+1,1])]
+                    lines_array.append(line)
+                ax_2.text(path_option[-1,0],path_option[-1,1],s=str(sorted_costs_normalized[option_index].round(decimals=4)))
+            #Reverse lists for visualization
+            lines_array.reverse()
+            colors_array.reverse()
+            lc = mc.LineCollection(lines_array,colors=colors_array,linewidth=2.5,zorder=2)
+            ax_2.add_collection(lc)
+            ax_2.scatter(message.ownship_odom.pose.pose.position.x,message.ownship_odom.pose.pose.position.y,c="red",zorder=3)
+
+            #Highligth where this snapshot is from on the overview
+            ax.scatter(message.ownship_odom.pose.pose.position.x,message.ownship_odom.pose.pose.position.y,c="red",zorder=3)
+        
+        if message_num==figure_3_message_num:
+            #Plot options
+            colors_array=[]
+            lines_array=[]
+            for option_index,path_option in enumerate(sorted_options):
+                color_array = np.array(colors(sorted_costs_normalized[option_index]))
+                alpha_matrix = np.eye(4)
+                segment_count = len(path_option[:,0])
+                alpha_grade = np.flip(np.linspace(0,1,segment_count))
+                for i in range(segment_count-1):
+                    alpha_matrix[3,3] = alpha_grade[i]
+                    colors_array.append(alpha_matrix@color_array)
+                    line = [(path_option[i,0],path_option[i,1]),(path_option[i+1,0],path_option[i+1,1])]
+                    lines_array.append(line)
+                ax_3.text(path_option[-1,0],path_option[-1,1],s=str(sorted_costs_normalized[option_index].round(decimals=4)))
+            #Reverse lists for visualization
+            lines_array.reverse()
+            colors_array.reverse()
+            lc = mc.LineCollection(lines_array,colors=colors_array,linewidth=2.5,zorder=2)
+            ax_3.add_collection(lc)
+            ax_3.scatter(message.ownship_odom.pose.pose.position.x,message.ownship_odom.pose.pose.position.y,c="orange",zorder=3)
+
+            #Highligth where this snapshot is from on the overview
+            ax.scatter(message.ownship_odom.pose.pose.position.x,message.ownship_odom.pose.pose.position.y,c="orange",zorder=3)
+            
+            
+
+
 
         #Highlight choosen option
         #segment_count = len(sorted_options[0])
@@ -178,20 +237,17 @@ def main():
         #choosen_path_lc = mc.LineCollection(choosen_path_segments,linewidth=20,zorder=1)
         #ax.add_collection(choosen_path_lc)
 
-        #if counter>=235:
-        #    figure.canvas.draw_idle()
-        #    plt.autoscale(enable=True, axis="both", tight=None)
-        #    plt.show(block=False)
-        #    plt.waitforbuttonpress()
+        
+        #figure.canvas.draw_idle()
+        #plt.autoscale(enable=True, axis="both", tight=None)
+        #plt.show(block=False)
+        #plt.waitforbuttonpress()
         #ax.cla()
-        #print("Message: ", counter)
-        #counter+=1
 
-
-
-            
-    ax.legend()
-    plt.autoscale(enable=True, axis="both", tight=None)
+    figure.colorbar(plt.cm.ScalarMappable(cmap=colors),label="Normalized cost")
+    ax.autoscale(enable=True, axis="both", tight=None)
+    ax_2.autoscale(enable=True, axis="both", tight=None)
+    ax_3.autoscale(enable=True, axis="both", tight=None)
     plt.show()
     bag.close()
 

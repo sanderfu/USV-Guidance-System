@@ -2,12 +2,10 @@
 
 SimulationBasedMPC::SimulationBasedMPC(const ros::NodeHandle& nh) : 
 nh_(nh),
-T_(300.0), 				// 150.0  //300
-DT_(0.5), 				//   0.05 // 0.5
 P_(1), 					//   1.0
 Q_(4.0), 				//   4.0
 D_CLOSE_(200.0),		// 200.0
-D_SAFE_(40.0),			//  40.0
+D_SAFE_(60.0),			//  40.0
 K_COLL_(0.5),			//   0.5
 PHI_AH_(15.0),			//  15.0
 PHI_OT_(68.5),			//  68.5
@@ -15,7 +13,7 @@ PHI_HO_(22.5),			//  22.5
 PHI_CR_(68.5),			//  68.0
 KAPPA_(2.0),			//   3.0
 K_P_(4.0),				//   2.5  // 4.0
-K_CHI_(1.2),			//   1.3
+K_CHI_(1.21),			//   1.3
 K_DP_(3.5),				//   2.0  // 3.5
 K_DCHI_SB_(0.9),		//   0.9
 K_DCHI_P_(1.2),			//   1.2
@@ -51,7 +49,7 @@ geo_converter_("COLAV",false,true,nh)
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
     system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
-    main_loop_timer_ = nh_.createTimer(ros::Duration(2.5),&SimulationBasedMPC::mainLoop,this);
+    main_loop_timer_ = nh_.createTimer(ros::Duration(1.0),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
     double courseOffsets[] = {-89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
@@ -149,13 +147,6 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     colav_msg_.path_options.clear();
     colav_msg_.cost_options.clear();
 
-    std::map<int,ModelLibrary::simulatedHorizon> obstacles_horizon;
-    for(auto obst_it=obstacle_vessels_.begin(); obst_it!=obstacle_vessels_.end(); obst_it++){
-        std::map<int,ModelLibrary::simulatedHorizon>::iterator it = obstacles_horizon.begin();
-        state_type test = obst_it->second->latest_obstacle_state_;
-        obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60);
-        obstacles_horizon.insert(it, std::pair<int,ModelLibrary::simulatedHorizon>(obst_it->first,obst_it->second->model_.simulateHorizon(obst_it->second->latest_obstacle_state_,60)));
-    }
     state_type state(6);
     Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
     Eigen::Vector3d point_enu;
@@ -170,19 +161,19 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     state[4] = latest_odom_.twist.twist.linear.y;
     state[5] = latest_odom_.twist.twist.angular.z;
 
-
     control_candidate_map.clear();
     for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
         for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
             double cost_i = 0.0;
             //Simulate vessel
-            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizon(state,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),60);
+            state_type state_copy = state;
+            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizonAdaptive(state_copy,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),60);
             
             //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
             if(obstacle_vessels_.size()!=0){
                 for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
                     double key = it->first;
-                    cost_k = costFnc(horizon, obstacles_horizon[key], *p_it, *chi_it, key);
+                    cost_k = costFnc(horizon, *(*it).second, *p_it, *chi_it, key);
                     if (cost_k > cost_i){
                         cost_i = cost_k;	// Maximizing cost associated with this scenario
                     }
@@ -278,10 +269,13 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
 void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
     main_loop_timer_.stop();
 
-    ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
+    //ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
-    ROS_INFO_STREAM("Odometry and LOS setpoint received");
+    //ROS_INFO_STREAM("Odometry and LOS setpoint received");
+
+    Chi_ca_last_ = 0.0;
+    P_ca_last_ = 1.0;
     
     main_loop_timer_.start();
 
@@ -302,7 +296,7 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
  * @param k ID of obstacle ship
  * @return double Cost of action candidate.
  */
-double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,ModelLibrary::simulatedHorizon& obstacle_horizon, double P_ca, double Chi_ca, int k)
+double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k)
 {
 	double dist, phi, psi_o, phi_o, psi_rel, R, C, k_coll, d_safe_i;
 	Eigen::Vector2d d, los, los_inv, v_o, v_s;
@@ -320,9 +314,11 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 	for (int i = 0; i < usv_horizon.steps; i++){
 
         t = usv_horizon.time[i];
+        state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
+        obstacle_vessel.model_.simulateToTime(obstacle_state,t);
 
-		d(0) = obstacle_horizon.state[i][0] - usv_horizon.state[i][0];
-		d(1) = obstacle_horizon.state[i][1] - usv_horizon.state[i][1];
+		d(0) = obstacle_state[0] - usv_horizon.state[i][0];
+		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
 		dist = d.norm();
 
 		R = 0;
@@ -331,15 +327,15 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 
 		if (dist < D_CLOSE_){
 
-			v_o(0) = obstacle_horizon.state[i][3];
-			v_o(1) = obstacle_horizon.state[i][4];
-			rot2d(obstacle_horizon.state[i][2],v_o);
+			v_o(0) = obstacle_state[3];
+			v_o(1) = obstacle_state[4];
+			rot2d(obstacle_state[2],v_o);
 
 			v_s(0) = usv_horizon.state[i][3];
 			v_s(1) = usv_horizon.state[i][3];
 			rot2d(usv_horizon.state[i][2],v_s);
 
-			psi_o = obstacle_horizon.state[i][2];
+			psi_o = obstacle_state[2];
 			while(psi_o <= -M_PI) phi += 2*M_PI;
 			while (psi_o > M_PI) phi -= 2*M_PI;
 
@@ -363,7 +359,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon,M
 				d_safe_i = d_safe + usv_.getW()/2;
 			}
 
-			phi_o = atan2(-d(1),-d(0)) - obstacle_horizon.state[i][2];
+			phi_o = atan2(-d(1),-d(0)) - obstacle_state[2];
 			while(phi_o <= -M_PI) phi_o += 2*M_PI;
 			while (phi_o > M_PI) phi_o -= 2*M_PI;
 

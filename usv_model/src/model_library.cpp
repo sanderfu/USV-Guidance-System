@@ -192,6 +192,10 @@ simulatedHorizon LinearObstacleShip::simulateHorizon(state_type x_init, double T
   return sim_hor;
 }
 
+void LinearObstacleShip::simulateToTime(state_type& x, double T){
+  size_t steps = integrate(*this,x,0.0,T,0.1);
+}
+
 
 
 

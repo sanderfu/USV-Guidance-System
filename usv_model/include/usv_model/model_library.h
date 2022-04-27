@@ -112,6 +112,7 @@ namespace ModelLibrary{
             LinearObstacleShip(double length, double width);
             void operator()(const state_type& x, state_type &dxdt, const double /*t*/);
             simulatedHorizon simulateHorizon(state_type x_init, double T);
+            void simulateToTime(state_type& x_init, double T);
             inline double getL() {return length_;}
             inline double getW() {return width_;}
         private:

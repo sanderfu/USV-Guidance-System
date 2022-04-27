@@ -66,7 +66,7 @@ class SimulationBasedMPC{
         void reinitCb(const usv_msgs::reinit& msg);
 
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
-        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, ModelLibrary::simulatedHorizon& obstacle_horizon, double P_ca, double Chi_ca, int k);
+        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k);
         double Delta_P(double P_ca);
         double Delta_Chi(double Chi_ca);
 
@@ -95,11 +95,6 @@ class SimulationBasedMPC{
 		const double K_DP_;
 		const double K_DCHI_SB_;
 		const double K_DCHI_P_;
-		
-		const double T_; 	// Prediction horizon
-        const double DT_;	// Step length, obstacle trajectory prediction 		
-		
-		int n_samp;
 
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;

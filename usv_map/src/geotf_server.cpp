@@ -13,8 +13,8 @@ GeodeticConverterSynchronized("SERVER",true,true,nh) {
     }
 
     addSyncedFrameByENUOrigin("global_enu",global_position_vec[1],global_position_vec[0],0);
-    frame_conversion_srv_ = nh_.advertiseService("/map/frame_conversion",&GeodeticConverterServer::frameConversion,this);
-    add_frame_srv_ = nh_.advertiseService("/map/add_frame",&GeodeticConverterServer::addFrame,this);
+    frame_conversion_srv_ = nh_.advertiseService("map/frame_conversion",&GeodeticConverterServer::frameConversion,this);
+    add_frame_srv_ = nh_.advertiseService("map/add_frame",&GeodeticConverterServer::addFrame,this);
 }
 
 bool GeodeticConverterServer::frameConversion(usv_map::frame_conversion::Request& req, usv_map::frame_conversion::Response& res){

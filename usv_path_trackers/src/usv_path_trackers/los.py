@@ -38,7 +38,8 @@ class LOS:
         self.first_wpt_set = False
         self.stop = True
 
-
+        #Coordinate conversion client
+        self.converter_client = GeodeticConverterClient()
         first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
         _,_,yaw = euler_from_quaternion([first_odom.pose.pose.orientation.x,first_odom.pose.pose.orientation.y,first_odom.pose.pose.orientation.z,first_odom.pose.pose.orientation.w])
         self.desired_yaw = yaw
@@ -46,11 +47,10 @@ class LOS:
         self.correction = Twist()
         self.correction.linear.x = 1
 
+        self.converter_client.add_frame("global_enu",first_odom.pose.pose.position.x,first_odom.pose.pose.position.y,0,True)
+
         #Configuration
         self.los_distance = 40
-
-        #Coordinate conversion client
-        self.converter_client = GeodeticConverterClient()
         self.reference_publish_timer = rospy.Timer(rospy.Duration(0.1),self.publish_reference_cb)
 
         #Register subscribers
@@ -76,6 +76,7 @@ class LOS:
 
         first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
         _,_,yaw = euler_from_quaternion([first_odom.pose.pose.orientation.x,first_odom.pose.pose.orientation.y,first_odom.pose.pose.orientation.z,first_odom.pose.pose.orientation.w])
+        self.converter_client.add_frame("global_enu",first_odom.pose.pose.position.x,first_odom.pose.pose.position.y,0,True)
         self.desired_yaw = yaw
         self.desired_speed = 0
         self.correction = Twist()
@@ -87,6 +88,7 @@ class LOS:
         self.pose = msg.pose.pose
 
         if self.current_waypoint is None:
+            #rospy.logwarn_throttle(1,"Current waypoint is none")
             return
 
         #Check if should switch waypoint
@@ -98,12 +100,12 @@ class LOS:
         #Calculate crosstrack
         crosstrack_error = self.calculate_crosstrack_error()
         if crosstrack_error is None:
-            rospy.logerr("[LOS] Failed to calculate crosstrack due to frame conversion, skipping iteration")
+            #rospy.logerr("[LOS] Failed to calculate crosstrack due to frame conversion, skipping iteration")
             return
 
         #Calculate desired yaw
         if self.pi_p is None:
-            rospy.logerr("[LOS] pi_p is none, skipping iteration")
+            #rospy.logerr("[LOS] pi_p is none, skipping iteration")
             return
 
         self.desired_yaw = self.pi_p - math.atan2(crosstrack_error,self.los_distance)
@@ -164,7 +166,7 @@ class LOS:
 
     def publish_reference_cb(self,timer):
         if self.pose==None or self.current_waypoint==None:
-            #print("publishReferenceCb but no pose yet received, thus ignore")
+            #rospy.logerr_throttle(1,f"PublishReference requested but pose is none: {self.pose==None} and waypoint is none:  {self.current_waypoint==None}")
             return
 
         msg_corrected = Twist()

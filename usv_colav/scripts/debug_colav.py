@@ -12,6 +12,49 @@ import matplotlib.pyplot as plt
 import matplotlib.collections  as mc
 import matplotlib as mpl
 import numpy as np
+from osgeo import ogr, osr, gdal
+from descartes import PolygonPatch
+from shapely.geometry import Polygon
+from shapely.wkt import loads
+
+try:
+    # installed with "pip install SciencePLots" (https://github.com/garrettj403/SciencePlots.git)
+    # gives quite nice plots
+    plt_styles = ["science", "grid", "bright", "no-latex"]
+    plt.style.use(plt_styles)
+    print(f"pyplot using style set {plt_styles}")
+except Exception as e:
+    plt.rcParams.update(
+        {
+            # setgrid
+            "axes.grid": True,
+            "grid.linestyle": ":",
+            "grid.color": "k",
+            "grid.alpha": 0.5,
+            "grid.linewidth": 0.1,
+            # Legend
+            "legend.frameon": True,
+            "legend.framealpha": 1.0,
+            "legend.fancybox": True,
+            "legend.numpoints": 1,
+            "legend.loc" : "upper right",
+            'legend.fontsize': 15,
+            # Font
+            "font.size" : 15,
+            #Subplots and figure
+            "figure.figsize" : [8,7],
+            "figure.subplot.wspace" : 0.37,
+            "figure.subplot.hspace" : 0.76,
+            "figure.subplot.top" : 0.9,
+            "figure.subplot.right" : 0.95,
+            "figure.subplot.left" : 0.1,
+        }
+    )
+
+BLUE = '#6699cc'
+GRAY = '#999999'
+GREEN = '#4F7942'
+
 
 #Thank me later
 #http://wiki.ros.org/rosbag/Cookbook
@@ -35,10 +78,27 @@ class COLAVDebug:
 def main():
     rospack = rospkg.RosPack()
     base_path:str = rospack.get_path('usv_realtime_recorder')+"/data/missions/"
-    mission_name:str = "headon_colav_debug_bugfix_0/"
+    mission_name:str = "colav_crossing_right_0/"
+    map_name:str = "outside_ny_max_300"
     print("File path: ",base_path+mission_name+"data.bag")
 
     figure,ax = plt.subplots(1,1)
+    
+    ##Plot background
+    datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
+    ds:gdal.Dataset = gdal.OpenEx(datasource_path)
+    if ds==None:
+        raise RuntimeError("Failed to load datasource",datasource_path)
+    collision_layer:ogr.Layer = ds.GetLayerByName("collision_dissolved")
+
+    #Plot background
+    collision_layer.ResetReading()
+    for feat in collision_layer:
+        for geom in feat.GetGeometryRef():
+            wkt = geom.ExportToWkt()
+            poly:Polygon = Polygon(loads(wkt))
+            patch1 = PolygonPatch(poly, fc=GREEN, ec=GREEN, alpha=1, zorder=2)
+            ax.add_patch(patch1)
 
     bag = rosbag.Bag(base_path+mission_name+"data.bag")
 
@@ -72,6 +132,7 @@ def main():
 
 
     cost_option_max_clipping_mask = 25
+    counter = 0
     for message in message_list:
         #Clip cost options due to presence of huge values occasionally (TODO: Chedk why these huge values occur)
         np.clip(message.cost_options,0,cost_option_max_clipping_mask,out=message.cost_options)
@@ -88,6 +149,7 @@ def main():
         inds = message.cost_options.argsort()
         sorted_options = path_options_numpy[inds]
         sorted_costs_normalized = cost_options_normalized[inds]
+        sorted_costs = message.cost_options[inds]
         for option_index,path_option in enumerate(sorted_options):
             color_array = np.array(colors(sorted_costs_normalized[option_index]))
             alpha_matrix = np.eye(4)
@@ -106,21 +168,24 @@ def main():
         ax.add_collection(lc)
 
         #Highlight choosen option
-        segment_count = len(sorted_options[0])
-        choosen_path_segments = []
-        for i in range(segment_count-1):
-            alpha_matrix[3,3] = alpha_grade[i]*0.25
-            colors_array.append(alpha_matrix@color_array)
-            line = [(sorted_options[0][i,0],sorted_options[0][i,1]),(sorted_options[0][i+1,0],sorted_options[0][i+1,1])]
-            choosen_path_segments.append(line)
-        choosen_path_lc = mc.LineCollection(choosen_path_segments,linewidth=20,zorder=1)
+        #segment_count = len(sorted_options[0])
+        #choosen_path_segments = []
+        #for i in range(segment_count-1):
+        #    alpha_matrix[3,3] = alpha_grade[i]*0.25
+        #    colors_array.append(alpha_matrix@color_array)
+        #    line = [(sorted_options[0][i,0],sorted_options[0][i,1]),(sorted_options[0][i+1,0],sorted_options[0][i+1,1])]
+        #    choosen_path_segments.append(line)
+        #choosen_path_lc = mc.LineCollection(choosen_path_segments,linewidth=20,zorder=1)
         #ax.add_collection(choosen_path_lc)
 
-        figure.canvas.draw_idle()
-        plt.autoscale(enable=True, axis="both", tight=None)
-        plt.show(block=False)
-        plt.waitforbuttonpress()
+        #if counter>=235:
+        #    figure.canvas.draw_idle()
+        #    plt.autoscale(enable=True, axis="both", tight=None)
+        #    plt.show(block=False)
+        #    plt.waitforbuttonpress()
         #ax.cla()
+        #print("Message: ", counter)
+        #counter+=1
 
 
 

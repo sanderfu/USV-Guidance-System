@@ -37,11 +37,6 @@ geo_converter_("COLAV",false,true,nh)
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
     ROS_INFO_STREAM("Odometry and LOS setpoint received");
 
-    std::vector<double> global_position_vec;
-    if(!nh_.getParam("initial_position",global_position_vec)){
-        ROS_ERROR_STREAM("Failed to load initial position parameter");
-    }
-
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
     colav_data_pub_ = nh_.advertise<usv_msgs::Colav>("colav/debug",1,false);
 
@@ -146,6 +141,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     //Clear last path options and cost options
     colav_msg_.path_options.clear();
     colav_msg_.cost_options.clear();
+    colav_msg_.obstacles_odom.clear();
 
     state_type state(6);
     Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
@@ -160,6 +156,9 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     state[3] = latest_odom_.twist.twist.linear.x;
     state[4] = latest_odom_.twist.twist.linear.y;
     state[5] = latest_odom_.twist.twist.angular.z;
+
+    //Push back odom to colav message
+    colav_msg_.ownship_odom = latest_odom_;
 
     control_candidate_map.clear();
     for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
@@ -176,6 +175,19 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                     cost_k = costFnc(horizon, *(*it).second, *p_it, *chi_it, key);
                     if (cost_k > cost_i){
                         cost_i = cost_k;	// Maximizing cost associated with this scenario
+                    }
+                    //Add obstacle odometries to colav message if first option
+                    if(chi_it == Chi_ca_.begin() && p_it==P_ca_.begin()){
+                        nav_msgs::Odometry obstacle_odom;
+                        obstacle_odom.pose.pose.position.x = (*it).second->latest_obstacle_state_[0];
+                        obstacle_odom.pose.pose.position.y = (*it).second->latest_obstacle_state_[1];
+                        tf::Quaternion q;
+                        q.setRPY(0,0,(*it).second->latest_obstacle_state_[2]);
+                        tf::quaternionTFToMsg(q,obstacle_odom.pose.pose.orientation);
+                        obstacle_odom.twist.twist.linear.x = (*it).second->latest_obstacle_state_[3];
+                        obstacle_odom.twist.twist.linear.y = (*it).second->latest_obstacle_state_[4];
+                        obstacle_odom.twist.twist.angular.z = (*it).second->latest_obstacle_state_[5];
+                        colav_msg_.obstacles_odom.push_back(obstacle_odom);
                     }
 			    }
             } else{
@@ -229,6 +241,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             colav_msg_.cost = cost;
             colav_msg_.speed_correction = u_corr_best;
             colav_msg_.course_correction = psi_corr_best;
+            colav_msg_.time = ros::Time::now();
             break;
         }
     }

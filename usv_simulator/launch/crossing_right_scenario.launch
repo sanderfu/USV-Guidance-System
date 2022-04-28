@@ -1,19 +1,38 @@
 <launch>
-  <!--<arg name="vessel_param_file" default="$(find usv_simulator)/config/parameters/viknes.yaml" />-->
+
+  <!--Mission specific parameters USV-->
+  <arg name="usv_predefined_mission" default="true" />
+  <arg name="usv_predefined_mission_name" default="usv_crossing_right" />
+  <arg name="usv_goal_pose" default="[0,0,0]" />
+  <arg name="usv_initial_pose" default="[-73.841077,40.509986,1.57]" />
+
+  <!--Mission specific parameters OBSTACLE-->
+  <arg name="obstacle_predefined_mission" default="true" />
+  <arg name="obstacle_predefined_mission_name" default="obstacle_crossing_right" />
+  <arg name="obstacle_goal_pose" default="[0,0,0]" />
+  <arg name="obstacle_initial_pose" default="[-73.835616,40.514675,-3.14]" />
+
+  <!--Monte Carlo Specific Parameters-->
+  <arg name="simulation_collection_name" default="colav_crossing_right_v2_"/>
+  <arg name="simulations" default="10"/>
+
+  <!--Simulation specific parameters (do not affect the guidance system in any way)-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
   <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
-  <arg name="initial_position_usv" default="[-73.841077,40.509986,1.57]" />
-  <arg name="initial_position_obstacle" default="[-73.835616,40.514675,-3.14]" />
   <arg name="sim_origin" default="[-74.001588,40.590419,0]" /> 
-  <!--<arg name="initial_position_usv" default="[10.3853429,63.4511024,0]" />
-  <arg name="sim_origin" default="[10.3853429,63.4511024,0]" />
-  -->
-  <arg name="use_vo" default="False" />
-  <arg name="use_sb_mpc" default="True" />
-  <arg name="shipname" default="Viknes830" />
 
-  <group ns="$(arg shipname)">
-      <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
+  <arg name="usv_name" default="Viknes830" />
+  <arg name="obstacle_name" default="ship1" />
+
+  <group ns="$(arg usv_name)">
+      <param name="predefined_mission" type="bool" value = "$(arg usv_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg usv_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg usv_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg usv_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
       <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
       <include file="$(find usv_map)/launch/default.launch"/>
 
@@ -37,7 +56,7 @@
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
-      
+
       <node pkg="usv_colav"
             name="sb_mpc"
             type="sb_mpc_node"
@@ -57,6 +76,7 @@
             >
       </node>
 
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
       <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/leader.yaml" />
       <node pkg="usv_simulator"
             name="monte_carlo_supervisor"
@@ -76,8 +96,15 @@
       <include file="$(find usv_realtime_recorder)/launch/recorder.launch"/>
   </group>
 
-  <group ns="ship1">
-      <param name="initial_position" type="yaml" value = "$(arg initial_position_obstacle)"/>
+  <group ns="$(arg obstacle_name)">
+      <param name="predefined_mission" type="bool" value = "$(arg obstacle_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg obstacle_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg obstacle_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg obstacle_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
       <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
       <include file="$(find usv_map)/launch/default.launch"/>
 

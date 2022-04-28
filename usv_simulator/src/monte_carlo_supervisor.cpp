@@ -4,18 +4,15 @@ MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
     //Register publishers
     system_reinit_pub_ = nh_.advertise<usv_msgs::reinit>("mc/system_reinit",10,true);
 
-    if(!nh_.getParam("initial_position",global_position_vec_)){
-        ROS_ERROR_STREAM("Failed to load initial position parameter");
-    }
-
     //Monte Carlo parameters
     bool parameter_load_error = false;
     if(!ros::param::get("monte_carlo_supervisor/leader",leader_supervisor_)) parameter_load_error = true;
-    if(!ros::param::get("monte_carlo_supervisor/simulation_collection_name",simulation_collection_name_)) parameter_load_error = true;
-    if(!ros::param::get("monte_carlo_supervisor/simulations",simulations_)) parameter_load_error = true;
-    if(!ros::param::get("monte_carlo_supervisor/predefined_mission",predefined_mission_)) parameter_load_error = true;
-    if(!ros::param::get("monte_carlo_supervisor/predefined_mission_name",predefined_mission_name_)) parameter_load_error = true;
-    if(!ros::param::get("monte_carlo_supervisor/goal_pose",goal_pose_)) parameter_load_error = true;
+    if(!ros::param::get("initial_pose",global_position_vec_)) parameter_load_error = true;
+    if(!ros::param::get("simulation_collection_name",simulation_collection_name_)) parameter_load_error = true;
+    if(!ros::param::get("simulations",simulations_)) parameter_load_error = true;
+    if(!ros::param::get("predefined_mission",predefined_mission_)) parameter_load_error = true;
+    if(!ros::param::get("predefined_mission_name",predefined_mission_name_)) parameter_load_error = true;
+    if(!ros::param::get("goal_pose",goal_pose_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();

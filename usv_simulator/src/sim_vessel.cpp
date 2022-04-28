@@ -2,12 +2,12 @@
 
 SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), x_(6){
     std::vector<double> global_position_vec;
-    if(!nh_.getParam("initial_position",global_position_vec)){
+    if(!nh_.getParam("initial_pose",global_position_vec)){
         ROS_ERROR_STREAM("Failed to load initial position parameter");
     }
     std::cout <<"global position vec: " << global_position_vec[0] << " " << global_position_vec[1] << std::endl;
-    Eigen::Vector3d global_initial_position(global_position_vec[0],global_position_vec[1],0);
-    Eigen::Vector3d local_initial_position;
+    Eigen::Vector3d global_initial_pose(global_position_vec[0],global_position_vec[1],0);
+    Eigen::Vector3d local_initial_pose;
 
     std::vector<double> sim_origin_vec;
     if(!nh_.getParam("sim_origin",sim_origin_vec)){
@@ -21,9 +21,9 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), x_(6){
         ros::shutdown();
     }
 
-    while(!converter_.convert("global",global_initial_position,"local",&local_initial_position));
-    x_[0] = local_initial_position(0);
-    x_[1] = local_initial_position(1);
+    while(!converter_.convert("global",global_initial_pose,"local",&local_initial_pose));
+    x_[0] = local_initial_pose(0);
+    x_[1] = local_initial_pose(1);
     x_[2] = global_position_vec[2];
     x_[3] = 0;
     x_[4] = 0;
@@ -93,12 +93,12 @@ void SimulatedVessel::publishData(){
     odom.child_frame_id = nh_.getNamespace();
 
     //Pose publish (global frame, LLA)
-    Eigen::Vector3d local_initial_position(x_[0],x_[1],0);
-    Eigen::Vector3d global_initial_position;
-    while(!converter_.convert("local",local_initial_position,"global",&global_initial_position));
+    Eigen::Vector3d local_initial_pose(x_[0],x_[1],0);
+    Eigen::Vector3d global_initial_pose;
+    while(!converter_.convert("local",local_initial_pose,"global",&global_initial_pose));
 
-    odom.pose.pose.position.x = global_initial_position.x();
-    odom.pose.pose.position.y = global_initial_position.y();
+    odom.pose.pose.position.x = global_initial_pose.x();
+    odom.pose.pose.position.y = global_initial_pose.y();
 
     tf::quaternionTFToMsg(q, odom.pose.pose.orientation);
 
@@ -107,8 +107,8 @@ void SimulatedVessel::publishData(){
     odom.twist.twist.angular.z = x_[5];
     odom_pub_.publish(odom);
 
-    pose.pose.position.x = global_initial_position.x();
-    pose.pose.position.y = global_initial_position.y();
+    pose.pose.position.x = global_initial_pose.x();
+    pose.pose.position.y = global_initial_pose.y();
     tf::quaternionTFToMsg(q, pose.pose.orientation);
     pose_pub_.publish(pose);
 
@@ -129,9 +129,9 @@ void SimulatedVessel::reinitCb(const usv_msgs::reinit msg){
     //Stop update timer
     loop_timer_.stop();
 
-    Eigen::Vector3d global_initial_position(msg.initial_pose.position.x,msg.initial_pose.position.y,0);
-    Eigen::Vector3d local_initial_position;
-    while(!converter_.convert("global",global_initial_position,"local",&local_initial_position));
+    Eigen::Vector3d global_initial_pose(msg.initial_pose.position.x,msg.initial_pose.position.y,0);
+    Eigen::Vector3d local_initial_pose;
+    while(!converter_.convert("global",global_initial_pose,"local",&local_initial_pose));
 
     tf::Quaternion q;
     tf::quaternionMsgToTF(msg.initial_pose.orientation,q);
@@ -139,8 +139,8 @@ void SimulatedVessel::reinitCb(const usv_msgs::reinit msg){
     double roll, pitch,yaw;
     m.getRPY(roll, pitch, yaw);
 
-    x_[0] = local_initial_position(0);
-    x_[1] = local_initial_position(1);
+    x_[0] = local_initial_pose(0);
+    x_[1] = local_initial_pose(1);
     x_[2] = yaw;
     x_[3] = 0;
     x_[4] = 0;

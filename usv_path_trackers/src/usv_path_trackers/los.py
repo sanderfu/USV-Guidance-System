@@ -96,7 +96,7 @@ class LOS:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
-        
+
         #Calculate crosstrack
         crosstrack_error = self.calculate_crosstrack_error()
         if crosstrack_error is None:
@@ -120,6 +120,36 @@ class LOS:
         wpt = Pose(Point(msg.position.x,msg.position.y,msg.position.z),Quaternion(0,0,0,1))
         if self.current_waypoint is None:
             self.current_waypoint = wpt
+
+            #Do the calculation normally done in waypoint switching, using current position as last waypoint
+            last_wpt_cart = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.current_waypoint.position.z],"global_enu")
+            self.last_waypoint.position = self.pose.position
+
+            self.last_waypoint.orientation.x = self.pose.orientation.x
+            self.last_waypoint.orientation.y = self.pose.orientation.y
+            self.last_waypoint.orientation.z = self.pose.orientation.z
+            self.last_waypoint.orientation.w = self.pose.orientation.w
+
+            current_waypoint_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
+
+            #Determine current tangential frame of spline between last and current
+            self.spline_coord_center[0] = last_wpt_cart[0]
+            self.spline_coord_center[1] = last_wpt_cart[1]
+            rotation_angle = math.atan2((current_waypoint_cart[1]-last_wpt_cart[1]),(current_waypoint_cart[0]-last_wpt_cart[0]))
+            R_ab = np.array([[math.cos(rotation_angle),-math.sin(rotation_angle)],[math.sin(rotation_angle),math.cos(rotation_angle)]])
+            r_ab_a = self.spline_coord_center.reshape((2,1))
+
+            #Note: If sets this together to transformation matrix we get T_ab which takes point in tangential frame and throws to global frame.
+            # We must thus take inverse, which is not transpose for the entire T_ab. Notation from p.223 in Modelling and SImulation for Automatic Control. 
+            R_ba = R_ab.T
+            r_ba_b = -R_ba@r_ab_a
+
+            self.tangential_transform[:2,:2] = R_ba
+            self.tangential_transform[:2,2] = r_ba_b.flatten()
+
+            self.pi_p = rotation_angle
+            self.stop = False
+
         else:
             self.waypoint_queue.put(wpt)
     
@@ -162,7 +192,6 @@ class LOS:
         self.tangential_transform[:2,2] = r_ba_b.flatten()
 
         self.pi_p = rotation_angle
-        self.has_received_wp = True
 
     def publish_reference_cb(self,timer):
         if self.pose==None or self.current_waypoint==None:

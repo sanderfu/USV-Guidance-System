@@ -7,6 +7,9 @@ MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
     //Monte Carlo parameters
     bool parameter_load_error = false;
     if(!ros::param::get("monte_carlo_supervisor/leader",leader_supervisor_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/x",initial_pose_variance_x_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/y",initial_pose_variance_y_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/course",initial_pose_variance_course_)) parameter_load_error = true;
     if(!ros::param::get("initial_pose",global_position_vec_)) parameter_load_error = true;
     if(!ros::param::get("simulation_collection_name",simulation_collection_name_)) parameter_load_error = true;
     if(!ros::param::get("simulations",simulations_)) parameter_load_error = true;
@@ -22,6 +25,12 @@ MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
     if(leader_supervisor_){
         leader_done_pub_ = nh_.advertise<std_msgs::Bool>("/monte_carlo_leader_supervisor/done",10);
     }
+
+    //Set pose noise distributions
+    noise_distribution_x_ = std::normal_distribution<double>(0,initial_pose_variance_x_);
+    noise_distribution_y_ = std::normal_distribution<double>(0,initial_pose_variance_y_);
+    noise_distribution_course_ = std::normal_distribution<double>(0,initial_pose_variance_course_);
+
 }
 
 void MonteCarloSupervisor::runSimulations(){
@@ -31,11 +40,15 @@ void MonteCarloSupervisor::runSimulations(){
         usv_msgs::reinit reinit_msg;
         reinit_msg.header.stamp = ros::Time::now();
         reinit_msg.mission_name.data = simulation_collection_name_ + std::to_string(sim_id);
-        reinit_msg.initial_pose.position.x = global_position_vec_[0];
-        reinit_msg.initial_pose.position.y = global_position_vec_[1];
+        reinit_msg.initial_pose.position.x = global_position_vec_[0]+noise_distribution_x_(noise_generator_);
+        reinit_msg.initial_pose.position.y = global_position_vec_[1]+noise_distribution_y_(noise_generator_);
 
         tf::Quaternion q;
-        q.setRPY(0,0,global_position_vec_[2]);
+        double course_noise = noise_distribution_course_(noise_generator_);
+        ROS_WARN_STREAM(nh_.getNamespace() << " course noise: " << course_noise);
+        ROS_WARN_STREAM(nh_.getNamespace() << " initial course: " << global_position_vec_[2]+course_noise);
+
+        q.setRPY(0,0,global_position_vec_[2]+course_noise);
         tf::quaternionTFToMsg(q,reinit_msg.initial_pose.orientation);
 
         system_reinit_pub_.publish(reinit_msg);

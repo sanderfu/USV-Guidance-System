@@ -31,7 +31,7 @@ SimulatedVessel::SimulatedVessel(const ros::NodeHandle& nh) : nh_(nh), x_(6){
     update_frequency_ = 30;
     vessel_name_ = ros::this_node::getNamespace().substr(1,ros::this_node::getNamespace().size()-1);
     u_d_ = 0;
-    psi_d_ = 0; 
+    psi_d_ = global_position_vec[2];
 
     // Setup transform broadcaster
     tf_broad_ = tf::TransformBroadcaster();
@@ -147,7 +147,7 @@ void SimulatedVessel::reinitCb(const usv_msgs::reinit msg){
     x_[5] = 0;
 
     u_d_ = 0;
-    psi_d_ = 0; 
+    psi_d_ = yaw;
 
     //Reinit done, start update timer again
     loop_timer_.start();

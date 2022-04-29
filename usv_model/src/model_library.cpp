@@ -83,18 +83,18 @@ void Viknes830::operator()(const state_type& state, state_type & state_dt, const
 
     double Fx = Cvv[0] + Dvv[0] + Kp_u*M*(u_d - u);
     double Fy = ((Kp_psi * I_z ) * ((psi_d - psi) - Kd_psi*r))/rudder_d;
-    double Fn = rudder_d * Fy;
 
     // Saturate
-	if (Fx < Fx_min)
-	  Fx = Fx_min;
-	if (Fx > Fx_max)
-	  Fx = Fx_max;
+	  if (Fx < Fx_min)
+	    Fx = Fx_min;
+	  if (Fx > Fx_max)
+	    Fx = Fx_max;
 
-	if (Fy < Fy_min)
-	  Fy = Fy_min;
-	if (Fy > Fy_max)
-	  Fy = Fy_max;
+	  if (Fy < Fy_min)
+	    Fy = Fy_min;
+	  if (Fy > Fy_max)
+	    Fy = Fy_max;
+    double Fn = rudder_d * Fy;
 
     tau_rb(0) = Fx;
     tau_rb(1) = Fy;

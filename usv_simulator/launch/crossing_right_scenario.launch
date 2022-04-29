@@ -1,19 +1,26 @@
 <launch>
 
+  <!--Map specific parameters-->
+  <arg name="preprocessed_map" default="true" />
+  <arg name="map_name" default="outside_ny_max_300" />
+  <arg name="map_extent" default="[0,0,0,0]" />
+
   <!--Mission specific parameters USV-->
+  <arg name="usv_desired_speed" default="5" />
   <arg name="usv_predefined_mission" default="true" />
   <arg name="usv_predefined_mission_name" default="usv_crossing_right" />
   <arg name="usv_goal_pose" default="[0,0,0]" />
   <arg name="usv_initial_pose" default="[-73.841077,40.509986,1.57]" />
 
   <!--Mission specific parameters OBSTACLE-->
+  <arg name="obstacle_desired_speed" default="5" />
   <arg name="obstacle_predefined_mission" default="true" />
   <arg name="obstacle_predefined_mission_name" default="obstacle_crossing_right" />
   <arg name="obstacle_goal_pose" default="[0,0,0]" />
   <arg name="obstacle_initial_pose" default="[-73.835616,40.514675,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_crossing_right_v2_"/>
+  <arg name="simulation_collection_name" default="colav_crossing_right_v3_"/>
   <arg name="simulations" default="10"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
@@ -25,6 +32,11 @@
   <arg name="obstacle_name" default="ship1" />
 
   <group ns="$(arg usv_name)">
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg usv_desired_speed)"/>
+
       <param name="predefined_mission" type="bool" value = "$(arg usv_predefined_mission)"/>
       <param name="predefined_mission_name" type="str" value = "$(arg usv_predefined_mission_name)"/>
       <param name="goal_pose" type="yaml" value = "$(arg usv_goal_pose)"/>
@@ -97,6 +109,11 @@
   </group>
 
   <group ns="$(arg obstacle_name)">
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg obstacle_desired_speed)"/>
+
       <param name="predefined_mission" type="bool" value = "$(arg obstacle_predefined_mission)"/>
       <param name="predefined_mission_name" type="str" value = "$(arg obstacle_predefined_mission_name)"/>
       <param name="goal_pose" type="yaml" value = "$(arg obstacle_goal_pose)"/>

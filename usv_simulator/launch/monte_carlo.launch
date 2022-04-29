@@ -1,13 +1,18 @@
 <launch>
+  <!--Map specific parameters-->
+  <arg name="preprocessed_map" default="true" />
+  <arg name="map_name" default="outside_ny_max_300" />
+  <arg name="map_extent" default="[0,0,0,0]" />
 
   <!--Mission specific parameters USV-->
+  <arg name="usv_desired_speed" default="5" />
   <arg name="usv_predefined_mission" default="false" />
   <arg name="usv_predefined_mission_name" default="None" />
   <arg name="usv_goal_pose" default="[-74.01067,40.58611,0]" />
   <arg name="usv_initial_pose" default="[-74.001588,40.590419,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_crossing_right_v2_"/>
+  <arg name="simulation_collection_name" default="test_monte_carlo_variance_"/>
   <arg name="simulations" default="10"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
@@ -18,6 +23,11 @@
   <arg name="usv_name" default="Viknes830" />
 
   <group ns="$(arg usv_name)">
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg usv_desired_speed)"/>
+
       <param name="predefined_mission" type="bool" value = "$(arg usv_predefined_mission)"/>
       <param name="predefined_mission_name" type="str" value = "$(arg usv_predefined_mission_name)"/>
       <param name="goal_pose" type="yaml" value = "$(arg usv_goal_pose)"/>

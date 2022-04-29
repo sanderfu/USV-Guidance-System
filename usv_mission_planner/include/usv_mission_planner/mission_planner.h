@@ -43,7 +43,6 @@ class MissionPlanner{
         //Parameters
         std::string mission_name_;
         bool load_from_gpx_;
-        std::string gpx_name_;
         bool preprocessed_map_;
         std::string map_name_;
         double desired_speed_;

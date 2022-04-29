@@ -24,7 +24,7 @@ Viknes830::Viknes830(){
     Y_v = -200.0;
     Y_r = 0.0;
     N_v = 0.0;
-    N_r = -1281;//-3224.0;
+    N_r = -3224.0;
 
     // Nonlinear damping terms [X_|u|u, Y_|v|v, N_|r|r, X_uuu, Y_vvv, N_rrr]
     X_uu = -135.0;

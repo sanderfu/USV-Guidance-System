@@ -9,7 +9,7 @@
 SimulatedLand::SimulatedLand(const ros::NodeHandle& nh){
     std::string map_name;
     bool parameter_load_error = false;
-    if(!ros::param::get("mission_planner/map_name",map_name)) parameter_load_error = true;
+    if(!ros::param::get("map_name",map_name)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();

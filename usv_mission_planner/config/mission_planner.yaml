@@ -22,17 +22,6 @@ hybrid_a_star:
   mission_data:
     save_search_data: true
     save_benchmark_data: true
-mission_planner:
-  #Load from this gpx or save to this gpx
-  gpx_name: "path"
-  #Preprocessing has been run for mission region
-  preprocessed_map: true
-  #Preprocessed data to load (or save). Loads/saves collision db, voronoi db and quadtree 
-  map_name: "outside_ny_max_300"
-  # Two coordinates defining the mission region. Discarded if preprocessed_map=true (min_lon,min_lat,max_lon,max_lat)
-  map_extent: [9.26396,63.40249,10.49051,63.73362]
-  #Desired speed of the vessel planning for
-  desired_speed: 5
 
 
   

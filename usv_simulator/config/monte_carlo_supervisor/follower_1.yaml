@@ -1,7 +1,6 @@
 monte_carlo_supervisor:
   leader: false
-  simulation_collection_name: "test_from_config_"
-  simulations: 2
-  predefined_mission: true
-  predefined_mission_name: "obstacle_headon"
-  goal_pose: [-73.839272,40.641694,0]
+  initial_pose_variance: #How much the initial pose is allowed to vary from the define start position
+    x: 0.0002 #(approx 20m) (0.00001 deg is approx 1 meter)
+    y: 0.0002 #(approx 20m) (0.00001 deg is approx 1 meter)
+    course: 0.3925 #(rad)

@@ -6,7 +6,7 @@ int main(int argc, char** argv){
 
     bool parameter_load_error = false;
     std::string mission_name;
-    if(!ros::param::get("mission_planner/mission_name",mission_name)) parameter_load_error = true;
+    if(!ros::param::get("mission_name",mission_name)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();

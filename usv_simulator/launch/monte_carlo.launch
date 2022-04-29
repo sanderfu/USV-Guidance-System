@@ -1,18 +1,41 @@
 <launch>
-  <!--<arg name="vessel_param_file" default="$(find usv_simulator)/config/parameters/viknes.yaml" />-->
+  <!--Map specific parameters-->
+  <arg name="preprocessed_map" default="true" />
+  <arg name="map_name" default="outside_ny_max_300" />
+  <arg name="map_extent" default="[0,0,0,0]" />
+
+  <!--Mission specific parameters USV-->
+  <arg name="usv_desired_speed" default="5" />
+  <arg name="usv_predefined_mission" default="false" />
+  <arg name="usv_predefined_mission_name" default="None" />
+  <arg name="usv_goal_pose" default="[-74.01067,40.58611,0]" />
+  <arg name="usv_initial_pose" default="[-74.001588,40.590419,-3.14]" />
+
+  <!--Monte Carlo Specific Parameters-->
+  <arg name="simulation_collection_name" default="test_monte_carlo_variance_"/>
+  <arg name="simulations" default="10"/>
+
+  <!--Simulation specific parameters (do not affect the guidance system in any way)-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
   <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
-  <arg name="initial_position_usv" default="[-74.001588,40.590419,-3.14]" />
   <arg name="sim_origin" default="[-74.001588,40.590419,0]" /> 
-  <!--<arg name="initial_position_usv" default="[10.3853429,63.4511024,0]" />
-  <arg name="sim_origin" default="[10.3853429,63.4511024,0]" />
-  -->
-  <arg name="use_vo" default="False" />
-  <arg name="use_sb_mpc" default="True" />
-  <arg name="shipname" default="Viknes830" />
 
-  <group ns="$(arg shipname)">
-      <param name="initial_position" type="yaml" value = "$(arg initial_position_usv)"/>
+  <arg name="usv_name" default="Viknes830" />
+
+  <group ns="$(arg usv_name)">
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg usv_desired_speed)"/>
+
+      <param name="predefined_mission" type="bool" value = "$(arg usv_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg usv_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg usv_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg usv_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
       <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
       <include file="$(find usv_map)/launch/default.launch"/>
 

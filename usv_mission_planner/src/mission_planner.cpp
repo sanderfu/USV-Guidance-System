@@ -18,11 +18,10 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
     search_service_ = nh_.advertiseService("SearchGlobalPath",&MissionPlanner::search,this);
 
     bool parameter_load_error = false;
-    if(!ros::param::get("mission_planner/gpx_name",gpx_name_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/preprocessed_map",preprocessed_map_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/map_name",map_name_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/map_extent",mission_region_extent_)) parameter_load_error = true;
-    if(!ros::param::get("mission_planner/desired_speed",desired_speed_)) parameter_load_error = true;
+    if(!ros::param::get("preprocessed_map",preprocessed_map_)) parameter_load_error = true;
+    if(!ros::param::get("map_name",map_name_)) parameter_load_error = true;
+    if(!ros::param::get("map_extent",mission_region_extent_)) parameter_load_error = true;
+    if(!ros::param::get("desired_speed",desired_speed_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
@@ -92,7 +91,7 @@ bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_missi
     }
 
     if(req.predefined){
-        std::string gpx_path = mission_path_+gpx_name_+".gpx";
+        std::string gpx_path = mission_path_+"path.gpx";
         GDALDataset* gpx_ds = (GDALDataset*) GDALOpenEx(gpx_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
         if(gpx_ds == NULL){
             ROS_ERROR_STREAM("Failed to load gpx path file: " << gpx_path);

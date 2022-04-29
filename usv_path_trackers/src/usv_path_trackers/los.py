@@ -10,7 +10,7 @@ from std_msgs.msg import Float32, Bool
 import queue
 from tf.transformations import euler_from_quaternion
 from usv_map.geotf_client import GeodeticConverterClient
-from vincenty import vincenty
+from geographiclib.geodesic import Geodesic
 
 
 class LOS:
@@ -92,7 +92,7 @@ class LOS:
             return
 
         #Check if should switch waypoint
-        if abs(vincenty((self.pose.position.x,self.pose.position.y),(self.current_waypoint.position.x,self.current_waypoint.position.y)))<0.01:
+        if abs(Geodesic.WGS84.Inverse(self.pose.position.y,self.pose.position.x,self.current_waypoint.position.y,self.current_waypoint.position.x)["s12"])<10:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()

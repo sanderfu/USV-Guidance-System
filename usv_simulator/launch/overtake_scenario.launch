@@ -9,20 +9,20 @@
   <arg name="usv_id" default="0" />
   <arg name="usv_desired_speed" default="5" />
   <arg name="usv_predefined_mission" default="true" />
-  <arg name="usv_predefined_mission_name" default="usv_crossing_right" />
+  <arg name="usv_predefined_mission_name" default="usv_overtake" />
   <arg name="usv_goal_pose" default="[0,0,0]" />
   <arg name="usv_initial_pose" default="[-73.841077,40.509986,1.57]" />
 
   <!--Mission specific parameters OBSTACLE-->
   <arg name="obstacle_id" default="1" />
-  <arg name="obstacle_desired_speed" default="5" />
+  <arg name="obstacle_desired_speed" default="2" />
   <arg name="obstacle_predefined_mission" default="true" />
-  <arg name="obstacle_predefined_mission_name" default="obstacle_crossing_right" />
+  <arg name="obstacle_predefined_mission_name" default="obstacle_overtake" />
   <arg name="obstacle_goal_pose" default="[0,0,0]" />
-  <arg name="obstacle_initial_pose" default="[-73.835616,40.514675,-3.14]" />
+  <arg name="obstacle_initial_pose" default="[-73.841077,40.513305,1.57]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_crossing_right_v3_"/>
+  <arg name="simulation_collection_name" default="colav_overtake_"/>
   <arg name="simulations" default="10"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->

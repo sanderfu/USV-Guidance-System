@@ -5,6 +5,7 @@
   <arg name="map_extent" default="[0,0,0,0]" />
 
   <!--Mission specific parameters USV-->
+  <arg name="usv_id" default="0" />
   <arg name="usv_desired_speed" default="5" />
   <arg name="usv_predefined_mission" default="true" />
   <arg name="usv_predefined_mission_name" default="usv_headon" />
@@ -12,6 +13,7 @@
   <arg name="usv_initial_pose" default="[-73.875040779,40.553142487,0]" />
 
   <!--Mission specific parameters OBSTACLE-->
+  <arg name="obstacle_id" default="1" />
   <arg name="obstacle_desired_speed" default="5" />
   <arg name="obstacle_predefined_mission" default="true" />
   <arg name="obstacle_predefined_mission_name" default="obstacle_headon" />
@@ -31,6 +33,7 @@
   <arg name="obstacle_name" default="ship1" />
 
   <group ns="$(arg usv_name)">
+      <param name="id" type="int" value = "$(arg usv_id)"/>
       <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
       <param name="map_name" type="str" value = "$(arg map_name)"/>
       <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
@@ -109,7 +112,8 @@
 
 
   <group ns="$(arg obstacle_name)">
-     <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="id" type="int" value = "$(arg obstacle_id)"/>
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
       <param name="map_name" type="str" value = "$(arg map_name)"/>
       <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
       <param name="desired_speed" type="double" value = "$(arg obstacle_desired_speed)"/>
@@ -153,7 +157,6 @@
             output="screen">
       </node>
 
-      <param name="id" value="1"/>
       <node pkg="usv_simulator"
             name="sim_tracker"
             type="sim_tracker_node"
@@ -168,6 +171,13 @@
             respawn="false"
             output="screen"
             required="true">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
       </node>
   </group>
   

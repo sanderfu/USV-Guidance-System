@@ -2,41 +2,52 @@
 
 SimulationBasedMPC::SimulationBasedMPC(const ros::NodeHandle& nh) : 
 nh_(nh),
-P_(1), 					//   1.0
-Q_(4.0), 				//   4.0
-D_CLOSE_(200.0),		// 200.0
-D_SAFE_(60.0),			//  40.0
-K_COLL_(0.5),			//   0.5
-PHI_AH_(15.0),			//  15.0
-PHI_OT_(68.5),			//  68.5
-PHI_HO_(22.5),			//  22.5
-PHI_CR_(68.5),			//  68.0
-KAPPA_(2.0),			//   3.0
-K_P_(4.0),				//   2.5  // 4.0
-K_CHI_(1.21),			//   1.3
-K_DP_(3.5),				//   2.0  // 3.5
-K_DCHI_SB_(0.9),		//   0.9
-K_DCHI_P_(1.2),			//   1.2
 geo_converter_("COLAV",false,true,nh)
 {   
     bool parameter_load_error = false;
     std::string map_name;
     if(!ros::param::get("map_name",map_name)) parameter_load_error = true;
     if(!ros::param::get("id",ownship_id_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/P_",P_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/Q_",Q_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/D_CLOSE_",D_CLOSE_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/D_SAFE_",D_SAFE_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_COLL_",K_COLL_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/PHI_AH_",PHI_AH_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/PHI_OT_",PHI_OT_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/PHI_HO_",PHI_HO_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/PHI_CR_",PHI_CR_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/KAPPA_",KAPPA_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_P_",K_P_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_CHI_",K_CHI_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_DP_",K_DP_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_DCHI_SB_",K_DCHI_SB_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_DCHI_P_",K_DCHI_P_)) parameter_load_error = true;
+    if(!ros::param::get("colav/offsets/Chi_ca_",Chi_ca_)) parameter_load_error = true;
+    if(!ros::param::get("colav/offsets/P_ca_",P_ca_)) parameter_load_error = true;
+    if(!ros::param::get("colav/update_frequency",update_frequency_)) parameter_load_error = true;
+    if(!ros::param::get("colav/prediction_time",prediction_time_)) parameter_load_error = true;
+    if(!ros::param::get("colav/verbose",verbose_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
     }
+
+    // Convert degrees to rad
+    for(int i=0; i<Chi_ca_.size(); i++){
+        Chi_ca_[i]*=DEG2RAD;
+    }
+
     map_service_ = new MapService(map_name);
     //Warning: I do not know if this will onlky surpress warnings for GDAL related to this module or also the mission planner. 
     ROS_WARN_STREAM("GDAL errors are supressed!");
     CPLPushErrorHandler(CPLQuietErrorHandler);
     
-    ROS_INFO_STREAM("SB_MPC started, waiting for first odometry and LOS setpoint from USV");
+    ROS_INFO_STREAM_COND(verbose_,"SB_MPC started, waiting for first odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
-    ROS_INFO_STREAM("Odometry and LOS setpoint received");
+    ROS_INFO_STREAM_COND(verbose_,"Odometry and LOS setpoint received");
 
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
     colav_data_pub_ = nh_.advertise<usv_msgs::Colav>("colav/debug",1,false);
@@ -45,14 +56,6 @@ geo_converter_("COLAV",false,true,nh)
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
     system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
-
-    //Set course action alternatives
-    double courseOffsets[] = {-89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
-    double sizeCO = sizeof(courseOffsets)/sizeof(courseOffsets[0]);
-    for (int i = 0; i < sizeCO; i++){
-    	courseOffsets[i] *= DEG2RAD;
-    }
-    Chi_ca_.assign(courseOffsets, courseOffsets + sizeof(courseOffsets)/sizeof(courseOffsets[0]));
 
     //Set course action pairs
     bool multiple_changes = false;
@@ -68,11 +71,6 @@ geo_converter_("COLAV",false,true,nh)
         }
     }
 
-    ROS_WARN_STREAM(Chi_ca_sequences_.size());
-
-    //Set speed action alternatives
-    double speedOffsets[] = {1};
-    P_ca_.assign(speedOffsets, speedOffsets + sizeof(speedOffsets)/sizeof(speedOffsets[0]));
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
 
@@ -91,8 +89,7 @@ geo_converter_("COLAV",false,true,nh)
     // Set the scale of the marker -- 1x1x1 here means 1m on a side
     path_viz_.scale.x = 2.5;
 
-    main_loop_timer_ = nh_.createTimer(ros::Duration(2.0),&SimulationBasedMPC::mainLoop,this);
-    ROS_WARN_STREAM("COLAV Initialized");
+    main_loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulationBasedMPC::mainLoop,this);
 
 }
 /**
@@ -187,7 +184,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             //Simulate vessel
             state_type state_copy = state;
 
-            double sim_time = 60/(*chi_seq_it).size();
+            double sim_time = prediction_time_/(*chi_seq_it).size();
             ModelLibrary::simulatedHorizon full_horizon_;
             double Chi_ca_last = Chi_ca_last_;
             for(auto chi_it = (*chi_seq_it).begin(); chi_it != (*chi_seq_it).end(); chi_it++){
@@ -282,8 +279,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
 
     P_ca_last_ = u_corr_best;
 	Chi_ca_last_ = psi_corr_best;
-    ROS_INFO_STREAM("Path num points: " << choosen_path.getNumPoints());
-    ROS_INFO_STREAM("Best cost: " << cost);
+    ROS_INFO_STREAM_COND(verbose_,"Path num points: " << choosen_path.getNumPoints());
+    ROS_INFO_STREAM_COND(verbose_,"Best cost: " << cost);
     clearVisualPath();
     visualizePath(choosen_path);
 }
@@ -309,8 +306,8 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     //Publish debug/post-visualization message
     colav_data_pub_.publish(colav_msg_);
     ros::Time stop = ros::Time::now();
-    ROS_INFO_STREAM("Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
-    ROS_INFO_STREAM("Getting offset took: " << (stop-start).toSec() << " [s]");
+    ROS_INFO_STREAM_COND(verbose_, "Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
+    ROS_INFO_STREAM_COND(verbose_,"Getting offset took: " << (stop-start).toSec() << " [s]");
 }
 
 void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){

@@ -15,7 +15,7 @@
 
   <!--Mission specific parameters OBSTACLE-->
   <arg name="obstacle_id" default="1" />
-  <arg name="obstacle_desired_speed" default="2" />
+  <arg name="obstacle_desired_speed" default="1" />
   <arg name="obstacle_predefined_mission" default="true" />
   <arg name="obstacle_predefined_mission_name" default="obstacle_overtake" />
   <arg name="obstacle_goal_pose" default="[0,0,0]" />
@@ -71,13 +71,7 @@
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
-
-      <node pkg="usv_colav"
-            name="sb_mpc"
-            type="sb_mpc_node"
-            respawn="false"
-            output="screen">
-      </node>
+      <include file="$(find usv_colav)/launch/colav.launch"/>
       
       <node pkg="rviz"
         type="rviz"

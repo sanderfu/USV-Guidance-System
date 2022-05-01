@@ -84,23 +84,26 @@ class SimulationBasedMPC{
 		double P_ca_last_;
 
         // Cost function weights;
-		const double P_;
-		const double Q_;
-		const double D_CLOSE_;
-		const double D_SAFE_;
-		const double K_COLL_;
-		const double PHI_AH_;
-		const double PHI_OT_;
-		const double PHI_HO_;
-		const double PHI_CR_;
-		const double KAPPA_;
-		const double K_P_;
-		const double K_CHI_;
-		const double K_DP_;
-		const double K_DCHI_SB_;
-		const double K_DCHI_P_;
+		double P_;
+		double Q_;
+		double D_CLOSE_;
+		double D_SAFE_;
+		double K_COLL_;
+		double PHI_AH_;
+		double PHI_OT_;
+		double PHI_HO_;
+		double PHI_CR_;
+		double KAPPA_;
+		double K_P_;
+		double K_CHI_;
+		double K_DP_;
+		double K_DCHI_SB_;
+		double K_DCHI_P_;
 
         int ownship_id_;
+        double update_frequency_;
+        double prediction_time_;
+        bool verbose_;
 
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;

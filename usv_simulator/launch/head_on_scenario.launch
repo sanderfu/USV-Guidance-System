@@ -70,13 +70,7 @@
           name="tf_broadcaster" />
 
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
-
-      <node pkg="usv_colav"
-            name="sb_mpc"
-            type="sb_mpc_node"
-            respawn="false"
-            output="screen">
-      </node>
+      <include file="$(find usv_colav)/launch/colav.launch"/>
       
       
       <node pkg="rviz"

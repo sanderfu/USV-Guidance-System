@@ -1,0 +1,10 @@
+<launch>
+  <rosparam command="load" file="$(find usv_colav)/config/colav.yaml" />
+  <node pkg="usv_colav"
+            name="sb_mpc"
+            type="sb_mpc_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+</launch>

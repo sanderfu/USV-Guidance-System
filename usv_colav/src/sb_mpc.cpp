@@ -22,6 +22,7 @@ geo_converter_("COLAV",false,true,nh)
     bool parameter_load_error = false;
     std::string map_name;
     if(!ros::param::get("map_name",map_name)) parameter_load_error = true;
+    if(!ros::param::get("id",ownship_id_)) parameter_load_error = true;
     if(parameter_load_error){
         ROS_ERROR_STREAM("Failed to load a parameter");
         ros::shutdown();
@@ -55,7 +56,7 @@ geo_converter_("COLAV",false,true,nh)
     Chi_ca_.assign(courseOffsets, courseOffsets + sizeof(courseOffsets)/sizeof(courseOffsets[0]));
 
     //Set speed action alternatives
-    double speedOffsets[] = {1};
+    double speedOffsets[] = {-1,0,1};
     P_ca_.assign(speedOffsets, speedOffsets + sizeof(speedOffsets)/sizeof(speedOffsets[0]));
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
@@ -117,6 +118,7 @@ void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
     state[5]=msg.odom.twist.twist.angular.z;
     if(obstacle_vessels_.find(msg.id)==obstacle_vessels_.end()){
         obstacle_vessels_[msg.id] = new obstacleVessel(state,5,2);
+        obstacle_vessels_[msg.id]->id = msg.id;
     }else{
         obstacle_vessels_[msg.id]->latest_obstacle_state_ = state;
         obstacle_vessels_[msg.id]->latest_observation_ = ros::Time::now();
@@ -161,8 +163,12 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     colav_msg_.ownship_odom = latest_odom_;
 
     control_candidate_map.clear();
-    for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
-        for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
+    for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
+        for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
+            double chi = *chi_it;
+            if((*p_it)==0){
+                chi=0;
+            }
             double cost_i = 0.0;
             //Simulate vessel
             state_type state_copy = state;
@@ -171,8 +177,9 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
             if(obstacle_vessels_.size()!=0){
                 for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
+                    if((*it).second->id == ownship_id_) continue;
                     double key = it->first;
-                    cost_k = costFnc(horizon, *(*it).second, *p_it, *chi_it, key);
+                    cost_k = costFnc(horizon, *(*it).second, *p_it, chi, key);
                     if (cost_k > cost_i){
                         cost_i = cost_k;	// Maximizing cost associated with this scenario
                     }
@@ -191,7 +198,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                     }
 			    }
             } else{
-                cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it) + Delta_Chi(*chi_it);
+                cost_i = K_P_*(1-*p_it) + K_CHI_*pow(chi,2) + Delta_P(*p_it) + Delta_Chi(chi);
             }
 
             //Simulation horizon to LineString and add to data message
@@ -213,7 +220,10 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             
 
             //Add candidate to candidate list
-            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,*chi_it,horizon,cost_i)));
+            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,chi,horizon,cost_i)));
+            if((*p_it)==0){
+                break;
+            }
 
         }
     }

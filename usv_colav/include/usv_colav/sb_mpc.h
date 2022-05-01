@@ -96,6 +96,8 @@ class SimulationBasedMPC{
 		const double K_DCHI_SB_;
 		const double K_DCHI_P_;
 
+        int ownship_id_;
+
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;
         ros::Publisher colav_data_pub_;

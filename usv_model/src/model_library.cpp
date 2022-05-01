@@ -24,7 +24,7 @@ Viknes830::Viknes830(){
     Y_v = -200.0;
     Y_r = 0.0;
     N_v = 0.0;
-    N_r = -1281;//-3224.0;
+    N_r = -3224.0;
 
     // Nonlinear damping terms [X_|u|u, Y_|v|v, N_|r|r, X_uuu, Y_vvv, N_rrr]
     X_uu = -135.0;
@@ -83,18 +83,18 @@ void Viknes830::operator()(const state_type& state, state_type & state_dt, const
 
     double Fx = Cvv[0] + Dvv[0] + Kp_u*M*(u_d - u);
     double Fy = ((Kp_psi * I_z ) * ((psi_d - psi) - Kd_psi*r))/rudder_d;
-    double Fn = rudder_d * Fy;
 
     // Saturate
-	if (Fx < Fx_min)
-	  Fx = Fx_min;
-	if (Fx > Fx_max)
-	  Fx = Fx_max;
+	  if (Fx < Fx_min)
+	    Fx = Fx_min;
+	  if (Fx > Fx_max)
+	    Fx = Fx_max;
 
-	if (Fy < Fy_min)
-	  Fy = Fy_min;
-	if (Fy > Fy_max)
-	  Fy = Fy_max;
+	  if (Fy < Fy_min)
+	    Fy = Fy_min;
+	  if (Fy > Fy_max)
+	    Fy = Fy_max;
+    double Fn = rudder_d * Fy;
 
     tau_rb(0) = Fx;
     tau_rb(1) = Fy;

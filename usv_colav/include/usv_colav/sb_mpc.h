@@ -66,12 +66,16 @@ class SimulationBasedMPC{
         void reinitCb(const usv_msgs::reinit& msg);
 
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
-        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k);
-        double Delta_P(double P_ca);
-        double Delta_Chi(double Chi_ca);
+        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last);
+        double Delta_P(double P_ca, double P_ca_last);
+        double Delta_Chi(double Chi_ca, double Chi_ca_last);
 
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
+
+        //WIP Control action pairs
+        std::vector<std::vector<double>> Chi_ca_sequences_;
+
         std::map<int,obstacleVessel*> obstacle_vessels_;
 
         std::map<double,controlCandidate> control_candidate_map;

@@ -45,7 +45,6 @@ geo_converter_("COLAV",false,true,nh)
     los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
     obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
     system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
-    main_loop_timer_ = nh_.createTimer(ros::Duration(1.0),&SimulationBasedMPC::mainLoop,this);
 
     //Set course action alternatives
     double courseOffsets[] = {-89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0};
@@ -55,8 +54,24 @@ geo_converter_("COLAV",false,true,nh)
     }
     Chi_ca_.assign(courseOffsets, courseOffsets + sizeof(courseOffsets)/sizeof(courseOffsets[0]));
 
+    //Set course action pairs
+    bool multiple_changes = false;
+    for(auto chi_first_it=Chi_ca_.begin(); chi_first_it!=Chi_ca_.end();chi_first_it++){
+        if(multiple_changes){
+            for(auto chi_second_it=Chi_ca_.begin(); chi_second_it!=Chi_ca_.end(); chi_second_it++){
+                if((*chi_first_it<0)!=(*chi_second_it<0) && *chi_first_it!=0) continue;
+                Chi_ca_sequences_.push_back({*chi_first_it,*chi_second_it});
+            }
+        
+        } else{
+            Chi_ca_sequences_.push_back({*chi_first_it});
+        }
+    }
+
+    ROS_WARN_STREAM(Chi_ca_sequences_.size());
+
     //Set speed action alternatives
-    double speedOffsets[] = {-1,0,1};
+    double speedOffsets[] = {1};
     P_ca_.assign(speedOffsets, speedOffsets + sizeof(speedOffsets)/sizeof(speedOffsets[0]));
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
@@ -75,6 +90,9 @@ geo_converter_("COLAV",false,true,nh)
     path_viz_.color.a = 1.0;
     // Set the scale of the marker -- 1x1x1 here means 1m on a side
     path_viz_.scale.x = 2.5;
+
+    main_loop_timer_ = nh_.createTimer(ros::Duration(2.0),&SimulationBasedMPC::mainLoop,this);
+    ROS_WARN_STREAM("COLAV Initialized");
 
 }
 /**
@@ -164,48 +182,57 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
 
     control_candidate_map.clear();
     for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
-        for(auto chi_it = Chi_ca_.begin(); chi_it!=Chi_ca_.end();chi_it++){
-            double chi = *chi_it;
-            if((*p_it)==0){
-                chi=0;
-            }
+        for(auto chi_seq_it = Chi_ca_sequences_.begin(); chi_seq_it!=Chi_ca_sequences_.end();chi_seq_it++){
             double cost_i = 0.0;
             //Simulate vessel
             state_type state_copy = state;
-            ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizonAdaptive(state_copy,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),60);
-            
-            //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
-            if(obstacle_vessels_.size()!=0){
-                for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
-                    if((*it).second->id == ownship_id_) continue;
-                    double key = it->first;
-                    cost_k = costFnc(horizon, *(*it).second, *p_it, chi, key);
-                    if (cost_k > cost_i){
-                        cost_i = cost_k;	// Maximizing cost associated with this scenario
+
+            double sim_time = 60/(*chi_seq_it).size();
+            ModelLibrary::simulatedHorizon full_horizon_;
+            double Chi_ca_last = Chi_ca_last_;
+            for(auto chi_it = (*chi_seq_it).begin(); chi_it != (*chi_seq_it).end(); chi_it++){
+                double cost_tmp = 0.0;
+                double t_offset = sim_time * (chi_it-(*chi_seq_it).begin());
+                ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizonAdaptive(state_copy,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),sim_time);
+
+                //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
+                if(obstacle_vessels_.size()!=0){
+                    for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
+                        if((*it).second->id == ownship_id_) continue;
+                        double key = it->first;
+                        cost_k = costFnc(horizon, *(*it).second, *p_it, *chi_it, key, t_offset,P_ca_last_,Chi_ca_last);
+                        if (cost_k > cost_tmp){
+                            cost_tmp = cost_k;	// Maximizing cost associated with this scenario
+                        }
+                        //Add obstacle odometries to colav message if first option
+                        if(chi_seq_it == Chi_ca_sequences_.begin() && p_it==P_ca_.begin()){
+                            nav_msgs::Odometry obstacle_odom;
+                            obstacle_odom.pose.pose.position.x = (*it).second->latest_obstacle_state_[0];
+                            obstacle_odom.pose.pose.position.y = (*it).second->latest_obstacle_state_[1];
+                            tf::Quaternion q;
+                            q.setRPY(0,0,(*it).second->latest_obstacle_state_[2]);
+                            tf::quaternionTFToMsg(q,obstacle_odom.pose.pose.orientation);
+                            obstacle_odom.twist.twist.linear.x = (*it).second->latest_obstacle_state_[3];
+                            obstacle_odom.twist.twist.linear.y = (*it).second->latest_obstacle_state_[4];
+                            obstacle_odom.twist.twist.angular.z = (*it).second->latest_obstacle_state_[5];
+                            colav_msg_.obstacles_odom.push_back(obstacle_odom);
+                        }
                     }
-                    //Add obstacle odometries to colav message if first option
-                    if(chi_it == Chi_ca_.begin() && p_it==P_ca_.begin()){
-                        nav_msgs::Odometry obstacle_odom;
-                        obstacle_odom.pose.pose.position.x = (*it).second->latest_obstacle_state_[0];
-                        obstacle_odom.pose.pose.position.y = (*it).second->latest_obstacle_state_[1];
-                        tf::Quaternion q;
-                        q.setRPY(0,0,(*it).second->latest_obstacle_state_[2]);
-                        tf::quaternionTFToMsg(q,obstacle_odom.pose.pose.orientation);
-                        obstacle_odom.twist.twist.linear.x = (*it).second->latest_obstacle_state_[3];
-                        obstacle_odom.twist.twist.linear.y = (*it).second->latest_obstacle_state_[4];
-                        obstacle_odom.twist.twist.angular.z = (*it).second->latest_obstacle_state_[5];
-                        colav_msg_.obstacles_odom.push_back(obstacle_odom);
-                    }
-			    }
-            } else{
-                cost_i = K_P_*(1-*p_it) + K_CHI_*pow(chi,2) + Delta_P(*p_it) + Delta_Chi(chi);
+                } else{
+                    cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it,P_ca_last_) + Delta_Chi(*chi_it,Chi_ca_last);
+                }
+
+                full_horizon_.state.insert(full_horizon_.state.end(), horizon.state.begin(), horizon.state.end());
+                full_horizon_.time.insert(full_horizon_.time.end(), horizon.time.begin(), horizon.time.end());
+                cost_i+=cost_tmp;
+                Chi_ca_last = *chi_it;
             }
 
             //Simulation horizon to LineString and add to data message
             
             usv_msgs::ColavPath msg_path;
             usv_msgs::ColavPathElement path_element;
-            for(auto hor_it = horizon.state.begin(); hor_it!=horizon.state.end();hor_it++){
+            for(auto hor_it = full_horizon_.state.begin(); hor_it!=full_horizon_.state.end();hor_it++){
                 point_local(0) = hor_it->at(0);
                 point_local(1) = hor_it->at(1);
                 point_local(2) = 0;
@@ -220,10 +247,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             
 
             //Add candidate to candidate list
-            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,chi,horizon,cost_i)));
-            if((*p_it)==0){
-                break;
-            }
+            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i)));
 
         }
     }
@@ -319,7 +343,7 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
  * @param k ID of obstacle ship
  * @return double Cost of action candidate.
  */
-double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k)
+double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last)
 {
 	double dist, phi, psi_o, phi_o, psi_rel, R, C, k_coll, d_safe_i;
 	Eigen::Vector2d d, los, los_inv, v_o, v_s;
@@ -338,7 +362,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 
         t = usv_horizon.time[i];
         state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
-        obstacle_vessel.model_.simulateToTime(obstacle_state,t);
+        obstacle_vessel.model_.simulateToTime(obstacle_state,t_offset+t);
 
 		d(0) = obstacle_state[0] - usv_horizon.state[i][0];
 		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
@@ -432,7 +456,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 		}
 	}
 
-	H2 = K_P_*(1-P_ca) + K_CHI_*pow(Chi_ca,2) + Delta_P(P_ca) + Delta_Chi(Chi_ca);
+	H2 = K_P_*(1-P_ca) + K_CHI_*pow(Chi_ca,2) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last);
 	cost =  H1 + H2 + H3;
 
 	// Print H1 and H2 for P==X
@@ -456,9 +480,9 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
  * @param P_ca Speed multiplier correction candidate
  * @return double Cost of action candidate
  */
-double SimulationBasedMPC::Delta_P(double P_ca){
+double SimulationBasedMPC::Delta_P(double P_ca, double P_ca_last){
 
-	return K_DP_*std::abs(P_ca_last_ - P_ca);		// 0.5
+	return K_DP_*std::abs(P_ca_last - P_ca);		// 0.5
 }
 
 /**
@@ -469,8 +493,8 @@ double SimulationBasedMPC::Delta_P(double P_ca){
  * @param Chi_ca Yaw correction candidate
  * @return double Cost of action candidate
  */
-double SimulationBasedMPC::Delta_Chi(double Chi_ca){
-	double dChi = Chi_ca - Chi_ca_last_;
+double SimulationBasedMPC::Delta_Chi(double Chi_ca, double Chi_ca_last){
+	double dChi = Chi_ca - Chi_ca_last;
 	if (dChi > 0){
 		return K_DCHI_P_*pow(dChi,2); 		// 0.006 0.45
 	}else if (dChi < 0){

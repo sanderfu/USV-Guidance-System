@@ -92,7 +92,7 @@ class LOS:
             return
 
         #Check if should switch waypoint
-        if abs(Geodesic.WGS84.Inverse(self.pose.position.y,self.pose.position.x,self.current_waypoint.position.y,self.current_waypoint.position.x)["s12"])<10:
+        if abs(Geodesic.WGS84.Inverse(self.pose.position.y,self.pose.position.x,self.current_waypoint.position.y,self.current_waypoint.position.x)["s12"])<20:
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()

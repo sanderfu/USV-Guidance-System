@@ -9,7 +9,7 @@ mission_name_(mission_name){
     bool parameter_load_error = false;
     if(!ros::param::get("a_star/mission_data/save_search_data",save_search_data_)) parameter_load_error = true;
     if(parameter_load_error){
-        ROS_ERROR_STREAM("Failed to load a parameter");
+        ROS_ERROR_STREAM("[ASTAR] Failed to load a parameter");
         ros::shutdown();
     }
 }
@@ -345,6 +345,15 @@ void AStar::dumpSearchBenchmark(){
     benchmark_file_time<<"reconstruct_lookup"<<","<<reconstruct_lookup_times_.size()<<","<<std::accumulate(reconstruct_lookup_times_.begin(),reconstruct_lookup_times_.end(),0.0)<<"\n";
     benchmark_file_time<<"reconstruct_full"<<","<<reconstruct_full_times_.size()<<","<<std::accumulate(reconstruct_full_times_.begin(),reconstruct_full_times_.end(),0.0)<<"\n";
     benchmark_file_time<<"save_data_contianers"<<","<<save_data_contianer_times_.size()<<","<<std::accumulate(save_data_contianer_times_.begin(),save_data_contianer_times_.end(),0.0)<<"\n";
+
+    double spline_distance = 0;
+    double total_distance = 0;
+    for (int i=0; i!=path_.size()-1; i++){
+        geod_.Inverse(path_[i]->state.y(),path_[i]->state.x(),path_[i+1]->state.y(),path_[i+1]->state.x(),spline_distance);
+        total_distance+=spline_distance;
+    }
+    ROS_INFO_STREAM("Total distance to travel: " << total_distance << " m" );
+    benchmark_file_misc<<"total_distance"<<","<<total_distance<<"\n";
 
     //Benchmark containers
     int id = 0;

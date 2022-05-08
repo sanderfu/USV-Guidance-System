@@ -46,6 +46,11 @@ cs_add_executable(mission_planner_client_node
 )
 target_link_libraries(mission_planner_client_node ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
 
+cs_add_executable(test_astar
+  src/test_astar.cpp
+)
+target_link_libraries(test_astar ${PROJECT_NAME} ${GeographicLib_LIBRARIES} ${gdal_LIBRARIES})
+
 
 ##########
 # EXPORT #

@@ -132,6 +132,29 @@ void Quadtree::save(const std::string& mission_region){
     ROS_INFO_STREAM("Quadtree saved succesfully");
 }
 
+void Quadtree::saveForVisualization(const std::string& quadtree_name){
+    std::string path = ros::package::getPath("usv_map");
+    path.append("/data/mission_regions/"+mission_region_+"/");
+    //Save graph
+
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directory(path);
+    }
+
+    //Save for post-mission visualization
+    std::string viz_path = path+quadtree_name+".csv";
+    std::ofstream viz_path_file(viz_path);
+    viz_path_file << "u_lon,u_lat,v_lon,v_lat,edge_cost\n";
+    for(auto edge_it = gm_->edge_map_.begin(); edge_it!=gm_->edge_map_.end();edge_it++){
+        Vertex* u = gm_->getVertex((*edge_it).first);
+        for (auto vertex_it=(*edge_it).second.begin(); vertex_it!=(*edge_it).second.end(); vertex_it++){
+            Vertex* v = gm_->getVertex((*vertex_it).first);
+            viz_path_file << u->state.x() << "," << u->state.y() << "," << v->state.x() << "," << v->state.y() << "," << (*vertex_it).second <<"\n";
+        }
+    }
+    viz_path_file.close();
+}
+
 /**
  * @brief Load a saved quadtree.
  * 

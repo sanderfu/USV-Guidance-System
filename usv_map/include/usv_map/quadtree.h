@@ -49,6 +49,7 @@ class Quadtree{
         GraphManager* getGraphManager();
 
         void save(const std::string& mission_region);
+        void saveForVisualization(const std::string& quadtree_name);
         void load(const std::string& Mission_region);
         void dumpBenchmark();
 

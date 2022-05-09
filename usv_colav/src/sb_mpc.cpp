@@ -181,6 +181,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
         for(auto chi_seq_it = Chi_ca_sequences_.begin(); chi_seq_it!=Chi_ca_sequences_.end();chi_seq_it++){
             double cost_i = 0.0;
+            candidate_violating_colreg_ = false;
             //Simulate vessel
             state_type state_copy = state;
 
@@ -219,6 +220,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                     cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it,P_ca_last_) + Delta_Chi(*chi_it,Chi_ca_last);
                 }
 
+                if(candidate_violating_colreg_) ROS_WARN_STREAM("Candidate violating colreg with correction: " << *chi_it * RAD2DEG); 
+
                 full_horizon_.state.insert(full_horizon_.state.end(), horizon.state.begin(), horizon.state.end());
                 full_horizon_.time.insert(full_horizon_.time.end(), horizon.time.begin(), horizon.time.end());
                 cost_i+=cost_tmp;
@@ -244,7 +247,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             
 
             //Add candidate to candidate list
-            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i)));
+            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i,candidate_violating_colreg_)));
 
         }
     }
@@ -266,6 +269,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             u_corr_best = (*it).second.p_cand_;
             psi_corr_best = (*it).second.chi_cand_; 
             choosen_path = path;
+
+            ROS_WARN_STREAM_COND((*it).second.colreg_violation_,"Choosen candidate violates colregs");
 
             //Update colav message
             colav_msg_.path = msg_path;
@@ -343,7 +348,7 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
 double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last)
 {
 	double dist, phi, psi_o, phi_o, psi_rel, R, C, k_coll, d_safe_i;
-	Eigen::Vector2d d, los, los_inv, v_o, v_s;
+	Eigen::Vector2d d, los, los_inv, v_o, v_s, delta_p_obs;
 	bool mu, OT, SB, HO, CR;
 	double combined_radius = usv_.getL() + obstacle_vessels_[k]->model_.getL();
 	double d_safe = D_SAFE_;
@@ -352,14 +357,23 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 	double H2 = 0;
     double H3 = 0;
 	double cost = 0;
-	double t0 = 0;
+	double t0 = t_offset;
     double t = 0;
+    double t_prev = 0;
+    state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
 
 	for (int i = 0; i < usv_horizon.steps; i++){
 
         t = usv_horizon.time[i];
-        state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
-        obstacle_vessel.model_.simulateToTime(obstacle_state,t_offset+t);
+        delta_p_obs(0)=(t-t_prev)*obstacle_state[3];
+        delta_p_obs(1)=(t-t_prev)*obstacle_state[4];
+        rot2d(obstacle_state[2],delta_p_obs);
+        obstacle_state[0] += delta_p_obs.x();
+        obstacle_state[1] += delta_p_obs.y();
+        t_prev = t;
+        
+        //state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
+        //obstacle_vessel.model_.simulateToTime(obstacle_state,t);
 
 		d(0) = obstacle_state[0] - usv_horizon.state[i][0];
 		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
@@ -376,8 +390,9 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 			rot2d(obstacle_state[2],v_o);
 
 			v_s(0) = usv_horizon.state[i][3];
-			v_s(1) = usv_horizon.state[i][3];
+			v_s(1) = usv_horizon.state[i][4];
 			rot2d(usv_horizon.state[i][2],v_s);
+        
 
 			psi_o = obstacle_state[2];
 			while(psi_o <= -M_PI) phi += 2*M_PI;
@@ -427,10 +442,8 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 				C = k_coll*pow((v_s-v_o).norm(),2);
 			}
 
-
-
 			// Overtaken by obstacle
-			OT = v_s.dot(v_o) > cos(PHI_OT_*DEG2RAD)*v_s.norm()*v_o.norm()
+			OT = v_s.dot(v_o) < cos(PHI_OT_*DEG2RAD)*v_s.norm()*v_o.norm()
 					&& v_s.norm() < v_o.norm();
 			// Obstacle on starboard side
 			SB = phi < 0;
@@ -439,18 +452,21 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 					&& v_s.dot(v_o) < -cos(PHI_HO_*DEG2RAD)*v_s.norm()*v_o.norm()
 					&& v_s.dot(los) > cos(PHI_AH_*DEG2RAD)*v_s.norm();
 			// Crossing situation
-			CR = (v_s.dot(v_o) < cos(PHI_CR_*DEG2RAD)*v_s.norm()*v_o.norm() // changed
-					&& (SB && psi_rel > 0 ));
+			CR = (v_s.dot(v_o) > cos(PHI_CR_*DEG2RAD)*v_s.norm()*v_o.norm()) && (SB && psi_rel > 0 );
 
-			mu = ( SB && HO ) || ( CR && !OT);
+			mu = ( SB && HO ) || ( SB && CR && !OT);
+            if(mu){
+                candidate_violating_colreg_=true;
+            }
 
 		}
 
 		H0 = C*R + KAPPA_*mu;
-
-		if (H0 > H1){
+        H1+=H0;
+		/*if (H0 > H1){
 			H1 = H0;  // Maximizing the cost with regards to time
 		}
+        */
 	}
 
 	H2 = K_P_*(1-P_ca) + K_CHI_*pow(Chi_ca,2) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last);

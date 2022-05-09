@@ -1,5 +1,4 @@
 <launch>
-
   <!--Map specific parameters-->
   <arg name="preprocessed_map" default="true" />
   <arg name="map_name" default="outside_ny_max_300" />
@@ -9,28 +8,28 @@
   <arg name="usv_id" default="0" />
   <arg name="usv_desired_speed" default="5" />
   <arg name="usv_predefined_mission" default="true" />
-  <arg name="usv_predefined_mission_name" default="usv_crossing_right" />
+  <arg name="usv_predefined_mission_name" default="usv_headon" />
   <arg name="usv_goal_pose" default="[0,0,0]" />
-  <arg name="usv_initial_pose" default="[-73.841077,40.509986,1.57]" />
+  <arg name="usv_initial_pose" default="[-73.875040779,40.553142487,0]" />
 
   <!--Mission specific parameters OBSTACLE1-->
   <arg name="obstacle1_id" default="1" />
   <arg name="obstacle1_desired_speed" default="5" />
   <arg name="obstacle1_predefined_mission" default="true" />
-  <arg name="obstacle1_predefined_mission_name" default="obstacle1_crossing_right_2x" />
+  <arg name="obstacle1_predefined_mission_name" default="obstacle1_headon_2x" />
   <arg name="obstacle1_goal_pose" default="[0,0,0]" />
-  <arg name="obstacle1_initial_pose" default="[-73.835616,40.514675,-3.14]" />
+  <arg name="obstacle1_initial_pose" default="[-73.858437202,40.558856560,-3.14]" />
 
   <!--Mission specific parameters OBSTACLE2-->
   <arg name="obstacle2_id" default="2" />
   <arg name="obstacle2_desired_speed" default="5" />
   <arg name="obstacle2_predefined_mission" default="true" />
-  <arg name="obstacle2_predefined_mission_name" default="obstacle2_crossing_right_2x" />
+  <arg name="obstacle2_predefined_mission_name" default="obstacle2_headon_2x" />
   <arg name="obstacle2_goal_pose" default="[0,0,0]" />
-  <arg name="obstacle2_initial_pose" default="[-73.834616,40.516675,-3.14]" />
+  <arg name="obstacle2_initial_pose" default="[-73.858437202,40.556856560,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_crossing_right_2x_"/>
+  <arg name="simulation_collection_name" default="colav_headon_2x"/>
   <arg name="simulations" default="10"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
@@ -82,6 +81,7 @@
       <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
       <include file="$(find usv_colav)/launch/colav.launch"/>
       
+      
       <node pkg="rviz"
         type="rviz"
         name="rviz"
@@ -91,10 +91,9 @@
             name="land"
             type="sim_land_node"
             respawn="false"
-            >
+            output="screen">
       </node>
 
-      <param name="robot_description" textfile="$(arg vessel_model_file)" />
       <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/leader.yaml" />
       <node pkg="usv_simulator"
             name="monte_carlo_supervisor"
@@ -113,6 +112,7 @@
 
       <include file="$(find usv_realtime_recorder)/launch/recorder.launch"/>
   </group>
+
 
   <group ns="$(arg obstacle1_name)">
       <param name="id" type="int" value = "$(arg obstacle1_id)"/>
@@ -253,6 +253,9 @@
             output="screen">
       </node>
   </group>
+  
+  
+  
   
 
 

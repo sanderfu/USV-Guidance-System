@@ -31,11 +31,12 @@ struct obstacleVessel{
 };
 
 struct controlCandidate{
-    controlCandidate(double p_cand, double chi_cand, ModelLibrary::simulatedHorizon horizon,double cost):p_cand_(p_cand),chi_cand_(chi_cand),horizon_(horizon),cost_(cost){};
+    controlCandidate(double p_cand, double chi_cand, ModelLibrary::simulatedHorizon horizon,double cost,bool colreg_violation):p_cand_(p_cand),chi_cand_(chi_cand),horizon_(horizon),cost_(cost),colreg_violation_(colreg_violation){};
     double p_cand_;
     double chi_cand_;
     ModelLibrary::simulatedHorizon horizon_;
     double cost_;
+    bool colreg_violation_;
 };
 
 class SimulationBasedMPC{
@@ -112,4 +113,7 @@ class SimulationBasedMPC{
         usv_msgs::Colav colav_msg_;
         void visualizePath(OGRLineString& path);
         void clearVisualPath();
+
+        bool candidate_violating_colreg_;
+        bool choosen_violating_colreg_;
 };

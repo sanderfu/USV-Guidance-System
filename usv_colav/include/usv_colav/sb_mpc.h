@@ -31,11 +31,12 @@ struct obstacleVessel{
 };
 
 struct controlCandidate{
-    controlCandidate(double p_cand, double chi_cand, ModelLibrary::simulatedHorizon horizon,double cost):p_cand_(p_cand),chi_cand_(chi_cand),horizon_(horizon),cost_(cost){};
+    controlCandidate(double p_cand, double chi_cand, ModelLibrary::simulatedHorizon horizon,double cost,bool colreg_violation):p_cand_(p_cand),chi_cand_(chi_cand),horizon_(horizon),cost_(cost),colreg_violation_(colreg_violation){};
     double p_cand_;
     double chi_cand_;
     ModelLibrary::simulatedHorizon horizon_;
     double cost_;
+    bool colreg_violation_;
 };
 
 class SimulationBasedMPC{
@@ -66,12 +67,16 @@ class SimulationBasedMPC{
         void reinitCb(const usv_msgs::reinit& msg);
 
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
-        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k);
-        double Delta_P(double P_ca);
-        double Delta_Chi(double Chi_ca);
+        double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last);
+        double Delta_P(double P_ca, double P_ca_last);
+        double Delta_Chi(double Chi_ca, double Chi_ca_last);
 
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
+
+        //WIP Control action pairs
+        std::vector<std::vector<double>> Chi_ca_sequences_;
+
         std::map<int,obstacleVessel*> obstacle_vessels_;
 
         std::map<double,controlCandidate> control_candidate_map;
@@ -80,21 +85,26 @@ class SimulationBasedMPC{
 		double P_ca_last_;
 
         // Cost function weights;
-		const double P_;
-		const double Q_;
-		const double D_CLOSE_;
-		const double D_SAFE_;
-		const double K_COLL_;
-		const double PHI_AH_;
-		const double PHI_OT_;
-		const double PHI_HO_;
-		const double PHI_CR_;
-		const double KAPPA_;
-		const double K_P_;
-		const double K_CHI_;
-		const double K_DP_;
-		const double K_DCHI_SB_;
-		const double K_DCHI_P_;
+		double P_;
+		double Q_;
+		double D_CLOSE_;
+		double D_SAFE_;
+		double K_COLL_;
+		double PHI_AH_;
+		double PHI_OT_;
+		double PHI_HO_;
+		double PHI_CR_;
+		double KAPPA_;
+		double K_P_;
+		double K_CHI_;
+		double K_DP_;
+		double K_DCHI_SB_;
+		double K_DCHI_P_;
+
+        int ownship_id_;
+        double update_frequency_;
+        double prediction_time_;
+        bool verbose_;
 
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;
@@ -103,4 +113,7 @@ class SimulationBasedMPC{
         usv_msgs::Colav colav_msg_;
         void visualizePath(OGRLineString& path);
         void clearVisualPath();
+
+        bool candidate_violating_colreg_;
+        bool choosen_violating_colreg_;
 };

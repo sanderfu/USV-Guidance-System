@@ -55,15 +55,17 @@ void MapPreprocessor::debug(std::string mission_region_name, extractorRegion& re
     std::string mission_path =  ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region_name;
     if(extract_enc){
         std::cout << "PreProcessor: Extract ENC" << std::endl;
+        ros::Time start = ros::Time::now();
         ds = extractENC(mission_region_name,region);
+        std::cout << "Preprocessing ENC took " << ros::Duration(ros::Time::now()-start).toSec() << " [s]" << std::endl;
     } else{
         std::string db_path = mission_path+"/region.sqlite";
-        ds = (GDALDataset*) GDALOpenEx(db_path.c_str(),GDAL_OF_VECTOR,NULL,NULL,NULL);
+        ds = (GDALDataset*) GDALOpenEx(db_path.c_str(),GDAL_OF_VECTOR | GDAL_OF_UPDATE,NULL,NULL,NULL);
     }
-    if(build_quadtree){
-        std::cout << "PreProcessor: Build Quadtree" << std::endl;
-        buildQuadtree(mission_region_name,region,ds);
-    }
+    
+    std::cout << "PreProcessor: Build Quadtree" << std::endl;
+    buildQuadtree(mission_region_name,region,ds,build_quadtree);
+
     if(build_voronoi){
         std::cout << "PreProcessor: Generate Voronoi" << std::endl;
         generateVoronoi(region,ds);
@@ -83,11 +85,11 @@ GDALDataset* MapPreprocessor::extractENC(std::string mission_region_name,extract
     return ds;
 }
 
-void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds){
+void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds,bool build){
     MapService map_service(ds);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,&map_service,true);
+    Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,&map_service,build);
 }
 
 void MapPreprocessor::generateVoronoi(extractorRegion& region, GDALDataset* ds){

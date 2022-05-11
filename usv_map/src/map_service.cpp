@@ -121,19 +121,41 @@ bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
         //This is commonly when most all path elements are the same value due to no velocity and no desired velocity in sim.
         return false;
     }
-    layer->ResetReading();
+
     OGRFeature* feat;
-    while(( feat = layer->GetNextFeature())!=NULL){
-        OGRGeometry* geom = feat->GetGeometryRef();
-        if(input_geom->Intersects(geom)){
+    double total_area = 0;
+
+    std::vector<OGRGeometry*> geometries_to_check;
+    std::vector<OGRFeature*> related_features;
+
+    OGREnvelope input_env;
+    input_geom->getEnvelope(&input_env);
+    OGREnvelope check_env;
+
+    layer->ResetReading();
+    while((feat = layer->GetNextFeature()) != NULL){
+        feat->GetGeometryRef()->getEnvelope(&check_env);
+        if(check_env.Intersects(input_env)){
+            geometries_to_check.push_back(feat->GetGeometryRef()); 
+            related_features.push_back(feat);
+        } else{
             OGRFeature::DestroyFeature(feat);
-            return true;
         }
-        OGRFeature::DestroyFeature(feat);
     }
+    bool intersection=false;
+    #pragma omp parallel for reduction(+:total_area)
+        for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){
+            if(intersection){
+                OGRFeature::DestroyFeature(related_features[geom_it-geometries_to_check.begin()]);
+                continue;
+            }
+            if(input_geom->Intersects(*geom_it)){
+                intersection=true;
+            }
+            OGRFeature::DestroyFeature(related_features[geom_it-geometries_to_check.begin()]);  
+        }
     
-    OGRFeature::DestroyFeature(feat);
-    return false;
+    return intersection;
 }
 
 double MapService::distance(double lon,double lat,LayerID layer_id,double max_distance){

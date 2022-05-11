@@ -21,6 +21,6 @@ class MapPreprocessor{
         double vessel_draft_;
 
         GDALDataset* extractENC(std::string mission_region_name, extractorRegion& region);
-        void buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds);
+        void buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds, bool build);
         void generateVoronoi(extractorRegion& region, GDALDataset* ds);
 };

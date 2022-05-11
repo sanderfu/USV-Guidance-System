@@ -31,31 +31,30 @@ install(TARGETS region
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
+cs_add_library(map_service src/map_service.cpp)
+target_compile_options(map_service PRIVATE ${OpenMP_FLAGS})
+add_dependencies(map_service ${catkin_EXPORTED_TARGETS})
+target_link_libraries(map_service ${catkin_LIBRARIES} ${OpenMP_LIBS} ${gdal_LIBRARIES} ${GeographicLib_LIBRARIES})
+install(TARGETS map_service
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 
 cs_add_library(${PROJECT_NAME}
   src/quadtree.cpp
   src/skeleton_generator.cpp
   src/jc_voronoi.cpp
   src/geotf_server.cpp
-  src/map_service.cpp
   src/map_preprocessor.cpp
   src/geotf_sync.cpp
 )
-target_link_libraries(${PROJECT_NAME} region ${GeographicLib_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} region map_service ${GeographicLib_LIBRARIES})
 
 ############
 # BINARIES #
 ############
-
-#cs_add_executable(dynamic_planner_node
-#  src/dynamic_planner_node.cpp
-#)
-#target_link_libraries(dynamic_planner_node ${PROJECT_NAME} graph_builder)
-
-#cs_add_executable(sim_land_node
-#  src/sim_land_node.cpp
-#)
-#target_link_libraries(sim_land_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
 cs_add_executable(geotf_server_node
   src/geotf_server_node.cpp

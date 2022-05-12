@@ -49,28 +49,44 @@ void VoronoiSkeletonGenerator::buildSkeleton(jcv_diagram& diagram){
     boost::unordered_map<std::pair<int,int>,std::vector<int64_t>> point_map;
 
     //Register candidate edges from GVD. Edges colliding with geometry or outside region are not considered candiates.
+    std::cout << "Register candidate edges" << std::endl;
     registerCandidateEdges(diagram, edge_map, point_map);
 
     //Identify prune candidates and remove them. This is the main algorithm in the skeleton generator.
+    std::cout << "pruneEdges" << std::endl;
     pruneEdges(edge_map,point_map);
 
     //From point map identify all remaining unique edges
+    std::cout << "identifyUniqueEdges" << std::endl;
     std::set<const jcv_edge*> unique_remaining_edges;
     identifyUniqueEdges(unique_remaining_edges,edge_map,point_map);
 
     //Add unique edges to dataset voronoi layer.
+    std::cout << "addEdgesToDataset" << std::endl;
     addEdgesToDataset(unique_remaining_edges);
     build_skeleton_time_ = ros::Duration(ros::Time::now()-start).toSec();
 }
 
 void VoronoiSkeletonGenerator::registerCandidateEdges(jcv_diagram& diagram, std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
     ros::Time start = ros::Time::now();
+
+    const jcv_edge* edges_for_counting = jcv_diagram_get_edges(&diagram);
+    int counter = 0;
+    while(edges_for_counting){
+        counter++;
+        edges_for_counting = jcv_diagram_get_next_edge(edges_for_counting);
+    }
+    std::cout << "Total amount of edges: " << counter << std::endl;
+
     const jcv_edge* edges = jcv_diagram_get_edges(&diagram);
     int edge_id = 0;
     std::pair<double,double> tmp_point_pair;
-
+    diagram_edges_count_=0;
     while(edges){
         diagram_edges_count_++;
+        if(diagram_edges_count_%1000==0){
+            std::cout << "Processed edges: " << diagram_edges_count_ << std::endl;
+        }
         //First check if edge outside region, if so discard edge 
         if(!pointInRegion(edges->pos[0].x,edges->pos[0].y)||!pointInRegion(edges->pos[1].x,edges->pos[1].y)){
             edges = jcv_diagram_get_next_edge(edges);
@@ -102,6 +118,7 @@ void VoronoiSkeletonGenerator::registerCandidateEdges(jcv_diagram& diagram, std:
 void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
     ros::Time start = ros::Time::now();
     std::pair<double,double> tmp_point_pair;
+    std::map<std::pair<double,double>,double> distance_map;
     while(true){
         std::vector<const jcv_edge*> prune_candidates;
         for (auto point_map_it = point_map.begin(); point_map_it!=point_map.end(); point_map_it++){
@@ -116,9 +133,23 @@ void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*
             double edge_length;
             geod_->Inverse((*prune_candidate_it)->pos[0].y,(*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[1].y,(*prune_candidate_it)->pos[1].x,edge_length);
             edge_length=abs(edge_length);
-
-            double d0=map_service_->distance((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y,LayerID::COLLISION,INFINITY);
-            double d1=map_service_->distance((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y,LayerID::COLLISION,INFINITY);
+            
+            double d0=0;
+            double d1=0;
+            auto d0_map_it = distance_map.find(std::make_pair((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y));
+            auto d1_map_it = distance_map.find(std::make_pair((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y));
+            if(d0_map_it==distance_map.end()){
+                d0=map_service_->distance((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y,LayerID::COLLISION,INFINITY);
+                distance_map.insert(std::make_pair(std::make_pair((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y),d0));
+            } else{
+                d0 = (*d0_map_it).second;
+            }
+            if(d1_map_it==distance_map.end()){
+                d1=map_service_->distance((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y,LayerID::COLLISION,INFINITY);
+                distance_map.insert(std::make_pair(std::make_pair((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y),d1));
+            } else{
+                d1 = (*d1_map_it).second;
+            }
             double diff = abs(abs(d1)-abs(d0))*1e5;
             
             

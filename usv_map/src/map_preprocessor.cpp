@@ -38,7 +38,7 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
 
     //Build voronoi skeleton
     GeographicLib::Geodesic geod(GeographicLib::Geodesic::WGS84());
-    VoronoiSkeletonGenerator vs_gen("collision_dissolved",lower_left_,upper_right_,db,&tree,&map_service,&geod);
+    VoronoiSkeletonGenerator vs_gen("collision_dissolved",lower_left_,upper_right_,db,mission_region_name,&tree,&map_service,&geod);
     vs_gen.run();
 }
 
@@ -68,7 +68,7 @@ void MapPreprocessor::debug(std::string mission_region_name, extractorRegion& re
 
     if(build_voronoi){
         std::cout << "PreProcessor: Generate Voronoi" << std::endl;
-        generateVoronoi(region,ds);
+        generateVoronoi(mission_region_name,region,ds);
     }
 }
 
@@ -92,11 +92,11 @@ void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRe
     Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,&map_service,build);
 }
 
-void MapPreprocessor::generateVoronoi(extractorRegion& region, GDALDataset* ds){
+void MapPreprocessor::generateVoronoi(std::string mission_region_name,extractorRegion& region, GDALDataset* ds){
     MapService map_service(ds);
     GeographicLib::Geodesic geod(GeographicLib::Geodesic::WGS84());
     OGRPoint lower_left(region.min_lon_,region.min_lat_);
     OGRPoint upper_right(region.max_lon_,region.max_lat_);
-    VoronoiSkeletonGenerator vs_gen("collision_dissolved",lower_left,upper_right,ds,nullptr,&map_service,&geod);
+    VoronoiSkeletonGenerator vs_gen("collision_dissolved",lower_left,upper_right,ds,mission_region_name,nullptr,&map_service,&geod);
     vs_gen.run();
 }

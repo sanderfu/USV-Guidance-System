@@ -20,4 +20,12 @@ cmake ..
 make
 make install
 
+#Visualization dependenices
+sudo apt install python3.8-tk
+pip install pandas
+pip install tqdm
+pip install GDAL==3.0.4
+pip install descartes
+pip install shapely
+
 #Install GDAL/OGR

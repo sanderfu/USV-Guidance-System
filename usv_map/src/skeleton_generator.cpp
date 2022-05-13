@@ -1,7 +1,8 @@
 #include "usv_map/skeleton_generator.h"
 
-VoronoiSkeletonGenerator::VoronoiSkeletonGenerator(std::string layername, OGRPoint& lower_left, OGRPoint& upper_right, GDALDataset* ds, Quadtree* tree, MapService* map_service, GeographicLib::Geodesic* geod):
+VoronoiSkeletonGenerator::VoronoiSkeletonGenerator(std::string layername, OGRPoint& lower_left, OGRPoint& upper_right, GDALDataset* ds, std::string mission_region, Quadtree* tree, MapService* map_service, GeographicLib::Geodesic* geod):
 ds_(ds),
+mission_region_(mission_region),
 tree_(tree),
 map_service_(map_service),
 geod_(geod),
@@ -49,28 +50,44 @@ void VoronoiSkeletonGenerator::buildSkeleton(jcv_diagram& diagram){
     boost::unordered_map<std::pair<int,int>,std::vector<int64_t>> point_map;
 
     //Register candidate edges from GVD. Edges colliding with geometry or outside region are not considered candiates.
+    std::cout << "Register candidate edges" << std::endl;
     registerCandidateEdges(diagram, edge_map, point_map);
 
     //Identify prune candidates and remove them. This is the main algorithm in the skeleton generator.
+    std::cout << "pruneEdges" << std::endl;
     pruneEdges(edge_map,point_map);
 
     //From point map identify all remaining unique edges
+    std::cout << "identifyUniqueEdges" << std::endl;
     std::set<const jcv_edge*> unique_remaining_edges;
     identifyUniqueEdges(unique_remaining_edges,edge_map,point_map);
 
     //Add unique edges to dataset voronoi layer.
+    std::cout << "addEdgesToDataset" << std::endl;
     addEdgesToDataset(unique_remaining_edges);
-    build_skeleton_time_ = ros::Duration(ros::Time::now()-start).toSec();
+    benchmark_data_.build_time = ros::Duration(ros::Time::now()-start).toSec();
 }
 
 void VoronoiSkeletonGenerator::registerCandidateEdges(jcv_diagram& diagram, std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
-    ros::Time start = ros::Time::now();
+    const jcv_edge* edges_for_counting = jcv_diagram_get_edges(&diagram);
+    int counter = 0;
+    while(edges_for_counting){
+        counter++;
+        edges_for_counting = jcv_diagram_get_next_edge(edges_for_counting);
+    }
+    benchmark_data_.original_edges = counter;
+
     const jcv_edge* edges = jcv_diagram_get_edges(&diagram);
     int edge_id = 0;
     std::pair<double,double> tmp_point_pair;
-
+    diagram_edges_count_=0;
+    ros::Time start;
     while(edges){
+        start = ros::Time::now();
         diagram_edges_count_++;
+        if(diagram_edges_count_%1000==0){
+            std::cout << "Processed edges: " << diagram_edges_count_ << std::endl;
+        }
         //First check if edge outside region, if so discard edge 
         if(!pointInRegion(edges->pos[0].x,edges->pos[0].y)||!pointInRegion(edges->pos[1].x,edges->pos[1].y)){
             edges = jcv_diagram_get_next_edge(edges);
@@ -95,30 +112,53 @@ void VoronoiSkeletonGenerator::registerCandidateEdges(jcv_diagram& diagram, std:
         point_map[tmp_point_pair].push_back(id);
 
         edges = jcv_diagram_get_next_edge(edges);
+        benchmark_data_.candidateEvaluation_time.push_back(ros::Duration(ros::Time::now()-start).toSec());
     }
-    register_candidate_edges_time_ = ros::Duration(ros::Time::now()-start).toSec();
+
+    benchmark_data_.candidate_edges = edge_map.size();
 }
 
 void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
-    ros::Time start = ros::Time::now();
+    ros::Time start;
+    ros::Time start_sub;
     std::pair<double,double> tmp_point_pair;
+    std::map<std::pair<double,double>,double> distance_map;
+
+    int iteration_count=0;
     while(true){
+        start = ros::Time::now();
         std::vector<const jcv_edge*> prune_candidates;
         for (auto point_map_it = point_map.begin(); point_map_it!=point_map.end(); point_map_it++){
             if (point_map_it->second.size()==1){
                 prune_candidates.push_back(edge_map[point_map_it->second.at(0)]);
             }
         }
-        //std::cout << "Prune candidates: " << prune_candidates.size() << std::endl;
         int pruned = 0;
         for(auto prune_candidate_it=prune_candidates.begin(); prune_candidate_it!=prune_candidates.end(); prune_candidate_it++ ){
+            start_sub = ros::Time::now();
             //Try to prune branches that are approximately normal to land
             double edge_length;
             geod_->Inverse((*prune_candidate_it)->pos[0].y,(*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[1].y,(*prune_candidate_it)->pos[1].x,edge_length);
             edge_length=abs(edge_length);
-
-            double d0=map_service_->distance((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y,LayerID::COLLISION,INFINITY);
-            double d1=map_service_->distance((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y,LayerID::COLLISION,INFINITY);
+            
+            double d0=0;
+            double d1=0;
+            auto d0_map_it = distance_map.find(std::make_pair((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y));
+            auto d1_map_it = distance_map.find(std::make_pair((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y));
+            if(d0_map_it==distance_map.end()){
+                //ROS_WARN_COND(iteration_count!=0, "Should not be here, should use distance map");
+                d0=map_service_->distance((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y,LayerID::COLLISION,INFINITY);
+                distance_map.insert(std::make_pair(std::make_pair((*prune_candidate_it)->pos[0].x,(*prune_candidate_it)->pos[0].y),d0));
+            } else{
+                d0 = (*d0_map_it).second;
+            }
+            if(d1_map_it==distance_map.end()){
+                //ROS_WARN_COND(iteration_count!=0, "Should not be here, should use distance map");
+                d1=map_service_->distance((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y,LayerID::COLLISION,INFINITY);
+                distance_map.insert(std::make_pair(std::make_pair((*prune_candidate_it)->pos[1].x,(*prune_candidate_it)->pos[1].y),d1));
+            } else{
+                d1 = (*d1_map_it).second;
+            }
             double diff = abs(abs(d1)-abs(d0))*1e5;
             
             
@@ -141,9 +181,11 @@ void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*
                     }
                 }
             }
+            benchmark_data_.pruneEdgeEvaluation_time.push_back(ros::Duration(ros::Time::now()-start_sub).toSec());
         }
         //std::cout << "Pruned: " << pruned << std::endl;
         pruned_edges_count_+=pruned;
+        benchmark_data_.pruneIteration_time.push_back(ros::Duration(ros::Time::now()-start).toSec());
         if (pruned==0){
             break;
         }
@@ -151,8 +193,9 @@ void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*
         if(!ros::ok()){
             exit(1);
         }
+        iteration_count++;
     }
-    prune_edges_time_ = ros::Duration(ros::Time::now()-start).toSec();
+    benchmark_data_.skeleton_edges = pruned_edges_count_;
 }
 
 void VoronoiSkeletonGenerator::identifyUniqueEdges(std::set<const jcv_edge*>& unique_remaining_edges,std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
@@ -236,20 +279,31 @@ double VoronoiSkeletonGenerator::smallestDistanceMeasured(boost::unordered_map<s
 }
 
 void VoronoiSkeletonGenerator::dumpDebug(){
+    std::string path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region_+"/benchmark/voronoiSkeleton/";
+    if(!boost::filesystem::exists(path)){
+        boost::filesystem::create_directories(path);
+    }
+
+    std::ofstream benchmark_file_time(path+"benchmark_time.csv");
+    std::ofstream benchmark_file_misc(path+"benchmark_misc.csv");
+    benchmark_file_time<<"name,times_run,total_time\n";
+    benchmark_file_misc<<"name,value\n";
+
     ROS_INFO_STREAM("Voronoi skeleton time spent [s] debug data: ");
-    ROS_INFO_STREAM("Overall build: " << total_build_time_);
-    ROS_INFO_STREAM("-Build skeleton: " << build_skeleton_time_);
-    ROS_INFO_STREAM("--Register candidate edges: " << register_candidate_edges_time_);
-    ROS_INFO_STREAM("--Prune edges: " << prune_edges_time_);
-    ROS_INFO_STREAM("--Identify unique edges: " << identify_unique_edges_time_);
-    ROS_INFO_STREAM("--Add edges to dataset: " << add_edges_to_dataset_time_);
+    ROS_INFO_STREAM("Overall build: " << benchmark_data_.build_time);
+    benchmark_file_misc<<"original_edges"<<","<< benchmark_data_.original_edges << "\n";
+    benchmark_file_misc<<"candidate_edges"<<","<< benchmark_data_.candidate_edges << "\n";
+    benchmark_file_misc<<"skeleton_edges"<<","<<1<<","<<benchmark_data_.skeleton_edges<<"\n";
+    benchmark_file_time<<"candidate_evaluation"<<","<<benchmark_data_.candidateEvaluation_time.size()<<","<<std::accumulate(benchmark_data_.candidateEvaluation_time.begin(),benchmark_data_.candidateEvaluation_time.end(),0.0)<<"\n";
+    benchmark_file_time<<"prune_iteration"<<","<<benchmark_data_.pruneIteration_time.size()<<","<<std::accumulate(benchmark_data_.pruneIteration_time.begin(),benchmark_data_.pruneIteration_time.end(),0.0)<<"\n";
+    benchmark_file_time<<"pruneEdgeEvaluation_time"<<","<<benchmark_data_.pruneEdgeEvaluation_time.size()<<","<<std::accumulate(benchmark_data_.pruneEdgeEvaluation_time.begin(),benchmark_data_.pruneEdgeEvaluation_time.end(),0.0)<<"\n";
 
     ROS_INFO_STREAM("Checking for collision: " << collision_times_.size() << " times. Total time spent: " << std::accumulate(collision_times_.begin(),collision_times_.end(),0.0));
     ROS_INFO_STREAM("Checking for point in region: " << point_in_region_times_.size() << " times. Total time spent: " << std::accumulate(point_in_region_times_.begin(),point_in_region_times_.end(),0.0));
     ROS_INFO_STREAM("");
     ROS_INFO_STREAM("Misc. numbers: ");
     ROS_INFO_STREAM("Sites count: " << sites_count_);
-    ROS_INFO_STREAM("Original Voronoi diagram edges: " << diagram_edges_count_);
-    ROS_INFO_STREAM("Pruned edges count: " << pruned_edges_count_);
-    ROS_INFO_STREAM("Skeleton edges count: " << skeleton_edges_count_);
+    ROS_INFO_STREAM("Original Voronoi diagram edges: " << benchmark_data_.original_edges);
+    ROS_INFO_STREAM("Candidate edges count: " << benchmark_data_.candidate_edges);
+    ROS_INFO_STREAM("Skeleton edges count: " << benchmark_data_.skeleton_edges);
 }

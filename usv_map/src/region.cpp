@@ -190,16 +190,30 @@ double Region::getOccupiedArea(){
     std::vector<OGRGeometry*> geometries_to_check;
     std::vector<OGRFeature*> related_features;
 
+    OGREnvelope region_env;
+    region_polygon_->getEnvelope(&region_env);
+    OGREnvelope check_env;
+
     comparison_layer_->ResetReading();
     while((feat = comparison_layer_->GetNextFeature()) != NULL){
-        geometries_to_check.push_back(feat->GetGeometryRef()); 
-        related_features.push_back(feat);
+        feat->GetGeometryRef()->getEnvelope(&check_env);
+        if(check_env.Intersects(region_env)){
+            geometries_to_check.push_back(feat->GetGeometryRef()); 
+            related_features.push_back(feat);
+        } else{
+            OGRFeature::DestroyFeature(feat);
+        }
     }
 
     unknown_layer_->ResetReading();
     while((feat = unknown_layer_->GetNextFeature()) != NULL){
-        geometries_to_check.push_back(feat->GetGeometryRef()); 
-        related_features.push_back(feat);
+        feat->GetGeometryRef()->getEnvelope(&check_env);
+        if(check_env.Intersects(region_env)){
+            geometries_to_check.push_back(feat->GetGeometryRef()); 
+            related_features.push_back(feat);
+        } else{
+            OGRFeature::DestroyFeature(feat);
+        }
     }
 
     #pragma omp parallel for reduction(+:total_area)

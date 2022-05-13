@@ -439,6 +439,7 @@ void Quadtree::build(){
     std::queue<Region*> regions_to_evaluate;
     tree_root_ = new Region(lower_left_,upper_right_,0,generateRegionID(),0,childRegion::NW,ds_,map_service_);
     regions_to_evaluate.push(tree_root_);
+    int regions_added = 0;
     while(!regions_to_evaluate.empty()){
         Region* current_region = regions_to_evaluate.front();
         regions_to_evaluate.pop();
@@ -448,13 +449,15 @@ void Quadtree::build(){
 
         ros::Time start = ros::Time::now();
         double occupied_ratio = current_region->getOccupiedRatio();
+        //bool obstacle_free = current_region->obstacleFree();
         ros::Time end = ros::Time::now();
         benchmark_data_.getOccupiedArea_time.push_back(ros::Duration(end-start).toSec());
         
-        if (occupied_ratio==1.0){
-            //Region is definitely occupied, discard it
+        if(occupied_ratio==1){
             continue;
-        } else if(occupied_ratio==0 ){
+        }else if(occupied_ratio==0){
+            regions_added++;
+            std::cout << "Regions added" << regions_added << std::endl;
             //Area is free, add vertecies
             current_region->is_leaf_=true;
             std::unordered_map<regionEdge,std::vector<StateVec>> frame_points = getFramePoints(current_region);

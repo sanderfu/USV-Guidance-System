@@ -100,6 +100,7 @@ class SimulationBasedMPC{
 		double K_DP_;
 		double K_DCHI_SB_;
 		double K_DCHI_P_;
+        double K_CORR_;
 
         int ownship_id_;
         double update_frequency_;
@@ -114,6 +115,7 @@ class SimulationBasedMPC{
         void visualizePath(OGRLineString& path);
         void clearVisualPath();
 
-        bool candidate_violating_colreg_;
+        bool candidate_violating_colreg_14_;
+        bool candidate_violating_colreg_15_;
         bool choosen_violating_colreg_;
 };

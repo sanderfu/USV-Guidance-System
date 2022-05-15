@@ -23,6 +23,7 @@ geo_converter_("COLAV",false,true,nh)
     if(!ros::param::get("colav/cost_function/K_DP_",K_DP_)) parameter_load_error = true;
     if(!ros::param::get("colav/cost_function/K_DCHI_SB_",K_DCHI_SB_)) parameter_load_error = true;
     if(!ros::param::get("colav/cost_function/K_DCHI_P_",K_DCHI_P_)) parameter_load_error = true;
+    if(!ros::param::get("colav/cost_function/K_CORR_",K_CORR_)) parameter_load_error = true;
     if(!ros::param::get("colav/offsets/Chi_ca_",Chi_ca_)) parameter_load_error = true;
     if(!ros::param::get("colav/offsets/P_ca_",P_ca_)) parameter_load_error = true;
     if(!ros::param::get("colav/update_frequency",update_frequency_)) parameter_load_error = true;
@@ -181,7 +182,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
         for(auto chi_seq_it = Chi_ca_sequences_.begin(); chi_seq_it!=Chi_ca_sequences_.end();chi_seq_it++){
             double cost_i = 0.0;
-            candidate_violating_colreg_ = false;
+            candidate_violating_colreg_14_ = false;
+            candidate_violating_colreg_15_ = false;
             //Simulate vessel
             state_type state_copy = state;
 
@@ -220,7 +222,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                     cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it,P_ca_last_) + Delta_Chi(*chi_it,Chi_ca_last);
                 }
 
-                if(candidate_violating_colreg_) ROS_WARN_STREAM("Candidate violating colreg with correction: " << *chi_it * RAD2DEG); 
+                if(candidate_violating_colreg_14_) ROS_WARN_STREAM("Candidate violating colreg 14 with correction: " << *chi_it * RAD2DEG); 
+                if(candidate_violating_colreg_15_) ROS_WARN_STREAM("Candidate violating colreg 15 with correction: " << *chi_it * RAD2DEG); 
 
                 full_horizon_.state.insert(full_horizon_.state.end(), horizon.state.begin(), horizon.state.end());
                 full_horizon_.time.insert(full_horizon_.time.end(), horizon.time.begin(), horizon.time.end());
@@ -247,7 +250,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             
 
             //Add candidate to candidate list
-            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i,candidate_violating_colreg_)));
+            control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i,candidate_violating_colreg_14_)));
 
         }
     }
@@ -264,7 +267,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
             path.addPoint(point_global(0),point_global(1));
         }
-        if(!map_service_->intersects(&path,LayerID::COLLISION)){
+        if(!map_service_->intersects(&path,LayerID::COLLISION) || true){
             cost = (*it).second.cost_;
             u_corr_best = (*it).second.p_cand_;
             psi_corr_best = (*it).second.chi_cand_; 
@@ -379,30 +382,35 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
 		dist = d.norm();
 
+
 		R = 0;
 		C = 0;
 		mu = 0;
 
-		if (dist < D_CLOSE_){
+        if(Chi_ca*RAD2DEG==-15){
+            ROS_WARN_STREAM("USV:" << usv_horizon.state[200][2]*RAD2DEG);
+            ROS_WARN_STREAM("Obstacle:" << obstacle_state[2]*RAD2DEG);
+        }
 
+		if (dist < D_CLOSE_){
 			v_o(0) = obstacle_state[3];
 			v_o(1) = obstacle_state[4];
 			rot2d(obstacle_state[2],v_o);
 
 			v_s(0) = usv_horizon.state[i][3];
 			v_s(1) = usv_horizon.state[i][4];
-			rot2d(usv_horizon.state[i][2],v_s);
+			rot2d(usv_horizon.state[200][2],v_s);
         
 
 			psi_o = obstacle_state[2];
 			while(psi_o <= -M_PI) phi += 2*M_PI;
 			while (psi_o > M_PI) phi -= 2*M_PI;
 
-			phi = atan2(d(1),d(0)) - usv_horizon.state[i][2];
+			phi = atan2(d(1),d(0)) - usv_horizon.state[200][2];
 			while(phi <= -M_PI) phi += 2*M_PI;
 			while (phi > M_PI) phi -= 2*M_PI;
 
-			psi_rel = psi_o - usv_horizon.state[i][2];
+			psi_rel = psi_o - usv_horizon.state[200][2];
 			while(psi_rel < -M_PI) psi_rel += 2*M_PI;
 			while(psi_rel > M_PI) psi_rel -= 2*M_PI;
 
@@ -443,7 +451,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 			}
 
 			// Overtaken by obstacle
-			OT = v_s.dot(v_o) < cos(PHI_OT_*DEG2RAD)*v_s.norm()*v_o.norm()
+			OT = v_s.dot(v_o) > cos(PHI_OT_*DEG2RAD)*v_s.norm()*v_o.norm()
 					&& v_s.norm() < v_o.norm();
 			// Obstacle on starboard side
 			SB = phi < 0;
@@ -452,24 +460,27 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 					&& v_s.dot(v_o) < -cos(PHI_HO_*DEG2RAD)*v_s.norm()*v_o.norm()
 					&& v_s.dot(los) > cos(PHI_AH_*DEG2RAD)*v_s.norm();
 			// Crossing situation
-			CR = (v_s.dot(v_o) > cos(PHI_CR_*DEG2RAD)*v_s.norm()*v_o.norm()) && (SB && psi_rel > 0 );
+			CR = (v_s.dot(v_o) < cos(PHI_CR_*DEG2RAD)*v_s.norm()*v_o.norm()) && (SB && psi_rel > 0 );
 
 			mu = ( SB && HO ) || ( SB && CR && !OT);
             if(mu){
-                candidate_violating_colreg_=true;
+                candidate_violating_colreg_14_=( SB && HO );
+                candidate_violating_colreg_15_=( SB && CR && !OT);
             }
 
 		}
 
 		H0 = C*R + KAPPA_*mu;
-        H1+=H0;
-		/*if (H0 > H1){
+
+		if (H0 > H1){
 			H1 = H0;  // Maximizing the cost with regards to time
 		}
-        */
+        
+       //H1+=H0;
+        
 	}
-
-	H2 = K_P_*(1-P_ca) + K_CHI_*pow(Chi_ca,2) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last);
+    //H1 = H1/usv_horizon.steps;
+	H2 = K_P_*(1-P_ca) + K_CHI_*(pow(Chi_ca,2)) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last) + K_CORR_*(Chi_ca!=0);
 	cost =  H1 + H2 + H3;
 
 	// Print H1 and H2 for P==X

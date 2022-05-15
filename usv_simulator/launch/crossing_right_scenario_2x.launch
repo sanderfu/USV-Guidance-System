@@ -7,7 +7,7 @@
 
   <!--Mission specific parameters USV-->
   <arg name="usv_id" default="0" />
-  <arg name="usv_desired_speed" default="5" />
+  <arg name="usv_desired_speed" default="10" />
   <arg name="usv_predefined_mission" default="true" />
   <arg name="usv_predefined_mission_name" default="usv_crossing_right" />
   <arg name="usv_goal_pose" default="[0,0,0]" />
@@ -15,7 +15,7 @@
 
   <!--Mission specific parameters OBSTACLE1-->
   <arg name="obstacle1_id" default="1" />
-  <arg name="obstacle1_desired_speed" default="5" />
+  <arg name="obstacle1_desired_speed" default="10" />
   <arg name="obstacle1_predefined_mission" default="true" />
   <arg name="obstacle1_predefined_mission_name" default="obstacle1_crossing_right_2x" />
   <arg name="obstacle1_goal_pose" default="[0,0,0]" />
@@ -23,7 +23,7 @@
 
   <!--Mission specific parameters OBSTACLE2-->
   <arg name="obstacle2_id" default="2" />
-  <arg name="obstacle2_desired_speed" default="5" />
+  <arg name="obstacle2_desired_speed" default="10" />
   <arg name="obstacle2_predefined_mission" default="true" />
   <arg name="obstacle2_predefined_mission_name" default="obstacle2_crossing_right_2x" />
   <arg name="obstacle2_goal_pose" default="[0,0,0]" />

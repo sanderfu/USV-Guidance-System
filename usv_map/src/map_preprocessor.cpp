@@ -24,10 +24,14 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
     }
     std::string db_path = mission_path+"/region.sqlite";
     GDALDataset* db = driver_sqlite_->Create(db_path.c_str(),0,0,0,GDT_Unknown,NULL);
+
+    std::string db_detailed_path = mission_path+"/region_detailed.sqlite";
+    GDALDataset* db_detailed = driver_sqlite_->Create(db_detailed_path.c_str(),0,0,0,GDT_Unknown,NULL);
+
     extractorVessel vessel(vessel_width_,vessel_length_,vessel_height_,vessel_draft_);
 
     //Process ENCs of mission region
-    ENCExtractor extractor(region,vessel,db);
+    ENCExtractor extractor(region,vessel,db,db_detailed);
     extractor.run();
 
     //Build quadtree
@@ -79,8 +83,12 @@ GDALDataset* MapPreprocessor::extractENC(std::string mission_region_name,extract
     }
     std::string db_path = mission_path+"/region.sqlite";
     GDALDataset* ds = driver_sqlite_->Create(db_path.c_str(),0,0,0,GDT_Unknown,NULL);
+
+    std::string db_detailed_path = mission_path+"/region_detailed.sqlite";
+    GDALDataset* db_detailed = driver_sqlite_->Create(db_detailed_path.c_str(),0,0,0,GDT_Unknown,NULL);
+
     extractorVessel vessel(vessel_width_,vessel_length_,vessel_height_,vessel_draft_);
-    ENCExtractor extractor(region,vessel,ds);
+    ENCExtractor extractor(region,vessel,ds,db_detailed);
     extractor.run();
     return ds;
 }

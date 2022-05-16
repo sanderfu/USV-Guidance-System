@@ -163,6 +163,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     colav_msg_.cost_options.clear();
     colav_msg_.obstacles_odom.clear();
     colav_msg_.obstacle_desync.clear();
+    colav_msg_.evaluateCandidate_time.clear();
+    colav_msg_.checkForCollision_time.clear();
 
     state_type state(6);
     Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
@@ -262,7 +264,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             //Add candidate to candidate list
             control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i,candidate_violating_colreg_14_)));
 
-            benchmark_data_.evaluateCandidate_time.push_back(ros::Duration(ros::Time::now()-evaluateCandidate_start).toSec());
+            colav_msg_.evaluateCandidate_time.push_back(ros::Duration(ros::Time::now()-evaluateCandidate_start).toSec());
         }
     }
 
@@ -296,7 +298,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             break;
         }
     }
-    benchmark_data_.checkForCollision_time.push_back(ros::Duration(ros::Time::now()-checkForCollision_start).toSec());
+    colav_msg_.checkForCollision_time.push_back(ros::Duration(ros::Time::now()-checkForCollision_start).toSec());
 
 
     P_ca_last_ = u_corr_best;
@@ -305,7 +307,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     ROS_INFO_STREAM_COND(verbose_,"Best cost: " << cost);
     //clearVisualPath();
     //visualizePath(choosen_path);
-    benchmark_data_.getBestControlOffset_time.push_back(ros::Duration(ros::Time::now()-start).toSec());
+    colav_msg_.getBestControlOffset_time=ros::Duration(ros::Time::now()-start).toSec();
     ros::Time stop = ros::Time::now();
 }
 

@@ -44,10 +44,6 @@ struct controlCandidate{
  * 
  */
 typedef struct {
-    //Overall info
-    double build_time;
-    int vertices;
-
     std::vector<double> getBestControlOffset_time;
     std::vector<double> evaluateCandidate_time;
     std::vector<double> checkForCollision_time;

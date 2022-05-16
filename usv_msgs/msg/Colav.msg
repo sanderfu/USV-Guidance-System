@@ -12,5 +12,9 @@ usv_msgs/ColavPath path
 usv_msgs/ColavPath[] path_options
 float64[] cost_options
 
+#Benchmark data
+float64 getBestControlOffset_time
+float64[] evaluateCandidate_time
+float64[] checkForCollision_time
 
 

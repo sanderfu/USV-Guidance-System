@@ -134,6 +134,7 @@ void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
     state[5]=msg.odom.twist.twist.angular.z;
     if(obstacle_vessels_.find(msg.id)==obstacle_vessels_.end()){
         obstacle_vessels_[msg.id] = new obstacleVessel(state,5,2);
+        obstacle_vessels_[msg.id]->latest_observation_ = ros::Time::now();
         obstacle_vessels_[msg.id]->id = msg.id;
     }else{
         obstacle_vessels_[msg.id]->latest_obstacle_state_ = state;
@@ -148,6 +149,7 @@ void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
  * @param psi_corr_best Best yaw correction  
  */
 void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_corr_best){
+    ros::Time start = ros::Time::now();
     double cost = INFINITY;
     double cost_k = 0.0;
     tfScalar roll, pitch,yaw;
@@ -160,6 +162,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     colav_msg_.path_options.clear();
     colav_msg_.cost_options.clear();
     colav_msg_.obstacles_odom.clear();
+    colav_msg_.obstacle_desync.clear();
 
     state_type state(6);
     Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
@@ -178,9 +181,16 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     //Push back odom to colav message
     colav_msg_.ownship_odom = latest_odom_;
 
+    //Evaluate desync between ownship and obstacles
+    for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
+        colav_msg_.obstacle_desync.push_back(ros::Duration(ros::Time::now()-(*it).second->latest_observation_).toSec());
+    }
+
+
     control_candidate_map.clear();
     for(auto p_it=P_ca_.begin(); p_it!=P_ca_.end();p_it++){
         for(auto chi_seq_it = Chi_ca_sequences_.begin(); chi_seq_it!=Chi_ca_sequences_.end();chi_seq_it++){
+            ros::Time evaluateCandidate_start = ros::Time::now();
             double cost_i = 0.0;
             candidate_violating_colreg_14_ = false;
             candidate_violating_colreg_15_ = false;
@@ -252,10 +262,12 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             //Add candidate to candidate list
             control_candidate_map.insert(std::make_pair(cost_i,controlCandidate(*p_it,(*chi_seq_it)[0],full_horizon_,cost_i,candidate_violating_colreg_14_)));
 
+            benchmark_data_.evaluateCandidate_time.push_back(ros::Duration(ros::Time::now()-evaluateCandidate_start).toSec());
         }
     }
 
     //Find best candidate from candidate map (lowest cost without collision)
+    ros::Time checkForCollision_start = ros::Time::now();
     for(auto it = control_candidate_map.begin(); it!=control_candidate_map.end(); it++){
         OGRLineString path;
         usv_msgs::ColavPath msg_path;
@@ -284,13 +296,17 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             break;
         }
     }
+    benchmark_data_.checkForCollision_time.push_back(ros::Duration(ros::Time::now()-checkForCollision_start).toSec());
+
 
     P_ca_last_ = u_corr_best;
 	Chi_ca_last_ = psi_corr_best;
     ROS_INFO_STREAM_COND(verbose_,"Path num points: " << choosen_path.getNumPoints());
     ROS_INFO_STREAM_COND(verbose_,"Best cost: " << cost);
-    clearVisualPath();
-    visualizePath(choosen_path);
+    //clearVisualPath();
+    //visualizePath(choosen_path);
+    benchmark_data_.getBestControlOffset_time.push_back(ros::Duration(ros::Time::now()-start).toSec());
+    ros::Time stop = ros::Time::now();
 }
 
 /**
@@ -302,8 +318,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
  */
 void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     double u_os, psi_os;
-    ros::Time start = ros::Time::now();
     getBestControlOffset(u_os,psi_os);
+    
 
     //Publish COLAV correction
     geometry_msgs::Twist offset;
@@ -313,9 +329,8 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
 
     //Publish debug/post-visualization message
     colav_data_pub_.publish(colav_msg_);
-    ros::Time stop = ros::Time::now();
     ROS_INFO_STREAM_COND(verbose_, "Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
-    ROS_INFO_STREAM_COND(verbose_,"Getting offset took: " << (stop-start).toSec() << " [s]");
+    //ROS_INFO_STREAM_COND(verbose_,"Getting offset took: " << (stop-start).toSec() << " [s]");
 }
 
 void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
@@ -387,11 +402,6 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 		C = 0;
 		mu = 0;
 
-        if(Chi_ca*RAD2DEG==-15){
-            ROS_WARN_STREAM("USV:" << usv_horizon.state[200][2]*RAD2DEG);
-            ROS_WARN_STREAM("Obstacle:" << obstacle_state[2]*RAD2DEG);
-        }
-
 		if (dist < D_CLOSE_){
 			v_o(0) = obstacle_state[3];
 			v_o(1) = obstacle_state[4];
@@ -399,18 +409,18 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 
 			v_s(0) = usv_horizon.state[i][3];
 			v_s(1) = usv_horizon.state[i][4];
-			rot2d(usv_horizon.state[200][2],v_s);
+			rot2d(usv_horizon.state[usv_horizon.state.size()-1][2],v_s);
         
 
 			psi_o = obstacle_state[2];
 			while(psi_o <= -M_PI) phi += 2*M_PI;
 			while (psi_o > M_PI) phi -= 2*M_PI;
 
-			phi = atan2(d(1),d(0)) - usv_horizon.state[200][2];
+			phi = atan2(d(1),d(0)) - usv_horizon.state[usv_horizon.state.size()-1][2];
 			while(phi <= -M_PI) phi += 2*M_PI;
 			while (phi > M_PI) phi -= 2*M_PI;
 
-			psi_rel = psi_o - usv_horizon.state[200][2];
+			psi_rel = psi_o - usv_horizon.state[usv_horizon.state.size()-1][2];
 			while(psi_rel < -M_PI) psi_rel += 2*M_PI;
 			while(psi_rel > M_PI) psi_rel -= 2*M_PI;
 

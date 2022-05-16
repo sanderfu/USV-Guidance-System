@@ -39,6 +39,22 @@ struct controlCandidate{
     bool colreg_violation_;
 };
 
+/**
+ * @brief Container for all benchmarking data
+ * 
+ */
+typedef struct {
+    //Overall info
+    double build_time;
+    int vertices;
+
+    std::vector<double> getBestControlOffset_time;
+    std::vector<double> evaluateCandidate_time;
+    std::vector<double> checkForCollision_time;
+    
+
+} colav_benchmark_t;
+
 class SimulationBasedMPC{
     public:
         SimulationBasedMPC(const ros::NodeHandle& nh);
@@ -106,6 +122,9 @@ class SimulationBasedMPC{
         double update_frequency_;
         double prediction_time_;
         bool verbose_;
+
+        //Benchmark
+        colav_benchmark_t benchmark_data_;
 
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;

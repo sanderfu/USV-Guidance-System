@@ -2,6 +2,7 @@
 time time
 nav_msgs/Odometry ownship_odom
 nav_msgs/Odometry[] obstacles_odom
+float64[] obstacle_desync
 
 float64 speed_correction
 float64 course_correction

@@ -29,8 +29,8 @@
   <arg name="obstacle2_initial_pose" default="[-73.858437202,40.556856560,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_headon_2x"/>
-  <arg name="simulations" default="10"/>
+  <arg name="simulation_collection_name" default="colav_headon_2x_updated_part2_"/>
+  <arg name="simulations" default="100"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />

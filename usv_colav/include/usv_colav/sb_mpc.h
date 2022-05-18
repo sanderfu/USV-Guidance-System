@@ -81,7 +81,7 @@ class SimulationBasedMPC{
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
         double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last);
         double Delta_P(double P_ca, double P_ca_last);
-        double Delta_Chi(double Chi_ca, double Chi_ca_last);
+        double Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu);
 
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;

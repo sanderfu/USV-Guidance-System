@@ -1,6 +1,7 @@
 monte_carlo_supervisor:
+  done_timeout_time: 300
   leader: true
   initial_pose_variance: #How much the initial pose is allowed to vary from the define start position
-    x: 0.0002 #(approx 20m) (0.00001 deg is approx 1 meter)
-    y: 0.0002 #(approx 20m) (0.00001 deg is approx 1 meter)
-    course: 1.57 #(rad)
+    x: 0.0005 #(approx 20m) (0.00001 deg is approx 1 meter)
+    y: 0.0005 #(approx 20m) (0.00001 deg is approx 1 meter)
+    course: 0.3925 #(rad)

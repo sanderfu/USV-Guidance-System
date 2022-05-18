@@ -15,23 +15,23 @@
 
   <!--Mission specific parameters OBSTACLE1-->
   <arg name="obstacle1_id" default="1" />
-  <arg name="obstacle1_desired_speed" default="10" />
+  <arg name="obstacle1_desired_speed" default="5" />
   <arg name="obstacle1_predefined_mission" default="true" />
   <arg name="obstacle1_predefined_mission_name" default="obstacle1_crossing_right_2x" />
   <arg name="obstacle1_goal_pose" default="[0,0,0]" />
-  <arg name="obstacle1_initial_pose" default="[-73.835616,40.514675,-3.14]" />
+  <arg name="obstacle1_initial_pose" default="[-73.838616,40.514675,-3.14]" />
 
   <!--Mission specific parameters OBSTACLE2-->
   <arg name="obstacle2_id" default="2" />
-  <arg name="obstacle2_desired_speed" default="10" />
+  <arg name="obstacle2_desired_speed" default="5" />
   <arg name="obstacle2_predefined_mission" default="true" />
   <arg name="obstacle2_predefined_mission_name" default="obstacle2_crossing_right_2x" />
   <arg name="obstacle2_goal_pose" default="[0,0,0]" />
-  <arg name="obstacle2_initial_pose" default="[-73.834616,40.516675,-3.14]" />
+  <arg name="obstacle2_initial_pose" default="[-73.837616,40.516675,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_crossing_right_2x_"/>
-  <arg name="simulations" default="10"/>
+  <arg name="simulation_collection_name" default="colav_crossing_right_2x_updated_part2_"/>
+  <arg name="simulations" default="100"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />

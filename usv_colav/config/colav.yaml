@@ -2,20 +2,20 @@ colav:
   cost_function:
     P_: 1.0 #Collision risk factor time exponent >=0.5. Describes how risk is weighted as a function of time until occurence.
     Q_: 4.0 #Collision risk factor distance exponent >=1. Describes exponential risk growth of beeing close to hazard.
-    D_CLOSE_: 1000
+    D_CLOSE_: 500
     D_SAFE_: 100
     K_COLL_: 0.5
     PHI_AH_: 15.0
     PHI_OT_: 68.5
     PHI_HO_: 42.5
     PHI_CR_: 68.5
-    KAPPA_: 2.0
+    KAPPA_: 5.0
     K_P_: 4.0
     K_CHI_: 0.6
     K_DP_: 3.5
     K_DCHI_SB_: 0.9
     K_DCHI_P_: 2.0
-    K_CORR_: 0.4
+    K_CORR_: 2.0
   offsets:
     Chi_ca_: [-120,-105,-89.0,-75.0,-60.0,-45.0,-30.0,-15.0,0.0,15.0,30.0,45.0,60.0,75.0,89.0,105,120]
     P_ca_: [1]

@@ -372,7 +372,10 @@ void Recorder::doRecord() {
         boost::unique_lock<boost::mutex> lock(queue_mutex_);
 
         bool finished = false;
-        while (queue_->empty()) {
+        while (queue_->empty() && !reinit_flag_) {
+            if(reinit_flag_){
+                ROS_WARN_STREAM("Inside inner while loop while reinit_flag_==true");
+            }
             if (!nh.ok()) {
                 lock.release()->unlock();
                 finished = true;
@@ -406,6 +409,7 @@ void Recorder::doRecord() {
         if (scheduledCheckDisk() && checkLogging())
             bag_.write(out.topic, out.time, *out.msg, out.connection_header);
     }
+    ROS_WARN_STREAM("[RECORDER] Stop writing");
     stopWriting();
 }
 

@@ -79,7 +79,7 @@ class COLAVDebug:
 def main():
     rospack = rospkg.RosPack()
     base_path:str = rospack.get_path('usv_realtime_recorder')+"/data/missions/"
-    mission_name:str = "colav_crossing_right_v2_0/"
+    mission_name:str = "colav_crossing_right_2x_0/"
     map_name:str = "outside_ny_max_300"
     print("File path: ",base_path+mission_name+"data.bag")
 

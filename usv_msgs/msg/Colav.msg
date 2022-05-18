@@ -15,6 +15,8 @@ float64[] cost_options
 #Benchmark data
 float64 getBestControlOffset_time
 float64[] evaluateCandidate_time
+float64[] simulateOwnship_time
+float64[] costFnc_time
 float64[] checkForCollision_time
 
 

@@ -165,6 +165,8 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     colav_msg_.obstacle_desync.clear();
     colav_msg_.evaluateCandidate_time.clear();
     colav_msg_.checkForCollision_time.clear();
+    colav_msg_.simulateOwnship_time.clear();
+    colav_msg_.costFnc_time.clear();
 
     state_type state(6);
     Eigen::Vector3d position_wgs(latest_odom_.pose.pose.position.x,latest_odom_.pose.pose.position.y,latest_odom_.pose.pose.position.z);
@@ -205,14 +207,17 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
             for(auto chi_it = (*chi_seq_it).begin(); chi_it != (*chi_seq_it).end(); chi_it++){
                 double cost_tmp = 0.0;
                 double t_offset = sim_time * (chi_it-(*chi_seq_it).begin());
+                ros::Time simulateOwnship_start = ros::Time::now();
                 ModelLibrary::simulatedHorizon horizon = usv_.simulateHorizonAdaptive(state_copy,(latest_los_setpoint_.linear.x)*(*p_it),(latest_los_setpoint_.angular.z+(*chi_it)),sim_time);
-
+                colav_msg_.simulateOwnship_time.push_back(ros::Duration(ros::Time::now()-simulateOwnship_start).toSec());
                 //Avoid collision in COLREG compliant manner (if no vessels, penalize only the course and speed correction)
                 if(obstacle_vessels_.size()!=0){
                     for (auto it = obstacle_vessels_.begin(); it!=obstacle_vessels_.end();it++){
                         if((*it).second->id == ownship_id_) continue;
                         double key = it->first;
+                        ros::Time costFnc_start = ros::Time::now();
                         cost_k = costFnc(horizon, *(*it).second, *p_it, *chi_it, key, t_offset,P_ca_last_,Chi_ca_last);
+                        colav_msg_.costFnc_time.push_back(ros::Duration(ros::Time::now()-costFnc_start).toSec());
                         if (cost_k > cost_tmp){
                             cost_tmp = cost_k;	// Maximizing cost associated with this scenario
                         }
@@ -231,7 +236,7 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
                         }
                     }
                 } else{
-                    cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it,P_ca_last_) + Delta_Chi(*chi_it,Chi_ca_last);
+                    cost_i = K_P_*(1-*p_it) + K_CHI_*pow(*chi_it,2) + Delta_P(*p_it,P_ca_last_) + Delta_Chi(*chi_it,Chi_ca_last,false);
                 }
 
                 if(candidate_violating_colreg_14_) ROS_WARN_STREAM("Candidate violating colreg 14 with correction: " << *chi_it * RAD2DEG); 
@@ -382,6 +387,9 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
     double t_prev = 0;
     state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
 
+    candidate_violating_colreg_14_ = false;
+    candidate_violating_colreg_15_ = false;
+
 	for (int i = 0; i < usv_horizon.steps; i++){
 
         t = usv_horizon.time[i];
@@ -455,8 +463,13 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 				d_safe_i = d_safe + usv_.getL()/2 + obstacle_vessels_[k]->model_.getL()/2;
 			}
 
+            /*
+            if(Chi_ca==0){
+                std::cout << "Dist: " << dist << "d_safe: " << d_safe << " d_safe_i:" << d_safe_i <<std::endl;
+            }*/
 
-			if (dist < d_safe_i){
+
+			if (dist < d_safe && t!=t0){
 				R = (1/pow(fabs(t-t0),P_))*pow(d_safe/dist,Q_);
 				k_coll = K_COLL_*obstacle_vessels_[k]->model_.getL()*obstacle_vessels_[k]->model_.getL();
 				C = k_coll*pow((v_s-v_o).norm(),2);
@@ -478,6 +491,10 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
             if(mu){
                 candidate_violating_colreg_14_=( SB && HO );
                 candidate_violating_colreg_15_=( SB && CR && !OT);
+                /*if(Chi_ca==0){
+                    std::cout << "USV Angle: " << usv_horizon.state[usv_horizon.state.size()-1][2]*RAD2DEG << "d_vec(" << d(0) << " " << d(1) << ") Phi: " << phi*RAD2DEG << std::endl;
+                }
+                */
             }
 
 		}
@@ -492,7 +509,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
         
 	}
     //H1 = H1/usv_horizon.steps;
-	H2 = K_P_*(1-P_ca) + K_CHI_*(pow(Chi_ca,2)) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last) + K_CORR_*(Chi_ca!=0);
+	H2 = K_P_*(1-P_ca) + K_CHI_*(pow(Chi_ca,2)) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last,mu) + K_CORR_*(Chi_ca!=0);
 	cost =  H1 + H2 + H3;
 
 	// Print H1 and H2 for P==X
@@ -529,11 +546,13 @@ double SimulationBasedMPC::Delta_P(double P_ca, double P_ca_last){
  * @param Chi_ca Yaw correction candidate
  * @return double Cost of action candidate
  */
-double SimulationBasedMPC::Delta_Chi(double Chi_ca, double Chi_ca_last){
+double SimulationBasedMPC::Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu){
 	double dChi = Chi_ca - Chi_ca_last;
-	if (dChi > 0){
+	if (dChi > 0 && mu){
 		return K_DCHI_P_*pow(dChi,2); 		// 0.006 0.45
-	}else if (dChi < 0){
+	} else if(dChi > 0){
+        return K_DCHI_SB_*pow(dChi,2);
+    }else if (dChi < 0){
 		return K_DCHI_SB_*pow(dChi,2);				// 0.35
 	}else{
 		return 0;

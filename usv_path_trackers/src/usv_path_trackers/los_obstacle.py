@@ -38,6 +38,8 @@ class LOS:
         self.first_wpt_set = False
         self.stop = True
 
+        self.has_correction = False
+
         #Coordinate conversion client
         self.converter_client = GeodeticConverterClient()
         first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
@@ -73,6 +75,7 @@ class LOS:
         self.pi_p = None
 
         self.stop = True
+        self.has_correction = False
 
         first_odom:Odometry = rospy.wait_for_message("odom", Odometry)
         _,_,yaw = euler_from_quaternion([first_odom.pose.pose.orientation.x,first_odom.pose.pose.orientation.y,first_odom.pose.pose.orientation.z,first_odom.pose.pose.orientation.w])
@@ -198,6 +201,7 @@ class LOS:
             #rospy.logerr_throttle(1,f"PublishReference requested but pose is none: {self.pose==None} and waypoint is none:  {self.current_waypoint==None}")
             return
 
+
         msg_corrected = Twist()
         msg_corrected.angular.z = self.desired_yaw+self.correction.angular.z
 
@@ -215,6 +219,7 @@ class LOS:
 
     def correction_cb(self,msg:Twist)->None:
         self.correction = msg
+        self.has_correction=True
 
     def calculate_crosstrack_error(self):
         position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")

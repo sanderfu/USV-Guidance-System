@@ -1,6 +1,6 @@
 #include "usv_simulator/monte_carlo_supervisor.h"
 
-MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh){
+MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh), noise_generator_ptr_(new std::default_random_engine(std::random_device()())){
     //Register publishers
     system_reinit_pub_ = nh_.advertise<usv_msgs::reinit>("mc/system_reinit",10,true);
 
@@ -41,11 +41,11 @@ void MonteCarloSupervisor::runSimulations(){
         usv_msgs::reinit reinit_msg;
         reinit_msg.header.stamp = ros::Time::now();
         reinit_msg.mission_name.data = simulation_collection_name_ + std::to_string(sim_id);
-        reinit_msg.initial_pose.position.x = global_position_vec_[0]+noise_distribution_x_(noise_generator_);
-        reinit_msg.initial_pose.position.y = global_position_vec_[1]+noise_distribution_y_(noise_generator_);
+        reinit_msg.initial_pose.position.x = global_position_vec_[0]+noise_distribution_x_(*noise_generator_ptr_);
+        reinit_msg.initial_pose.position.y = global_position_vec_[1]+noise_distribution_y_(*noise_generator_ptr_);
 
         tf::Quaternion q;
-        double course_noise = noise_distribution_course_(noise_generator_);
+        double course_noise = noise_distribution_course_(*noise_generator_ptr_);
         ROS_WARN_STREAM(nh_.getNamespace() << " course noise: " << course_noise);
         ROS_WARN_STREAM(nh_.getNamespace() << " initial course: " << global_position_vec_[2]+course_noise);
 

@@ -7,7 +7,7 @@
 
   <!--Mission specific parameters USV-->
   <arg name="usv_id" default="0" />
-  <arg name="usv_desired_speed" default="5" />
+  <arg name="usv_desired_speed" default="10" />
   <arg name="usv_predefined_mission" default="true" />
   <arg name="usv_predefined_mission_name" default="usv_overtake" />
   <arg name="usv_goal_pose" default="[0,0,0]" />
@@ -15,14 +15,14 @@
 
   <!--Mission specific parameters OBSTACLE-->
   <arg name="obstacle_id" default="1" />
-  <arg name="obstacle_desired_speed" default="1" />
+  <arg name="obstacle_desired_speed" default="2.5" />
   <arg name="obstacle_predefined_mission" default="true" />
   <arg name="obstacle_predefined_mission_name" default="obstacle_overtake" />
   <arg name="obstacle_goal_pose" default="[0,0,0]" />
-  <arg name="obstacle_initial_pose" default="[-73.841077,40.513305,1.57]" />
+  <arg name="obstacle_initial_pose" default="[-73.841077,40.512305,1.57]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_overtake_"/>
+  <arg name="simulation_collection_name" default="colav_overtake_updated_part2_"/>
   <arg name="simulations" default="10"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
@@ -60,7 +60,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_usv.py"
             respawn="false"
             output="screen">
       </node>
@@ -132,7 +132,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_obstacle.py"
             respawn="false"
             output="screen">
       </node>

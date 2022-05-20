@@ -52,7 +52,8 @@ cs_export()
 
 ## Install python nodes
 set(py_nodes
-  los_controller_node
+  los_controller_node_usv
+  los_controller_node_obstacle
 )
 
 foreach(py_node IN LISTS py_nodes)

@@ -30,8 +30,8 @@
   <arg name="obstacle2_initial_pose" default="[-73.837616,40.516675,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_crossing_right_2x_updated_part2_"/>
-  <arg name="simulations" default="100"/>
+  <arg name="simulation_collection_name" default="colav_crossing_right_2x_part3_updated_"/>
+  <arg name="simulations" default="150"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
@@ -69,7 +69,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_usv.py"
             respawn="false"
             output="screen">
       </node>
@@ -141,7 +141,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_obstacle.py"
             respawn="false"
             output="screen">
       </node>
@@ -211,7 +211,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_obstacle.py"
             respawn="false"
             output="screen">
       </node>

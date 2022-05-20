@@ -372,11 +372,11 @@ void Recorder::doRecord() {
         boost::unique_lock<boost::mutex> lock(queue_mutex_);
 
         bool finished = false;
-        while (queue_->empty() && !reinit_flag_) {
+        while (queue_->empty()) {
             if(reinit_flag_){
                 ROS_WARN_STREAM("Inside inner while loop while reinit_flag_==true");
             }
-            if (!nh.ok()) {
+            if (!nh.ok() || reinit_flag_) {
                 lock.release()->unlock();
                 finished = true;
                 break;

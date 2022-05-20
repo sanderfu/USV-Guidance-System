@@ -2,7 +2,7 @@
 # Author: Sander Furre
 import rospy
 
-from usv_path_trackers.los import LOS
+from usv_path_trackers.los_usv import LOS
 
 def main():
     rospy.init_node('los_guidance_node')

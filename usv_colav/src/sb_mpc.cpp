@@ -53,10 +53,10 @@ geo_converter_("COLAV",false,true,nh)
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
     colav_data_pub_ = nh_.advertise<usv_msgs::Colav>("colav/debug",1,false);
 
-    odom_sub_ = nh_.subscribe("odom",1,&SimulationBasedMPC::odomCb,this);
-    los_setpoint_sub_ = nh_.subscribe("los/setpoint",1,&SimulationBasedMPC::losSetpointSub,this);
-    obstacle_sub_ = nh_.subscribe("/obstacles",1,&SimulationBasedMPC::obstacleCb,this);
-    system_reinit_sub_ = nh_.subscribe("mc/system_reinit",1,&SimulationBasedMPC::reinitCb,this);
+    odom_sub_ = nh_.subscribe("odom",10,&SimulationBasedMPC::odomCb,this);
+    los_setpoint_sub_ = nh_.subscribe("los/setpoint",10,&SimulationBasedMPC::losSetpointSub,this);
+    obstacle_sub_ = nh_.subscribe("/obstacles",10,&SimulationBasedMPC::obstacleCb,this);
+    system_reinit_sub_ = nh_.subscribe("mc/system_reinit",10,&SimulationBasedMPC::reinitCb,this);
 
     //Set course action pairs
     bool multiple_changes = false;
@@ -74,6 +74,8 @@ geo_converter_("COLAV",false,true,nh)
 
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
+
+    colav_msg_.obstacle_pose_local = std::vector<geometry_msgs::Point>(3);
 
     //Initialize visualization stuff (debug purposes)
     path_viz_pub_ = nh_.advertise<visualization_msgs::Marker>("colav/path_viz",1,true);
@@ -140,6 +142,10 @@ void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
         obstacle_vessels_[msg.id]->latest_obstacle_state_ = state;
         obstacle_vessels_[msg.id]->latest_observation_ = ros::Time::now();
     }
+    colav_msg_.obstacle_pose_local[obstacle_vessels_[msg.id]->id].x = state[0];
+    colav_msg_.obstacle_pose_local[obstacle_vessels_[msg.id]->id].y = state[1];
+    colav_msg_.obstacle_pose_local[obstacle_vessels_[msg.id]->id].z = state[2];
+    
 }
 
 /**
@@ -181,6 +187,10 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
     state[3] = latest_odom_.twist.twist.linear.x;
     state[4] = latest_odom_.twist.twist.linear.y;
     state[5] = latest_odom_.twist.twist.angular.z;
+    
+    colav_msg_.ownship_pose_local.x = state[0];
+    colav_msg_.ownship_pose_local.y = state[1];
+    colav_msg_.ownship_pose_local.z = state[2];
 
     //Push back odom to colav message
     colav_msg_.ownship_odom = latest_odom_;
@@ -390,6 +400,8 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
     candidate_violating_colreg_14_ = false;
     candidate_violating_colreg_15_ = false;
 
+    std::set<double> dist_set;
+
 	for (int i = 0; i < usv_horizon.steps; i++){
 
         t = usv_horizon.time[i];
@@ -406,6 +418,7 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 		d(0) = obstacle_state[0] - usv_horizon.state[i][0];
 		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
 		dist = d.norm();
+        dist_set.insert(dist);
 
 
 		R = 0;
@@ -463,8 +476,8 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 				d_safe_i = d_safe + usv_.getL()/2 + obstacle_vessels_[k]->model_.getL()/2;
 			}
 
-            /*
-            if(Chi_ca==0){
+            
+            /*if(Chi_ca==0){
                 std::cout << "Dist: " << dist << "d_safe: " << d_safe << " d_safe_i:" << d_safe_i <<std::endl;
             }*/
 
@@ -512,6 +525,10 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 	H2 = K_P_*(1-P_ca) + K_CHI_*(pow(Chi_ca,2)) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last,mu) + K_CORR_*(Chi_ca!=0);
 	cost =  H1 + H2 + H3;
 
+    ROS_WARN_STREAM_COND(Chi_ca==0,"Cost of zero option" << cost);
+    ROS_WARN_STREAM_COND(Chi_ca==0,"H1:" << H1 << " H2: " << H2 << " H3: " << H3); 
+    ROS_WARN_STREAM_COND(Chi_ca==0,"Smallest dist: " << *(dist_set.begin()) << " deltaP: " << Delta_P(P_ca,P_ca_last) << " deltaChi: " <<  Delta_Chi(Chi_ca, Chi_ca_last,mu)); 
+
 	// Print H1 and H2 for P==X
     //	ROS_DEBUG_COND_NAMED(P_ca == 0.5,"Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
     //	ROS_DEBUG_COND_NAMED(k == 2 , "Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
@@ -548,11 +565,9 @@ double SimulationBasedMPC::Delta_P(double P_ca, double P_ca_last){
  */
 double SimulationBasedMPC::Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu){
 	double dChi = Chi_ca - Chi_ca_last;
-	if (dChi > 0 && mu){
+	if (dChi > 0){
 		return K_DCHI_P_*pow(dChi,2); 		// 0.006 0.45
-	} else if(dChi > 0){
-        return K_DCHI_SB_*pow(dChi,2);
-    }else if (dChi < 0){
+	}else if (dChi < 0){
 		return K_DCHI_SB_*pow(dChi,2);				// 0.35
 	}else{
 		return 0;

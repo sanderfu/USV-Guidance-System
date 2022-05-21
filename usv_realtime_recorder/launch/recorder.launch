@@ -3,5 +3,6 @@
             name="recorder"
             type="recorder_node"
             respawn="false"
+            required="true"
             output="screen"/>
 </launch>

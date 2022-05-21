@@ -39,6 +39,18 @@ struct controlCandidate{
     bool colreg_violation_;
 };
 
+/**
+ * @brief Container for all benchmarking data
+ * 
+ */
+typedef struct {
+    std::vector<double> getBestControlOffset_time;
+    std::vector<double> evaluateCandidate_time;
+    std::vector<double> checkForCollision_time;
+    
+
+} colav_benchmark_t;
+
 class SimulationBasedMPC{
     public:
         SimulationBasedMPC(const ros::NodeHandle& nh);
@@ -69,7 +81,7 @@ class SimulationBasedMPC{
         void getBestControlOffset(double& u_d_best, double& psi_d_best);
         double costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last);
         double Delta_P(double P_ca, double P_ca_last);
-        double Delta_Chi(double Chi_ca, double Chi_ca_last);
+        double Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu);
 
         std::vector<double> Chi_ca_;
 		std::vector<double> P_ca_;
@@ -100,11 +112,15 @@ class SimulationBasedMPC{
 		double K_DP_;
 		double K_DCHI_SB_;
 		double K_DCHI_P_;
+        double K_CORR_;
 
         int ownship_id_;
         double update_frequency_;
         double prediction_time_;
         bool verbose_;
+
+        //Benchmark
+        colav_benchmark_t benchmark_data_;
 
         //Visualization (for debug purposes)
         ros::Publisher path_viz_pub_;
@@ -114,6 +130,7 @@ class SimulationBasedMPC{
         void visualizePath(OGRLineString& path);
         void clearVisualPath();
 
-        bool candidate_violating_colreg_;
+        bool candidate_violating_colreg_14_;
+        bool candidate_violating_colreg_15_;
         bool choosen_violating_colreg_;
 };

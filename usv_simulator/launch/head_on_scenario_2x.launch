@@ -6,7 +6,7 @@
 
   <!--Mission specific parameters USV-->
   <arg name="usv_id" default="0" />
-  <arg name="usv_desired_speed" default="5" />
+  <arg name="usv_desired_speed" default="10" />
   <arg name="usv_predefined_mission" default="true" />
   <arg name="usv_predefined_mission_name" default="usv_headon" />
   <arg name="usv_goal_pose" default="[0,0,0]" />
@@ -14,7 +14,7 @@
 
   <!--Mission specific parameters OBSTACLE1-->
   <arg name="obstacle1_id" default="1" />
-  <arg name="obstacle1_desired_speed" default="5" />
+  <arg name="obstacle1_desired_speed" default="10" />
   <arg name="obstacle1_predefined_mission" default="true" />
   <arg name="obstacle1_predefined_mission_name" default="obstacle1_headon_2x" />
   <arg name="obstacle1_goal_pose" default="[0,0,0]" />
@@ -22,15 +22,15 @@
 
   <!--Mission specific parameters OBSTACLE2-->
   <arg name="obstacle2_id" default="2" />
-  <arg name="obstacle2_desired_speed" default="5" />
+  <arg name="obstacle2_desired_speed" default="10" />
   <arg name="obstacle2_predefined_mission" default="true" />
   <arg name="obstacle2_predefined_mission_name" default="obstacle2_headon_2x" />
   <arg name="obstacle2_goal_pose" default="[0,0,0]" />
   <arg name="obstacle2_initial_pose" default="[-73.858437202,40.556856560,-3.14]" />
 
   <!--Monte Carlo Specific Parameters-->
-  <arg name="simulation_collection_name" default="colav_headon_2x"/>
-  <arg name="simulations" default="10"/>
+  <arg name="simulation_collection_name" default="colav_headon_2x_updated_"/>
+  <arg name="simulations" default="100"/>
 
   <!--Simulation specific parameters (do not affect the guidance system in any way)-->
   <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
@@ -68,7 +68,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_usv.py"
             respawn="false"
             output="screen">
       </node>
@@ -141,7 +141,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_obstacle.py"
             respawn="false"
             output="screen">
       </node>
@@ -211,7 +211,7 @@
       
       <node pkg="usv_path_trackers"
             name="LOSNode"
-            type="los_controller_node.py"
+            type="los_controller_node_obstacle.py"
             respawn="false"
             output="screen">
       </node>

@@ -373,7 +373,10 @@ void Recorder::doRecord() {
 
         bool finished = false;
         while (queue_->empty()) {
-            if (!nh.ok()) {
+            if(reinit_flag_){
+                ROS_WARN_STREAM("Inside inner while loop while reinit_flag_==true");
+            }
+            if (!nh.ok() || reinit_flag_) {
                 lock.release()->unlock();
                 finished = true;
                 break;
@@ -406,6 +409,7 @@ void Recorder::doRecord() {
         if (scheduledCheckDisk() && checkLogging())
             bag_.write(out.topic, out.time, *out.msg, out.connection_header);
     }
+    ROS_WARN_STREAM("[RECORDER] Stop writing");
     stopWriting();
 }
 

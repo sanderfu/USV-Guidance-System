@@ -17,6 +17,7 @@ class MonteCarloSupervisor{
 
         //Parameters
         bool leader_supervisor_;
+        double done_timeout_time_;
         double initial_pose_variance_x_;
         double initial_pose_variance_y_;
         double initial_pose_variance_course_;
@@ -28,7 +29,7 @@ class MonteCarloSupervisor{
         std::vector<double> global_position_vec_; //The position around which perturbations are made
 
         //Initial pose noise
-        std::default_random_engine noise_generator_;
+        std::default_random_engine* noise_generator_ptr_;
         std::normal_distribution<double> noise_distribution_x_;
         std::normal_distribution<double> noise_distribution_y_;
         std::normal_distribution<double> noise_distribution_course_;

@@ -1,19 +1,19 @@
 <launch>
     <param name="id" type="int" value = "0"/>
     <param name="preprocessed_map" type="bool" value = "true"/>
-    <param name="map_name" type="str" value = "stavanger_sauda_ryfylke"/>
+    <param name="map_name" type="str" value = "atloy"/>
     <param name="map_extent" type="yaml" value = "[0,0,0,0]"/>
     <param name="desired_speed" type="double" value = "5"/>
 
     <param name="predefined_mission" type="bool" value = "false"/>
-    <param name="predefined_mission_name" type="str" value = "stavanger_sauda_ryfylke"/>
-    <param name="goal_pose" type="yaml" value = "[6.343188708734518,59.63788954126801,0]"/>
-    <param name="initial_pose" type="yaml" value = "[5.727274,58.975357,1.57]"/>
+    <param name="predefined_mission_name" type="str" value = "atloy"/>
+    <param name="goal_pose" type="yaml" value = "[4.962076,61.311612,0]"/>
+    <param name="initial_pose" type="yaml" value = "[4.941370,61.314887,3.14]"/>
 
-    <param name="simulation_collection_name" type="str" value = "stavanger_sauda_ryfylke_debug5_"/>
+    <param name="simulation_collection_name" type="str" value = "atloy_debug2_"/>
     <param name="simulations" type="int" value = "1"/>
 
-    <param name="sim_origin" type="yaml" value = "[5.85823,59.05803,0]"/>
+    <param name="sim_origin" type="yaml" value = "[962076,61.311612,0]"/>
 
     <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
     <include file="$(find usv_map)/launch/default.launch"/>

@@ -7,6 +7,7 @@ MonteCarloSupervisor::MonteCarloSupervisor(const ros::NodeHandle& nh): nh_(nh), 
     //Monte Carlo parameters
     bool parameter_load_error = false;
     if(!ros::param::get("monte_carlo_supervisor/leader",leader_supervisor_)) parameter_load_error = true;
+    if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/enabled",initial_pose_variance_enabled_)) parameter_load_error = true;
     if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/x",initial_pose_variance_x_)) parameter_load_error = true;
     if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/y",initial_pose_variance_y_)) parameter_load_error = true;
     if(!ros::param::get("monte_carlo_supervisor/initial_pose_variance/course",initial_pose_variance_course_)) parameter_load_error = true;
@@ -41,11 +42,12 @@ void MonteCarloSupervisor::runSimulations(){
         usv_msgs::reinit reinit_msg;
         reinit_msg.header.stamp = ros::Time::now();
         reinit_msg.mission_name.data = simulation_collection_name_ + std::to_string(sim_id);
-        reinit_msg.initial_pose.position.x = global_position_vec_[0]+noise_distribution_x_(*noise_generator_ptr_);
-        reinit_msg.initial_pose.position.y = global_position_vec_[1]+noise_distribution_y_(*noise_generator_ptr_);
+
+        reinit_msg.initial_pose.position.x = global_position_vec_[0]+initial_pose_variance_enabled_*noise_distribution_x_(*noise_generator_ptr_);
+        reinit_msg.initial_pose.position.y = global_position_vec_[1]+initial_pose_variance_enabled_*noise_distribution_y_(*noise_generator_ptr_);
 
         tf::Quaternion q;
-        double course_noise = noise_distribution_course_(*noise_generator_ptr_);
+        double course_noise = initial_pose_variance_enabled_*noise_distribution_course_(*noise_generator_ptr_);
         ROS_WARN_STREAM(nh_.getNamespace() << " course noise: " << course_noise);
         ROS_WARN_STREAM(nh_.getNamespace() << " initial course: " << global_position_vec_[2]+course_noise);
 

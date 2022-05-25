@@ -1,6 +1,6 @@
 a_star:
   mission_data:
-    save_search_data: false
+    save_search_data: true
 hybrid_a_star:
   static_simulation_time:
     default_sim_time: 120 #s
@@ -8,11 +8,11 @@ hybrid_a_star:
     #Should adaptive simulation time be used (alternative is fixed)
     enable_adaptive_sim_time: true
     #The lower limit for sim time when land distance smallest
-    underway_sim_time_minimum: 60 #s
+    underway_sim_time_minimum: 30 #s
     #The scaling factor for sim time when approaching goal
-    approach_sim_time_scaling: 0.05
+    approach_sim_time_scaling: 0.03
     #Lower limit sim time when approaching goal
-    approach_sim_time_minimum: 25 #s
+    approach_sim_time_minimum: 30 #s
   search_pruning:
     prune_radius_explored: 50
     prune_radius_closed: 50

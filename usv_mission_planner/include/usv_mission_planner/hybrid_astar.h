@@ -26,6 +26,12 @@ struct extendedVertex{
     }
 };
 
+struct procedureBenchmark{
+    int calls_;
+    double accumulated_time_;
+    procedureBenchmark(int calls, double accumulated_time):calls_(calls),accumulated_time_(accumulated_time){}
+};
+
 class HybridAStar{
     public:
         HybridAStar(Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name);
@@ -101,15 +107,36 @@ class HybridAStar{
         //Benchmark tools
         ros::Time start_search_;
         ros::Time end_search_;
-        std::vector<double> collision_time_;
-        std::vector<double> leaf_time_;
-        std::vector<double> simulate_time_;
-        std::vector<double> heuristic_time_;
-        std::vector<double> calc_sim_time_;
-        std::vector<double> similar_closed_time_;
-        std::vector<double> get_next_vertex_time_;
-        std::vector<double> get_distance_time_;
+        std::vector<double> collision_time_accumulation_;
+        std::vector<double> leaf_time_accumulation_;
+        std::vector<double> simulate_time_accumulation_;
+        std::vector<double> heuristic_time_accumulation_;
+        std::vector<double> calcSimTime_time_accumulation_;
+        std::vector<double> similar_closed_time_accumulation_;
+        std::vector<double> get_next_vertex_time_accumulation_;
+        std::vector<double> get_distance_time_accumulation_;
+        std::vector<double> get_grid_distance_time_accumulation_;
+
+
+        std::vector<std::pair<double,double>> candidateExploration_time;
+        std::vector<std::pair<double,procedureBenchmark>> collision_time_;
+        std::vector<std::pair<double,procedureBenchmark>> leaf_time_;
+        std::vector<std::pair<double,procedureBenchmark>> simulate_time_;
+        std::vector<std::pair<double,procedureBenchmark>> heuristic_time_;
+        std::vector<std::pair<double,procedureBenchmark>> calcSimTime_time_;
+        std::vector<std::pair<double,procedureBenchmark>> similar_closed_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_next_vertex_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_distance_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_grid_distance_time_;
         std::vector<double> reconstruct_path_time_;
+
+        std::vector<std::pair<double,double>> dist_to_land_vec_;
+        std::vector<std::pair<double,double>> dist_to_goal_vec_;
+        std::vector<std::pair<double,double>> sim_time_vec_;
+        void clearAccumulationContainers();
+        double getRelativeTime();
+        void writeBenchmarkContainer(std::vector<std::pair<double,double>>& container,std::ofstream& outfile);
+        void writeBenchmarkContainer(std::vector<std::pair<double,procedureBenchmark>>& container,std::ofstream& outfile);
         void dumpSearchBenchmark();
 
 };

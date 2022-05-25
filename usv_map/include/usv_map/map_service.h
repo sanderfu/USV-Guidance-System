@@ -14,15 +14,17 @@ enum LayerID {COLLISION, CAUTION, VORONOI};
 class MapService {
     public:
         MapService(std::string mission_region);
-        MapService(GDALDataset* ds);
+        MapService(GDALDataset* ds, GDALDataset* ds_detailed);
         bool intersects(OGRGeometry* geom, LayerID layer_id);
         double distance(double lon,double lat,LayerID layer_id,double max_distance=-1);
         double voronoi_field(double lon, double lat);
+        std::vector<OGRFeature*> getFeatures(double lon, double lat);
         std::pair<OGRPoint, OGRPoint> getMapExtent();
         GDALDataset* getDataset();
     private:
         GDALDataset* ds_;
         GDALDataset* ds_in_mem_;
+        GDALDataset* ds_detailed_;
         GDALDriver* driver_mem_;
         OGRPoint distance_point_;
 

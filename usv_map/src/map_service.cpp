@@ -10,12 +10,13 @@ MapService::MapService(std::string mission_region){
     }
 
     std::string db_path_ = mission_path+"region.sqlite";
-    std::cout << db_path_ << std::endl;
+    std::string db_detailed_path = mission_path+"region_detailed.sqlite";
     GDALAllRegister();
     ds_ = (GDALDataset*) GDALOpenEx(db_path_.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
-    if( ds_ == NULL)
+    ds_detailed_ = (GDALDataset*) GDALOpenEx(db_detailed_path.c_str(), GDAL_OF_VECTOR, NULL, NULL, NULL);
+    if( ds_ == NULL || ds_detailed_ == NULL)
     {
-        ROS_ERROR_STREAM("MapService: Failed to open map db");
+        ROS_ERROR_STREAM("MapService: Failed to open dataset");
         ros::shutdown();
     }
 
@@ -53,8 +54,9 @@ MapService::MapService(std::string mission_region){
     
 }
 
-MapService::MapService(GDALDataset* ds):
-ds_(ds){
+MapService::MapService(GDALDataset* ds, GDALDataset* ds_detailed):
+ds_(ds),
+ds_detailed_(ds_detailed){
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
     //driver_mem_ = GetGDALDriverManager()->GetDriverByName("SQLite");
     ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
@@ -198,6 +200,51 @@ double MapService::voronoi_field(double lon, double lat){
     double distance_to_land = distance(lon,lat,LayerID::COLLISION);
     double distance_voronoi = distance(lon,lat,LayerID::VORONOI);
     return (alpha_/(alpha_+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-default_saturation_,2)/pow(default_saturation_,2));
+}
+
+/**
+ * @brief Get all features present at a geudetic location.
+ * 
+ * @warning The caller is responsible to destory the returned geometry pointers using OGRFeature::DestroyFeature!
+ * 
+ * @param lon Longitude
+ * @param lat Latitude
+ * @return std::vector<OGRFeature*> List of features
+ */
+std::vector<OGRFeature*> MapService::getFeatures(double lon, double lat){
+    OGRPoint interest_point(lon,lat);
+    std::vector<OGRFeature*> features_intersecting;
+
+    std::vector<OGRGeometry*> geometries_to_check;
+    std::vector<OGRFeature*> related_features;
+
+    OGREnvelope interest_env;
+    interest_point.getEnvelope(&interest_env);
+    OGREnvelope check_env;
+
+    OGRLayer* layer;
+    OGRFeature* feat;
+
+    for (OGRLayer* layer: (ds_detailed_->GetLayers())){
+        while((feat = layer->GetNextFeature()) != NULL){
+            feat->GetGeometryRef()->getEnvelope(&check_env);
+            if(check_env.Intersects(interest_env)){
+                geometries_to_check.push_back(feat->GetGeometryRef()); 
+                related_features.push_back(feat);
+            } else{
+                OGRFeature::DestroyFeature(feat);
+            }
+        }
+    }
+    #pragma omp parallel for
+        for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){
+            if(interest_point.Intersects(*geom_it)){
+                features_intersecting.push_back(related_features[geom_it-geometries_to_check.begin()]);
+            } 
+        }
+    
+    return features_intersecting;
+
 }
 
 std::pair<OGRPoint, OGRPoint> MapService::getMapExtent(){

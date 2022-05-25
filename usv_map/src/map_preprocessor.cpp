@@ -35,7 +35,7 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
     extractor.run();
 
     //Build quadtree
-    MapService map_service(db);
+    MapService map_service(db,db_detailed);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
     Quadtree tree(lower_left_,upper_right_,db,mission_region_name,&map_service,true);
@@ -56,27 +56,34 @@ void MapPreprocessor::debug(std::string mission_region_name, extractorRegion& re
     if(!ros::param::get("preprocessor_debug/build_voronoi",build_voronoi)) parameter_load_error = true;
 
     GDALDataset* ds;
+    GDALDataset* ds_detailed;
+    std::pair<GDALDataset*, GDALDataset*> datasets;
     std::string mission_path =  ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region_name;
     if(extract_enc){
         std::cout << "PreProcessor: Extract ENC" << std::endl;
         ros::Time start = ros::Time::now();
-        ds = extractENC(mission_region_name,region);
+        datasets = extractENC(mission_region_name,region);
+        ds = datasets.first;
+        ds_detailed = datasets.second;
         std::cout << "Preprocessing ENC took " << ros::Duration(ros::Time::now()-start).toSec() << " [s]" << std::endl;
     } else{
         std::string db_path = mission_path+"/region.sqlite";
         ds = (GDALDataset*) GDALOpenEx(db_path.c_str(),GDAL_OF_VECTOR | GDAL_OF_UPDATE,NULL,NULL,NULL);
+        
+        std::string db_detailed_path = mission_path+"/region_detailed.sqlite";
+        GDALDataset* ds_detailed = driver_sqlite_->Create(db_detailed_path.c_str(),0,0,0,GDT_Unknown,NULL);
     }
     
     std::cout << "PreProcessor: Build Quadtree" << std::endl;
-    buildQuadtree(mission_region_name,region,ds,build_quadtree);
+    buildQuadtree(mission_region_name,region,ds,ds_detailed,build_quadtree);
 
     if(build_voronoi){
         std::cout << "PreProcessor: Generate Voronoi" << std::endl;
-        generateVoronoi(mission_region_name,region,ds);
+        generateVoronoi(mission_region_name,region,ds,ds_detailed);
     }
 }
 
-GDALDataset* MapPreprocessor::extractENC(std::string mission_region_name,extractorRegion& region){
+std::pair<GDALDataset*, GDALDataset*> MapPreprocessor::extractENC(std::string mission_region_name,extractorRegion& region){
     std::string mission_path =  ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region_name;
     if(!boost::filesystem::exists(mission_path)){
             boost::filesystem::create_directories(mission_path);
@@ -85,23 +92,23 @@ GDALDataset* MapPreprocessor::extractENC(std::string mission_region_name,extract
     GDALDataset* ds = driver_sqlite_->Create(db_path.c_str(),0,0,0,GDT_Unknown,NULL);
 
     std::string db_detailed_path = mission_path+"/region_detailed.sqlite";
-    GDALDataset* db_detailed = driver_sqlite_->Create(db_detailed_path.c_str(),0,0,0,GDT_Unknown,NULL);
+    GDALDataset* ds_detailed = driver_sqlite_->Create(db_detailed_path.c_str(),0,0,0,GDT_Unknown,NULL);
 
     extractorVessel vessel(vessel_width_,vessel_length_,vessel_height_,vessel_draft_);
-    ENCExtractor extractor(region,vessel,ds,db_detailed);
+    ENCExtractor extractor(region,vessel,ds,ds_detailed);
     extractor.run();
-    return ds;
+    return std::make_pair(ds,ds_detailed);
 }
 
-void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds,bool build){
-    MapService map_service(ds);
+void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRegion& region, GDALDataset* ds,GDALDataset* ds_detailed,bool build){
+    MapService map_service(ds, ds_detailed);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
     Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,&map_service,build);
 }
 
-void MapPreprocessor::generateVoronoi(std::string mission_region_name,extractorRegion& region, GDALDataset* ds){
-    MapService map_service(ds);
+void MapPreprocessor::generateVoronoi(std::string mission_region_name,extractorRegion& region, GDALDataset* ds, GDALDataset* ds_detailed){
+    MapService map_service(ds,ds_detailed);
     GeographicLib::Geodesic geod(GeographicLib::Geodesic::WGS84());
     OGRPoint lower_left(region.min_lon_,region.min_lat_);
     OGRPoint upper_right(region.max_lon_,region.max_lat_);

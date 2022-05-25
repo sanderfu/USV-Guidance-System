@@ -207,7 +207,9 @@ double Region::getOccupiedArea(){
 
     unknown_layer_->ResetReading();
     while((feat = unknown_layer_->GetNextFeature()) != NULL){
-        feat->GetGeometryRef()->getEnvelope(&check_env);
+        OGRGeometry* geom = feat->GetGeometryRef();
+        if (geom==NULL) continue;
+        geom->getEnvelope(&check_env);
         if(check_env.Intersects(region_env)){
             geometries_to_check.push_back(feat->GetGeometryRef()); 
             related_features.push_back(feat);

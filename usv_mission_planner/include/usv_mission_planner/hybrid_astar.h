@@ -91,8 +91,10 @@ class HybridAStar{
         double getGridDistanceAccurate(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
+        bool tssLane(extendedVertex* current);
+        bool tssViolation(extendedVertex* current,state_type& candidate, double heading);
         double breakTie(StateVec* current);
-        double heuristic(extendedVertex* current,extendedVertex* next,double new_cost);
+        double heuristic(extendedVertex* current,extendedVertex* next,double heading,double new_cost);
 
         double adaptiveSimulationTime(extendedVertex* current, double distance_to_goal);
         ModelLibrary::simulatedHorizon simulateVessel(state_type& state, double heading_candidate, double sim_time);

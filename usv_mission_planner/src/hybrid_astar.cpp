@@ -98,6 +98,8 @@ void HybridAStar::search(){
     came_from_[v_start_] = v_start_;
     cost_so_far_[v_start_] = 0;
 
+    bool lane_candidate_active = false;
+
     std::vector<double> heading_candidates = {-M_PI/6,-M_PI/9,0,M_PI/9,M_PI/6};
     Region* current_region;
 
@@ -122,7 +124,6 @@ void HybridAStar::search(){
             saveDataContainers();
             exit(1);
         }
-        
 
         double distance = getDistance(current->pose,v_goal_->pose);
         std::cout << "Distance: " << distance <<std::endl;
@@ -135,29 +136,46 @@ void HybridAStar::search(){
         }
         sim_time_vec_.push_back(std::make_pair(getRelativeTime(),sim_time));
 
+        if(tssLane(current)){
+            ROS_WARN_STREAM("In TSS Lane, additional heading option added");
+            heading_candidates.push_back(map_service_->tssLaneorientation(current->pose->x(),current->pose->y())-current->pose->w());
+            lane_candidate_active = true;
+        }
+
         //Calculate vertex candidates
         std::vector<std::pair<extendedVertex*, double>> candidates_container_;
         for(auto heading_candidate_it=heading_candidates.begin();heading_candidate_it!=heading_candidates.end();heading_candidate_it++){
             //Calculate distance to region border
             double heading = *heading_candidate_it+current->pose->w();
+            while(heading <= -M_PI) heading += 2*M_PI;
+			while (heading > M_PI) heading -= 2*M_PI;
+            //std::cout << "Vessle heading: " << current->pose->w() << " Lane orientation: " << map_service_->tssLaneorientation(current->pose->x(),current->pose->y()) << " Heading: " << heading*180/M_PI << std::endl;
+
             state_type candidate_state = {current->pose->x(),current->pose->y(),current->pose->w(),current->twist->x(),current->twist->y(),current->twist->z()};
             ModelLibrary::simulatedHorizon hor = simulateVessel(candidate_state,heading,sim_time);
             
             if (similarClosed(candidate_state)) continue;
             if (collision(candidate_state,current_region,hor)) continue;
+            if (tssViolation(current,candidate_state,heading)) continue;
             
             std::pair<extendedVertex*,bool> next_pair = getNextVertex(candidate_state);
 
             double new_cost = cost_so_far_[current] + getDistance(current->pose,next_pair.first->pose);
             if(!next_pair.second || new_cost<cost_so_far_[next_pair.first]){
                 cost_so_far_[next_pair.first]=new_cost;
-                double priority = heuristic(current,next_pair.first,new_cost);
+                double priority = heuristic(current,next_pair.first,heading,new_cost);
                 candidates_container_.push_back(std::make_pair(next_pair.first,priority-new_cost));
                 frontier_.put(next_pair.first,priority);
                 came_from_[next_pair.first]=current;
             }
 
         }
+
+        if(lane_candidate_active){
+            heading_candidates.pop_back();
+            lane_candidate_active = false;
+        }
+
         candidate_exploration_.push_back(std::make_pair(current,candidates_container_));
         candidateExploration_time.push_back(std::make_pair(getRelativeTime(),ros::Duration(ros::Time::now()-candidateExploration_start).toSec()));
         collision_time_.push_back(std::make_pair(getRelativeTime(),procedureBenchmark(collision_time_accumulation_.size(),std::accumulate(collision_time_accumulation_.begin(),collision_time_accumulation_.end(),0.0))));
@@ -350,6 +368,44 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
 }
 
+bool HybridAStar::tssLane(extendedVertex* current){
+    OGRPoint point(current->pose->x(),current->pose->y());
+    return map_service_->intersects(&point,LayerID::TSSLPT);
+}
+
+bool HybridAStar::tssViolation(extendedVertex* current,state_type& candidate, double heading){
+    //Handle going completely wrong way in TSSLPT crossing
+    double tssLaneOrient = map_service_->tssLaneorientation(current->pose->x(),current->pose->y());
+    if(tssLaneOrient!=INFINITY){
+        if(abs(tssLaneOrient-heading)>=M_PI/2){
+            ROS_INFO_STREAM("TSS Violation");
+            return true;
+        }
+    }
+
+    tssLaneOrient = map_service_->tssLaneorientation(candidate[0],candidate[1]);
+    if(tssLaneOrient!=INFINITY){
+        if(abs(tssLaneOrient-heading)>=M_PI/2){
+            ROS_INFO_STREAM("TSS Violation");
+            return true;
+        }
+    }
+
+    //Handle going wrong way around roundabout
+    OGRGeometry* geom = map_service_->getNearestGeometry(current->pose->x(),current->pose->y(),3000,LayerID::TSSRON);
+    if (geom!=NULL){
+        OGRPoint centroid;
+        geom->toPolygon()->Centroid(&centroid);
+        bool clockwise = ((current->pose->x() - centroid.getX())*(candidate[1] - centroid.getY()) - (current->pose->y() - centroid.getY())*(candidate[0] - centroid.getX())) > 0;
+        if(!clockwise){
+            ROS_INFO_STREAM("TSS Roundabout Violation");
+            return true;
+        }
+    }
+
+    return false;
+}
+
 double HybridAStar::breakTie(StateVec* current){
     double dx1, dy1, dx2, dy2;
     return 0;
@@ -364,13 +420,20 @@ double HybridAStar::breakTie(StateVec* current){
  * @param search_phase The current search phase
  * @return double The heuristic value
  */
-double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next, double new_cost){
+double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next,double heading, double new_cost){
     ros::Time start_heuristic = ros::Time::now();
     double voronoi_field = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
     double cost_distance = voronoi_field_cost_weight_*voronoi_field;
 
+    //Add cost of deviating from TSS Lane orientation
+    double orientation_penalty = 1;
+    double tssLaneOrient = map_service_->tssLaneorientation(current->pose->x(),current->pose->y());
+    if(tssLaneOrient!=INFINITY){
+        orientation_penalty+=0.20*abs(tssLaneOrient-heading)/M_PI;
+    }
+
     double priority = new_cost + cost_distance;
-    priority+=distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
+    priority+=orientation_penalty*distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
     heuristic_time_accumulation_.push_back(ros::Duration(ros::Time::now()-start_heuristic).toSec());
     return priority;
 }

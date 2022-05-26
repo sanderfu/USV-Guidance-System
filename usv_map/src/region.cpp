@@ -13,8 +13,9 @@
  * @param own_region A description of the regions position w.r.t. to the parent region centorid.
  * @param ds The datasource from which a map to counstruct a quadtree around is located.
  */
-Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, MapService* map_service):
+Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, GDALDataset* ds_detailed, MapService* map_service):
     ds_(ds),
+    ds_detailed_(ds_detailed),
     lower_left_(lower_left),
     upper_right_(upper_right),
     depth_(depth),
@@ -43,7 +44,14 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
     region_polygon_->Centroid(&centroid_);
 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
+    tsezne_layer_ = ds_detailed_->GetLayerByName("tsezne");
     unknown_layer_ = ds->GetLayerByName("unknown");
+
+    /*
+    if(comparison_layer_==NULL || tsezne_layer_==NULL ||unknown_layer_==NULL){
+        ROS_WARN_STREAM("Problem with input layer in region object");
+    }
+    */
     
 }
 
@@ -60,7 +68,9 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
  * @param own_region A description of the regions position w.r.t. to the parent region centorid.
  * @param ds The datasource from which a map to counstruct a quadtree around is located.
  */
-Region::Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, MapService* map_service){
+Region::Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, GDALDataset* ds_detailed, MapService* map_service):
+ds_(ds),
+ds_detailed_(ds_detailed){
     map_service_ = map_service;
     
     depth_ = depth;
@@ -97,7 +107,14 @@ Region::Region(double lon_lower, double lat_lower, double width, double height, 
     region_polygon_->Centroid(&centroid_);
 
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
+    tsezne_layer_ = ds_detailed_->GetLayerByName("tsezne");
     unknown_layer_ = ds->GetLayerByName("unknown");
+
+    /*
+    if(comparison_layer_==NULL || tsezne_layer_==NULL ||unknown_layer_==NULL){
+        ROS_WARN_STREAM("Problem with input layer in region object");
+    }
+    */
 }
 
 /**
@@ -207,6 +224,19 @@ double Region::getOccupiedArea(){
 
     unknown_layer_->ResetReading();
     while((feat = unknown_layer_->GetNextFeature()) != NULL){
+        OGRGeometry* geom = feat->GetGeometryRef();
+        if (geom==NULL) continue;
+        geom->getEnvelope(&check_env);
+        if(check_env.Intersects(region_env)){
+            geometries_to_check.push_back(feat->GetGeometryRef()); 
+            related_features.push_back(feat);
+        } else{
+            OGRFeature::DestroyFeature(feat);
+        }
+    }
+
+    tsezne_layer_->ResetReading();
+    while((feat = tsezne_layer_->GetNextFeature()) != NULL){
         OGRGeometry* geom = feat->GetGeometryRef();
         if (geom==NULL) continue;
         geom->getEnvelope(&check_env);

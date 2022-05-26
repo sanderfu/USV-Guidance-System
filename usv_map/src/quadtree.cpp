@@ -8,8 +8,9 @@
  * @param ds The dataset containing the map we build the Quadtree w.r.t. 
  * @param build_immediately If true, build the quadtree. If false, dont.
  */
-Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region,MapService* map_service,bool build_immediately): 
+Quadtree::Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, GDALDataset* ds_detailed, std::string mission_region,MapService* map_service,bool build_immediately): 
     ds_(ds),
+    ds_detailed_(ds_detailed),
     lower_left_(lower_left),
     upper_right_(upper_right),
     geod_(GeographicLib::Geodesic::WGS84()),
@@ -187,7 +188,7 @@ void Quadtree::load(const std::string& mission_region){
                 boundary->getPoint(0,&lower_left_);
                 boundary->getPoint(2,&upper_right_);
 
-                tree_root_ = new Region(lower_left_,upper_right_,current_depth,generateRegionID(),0,childRegion::NW,ds_,map_service_);
+                tree_root_ = new Region(lower_left_,upper_right_,current_depth,generateRegionID(),0,childRegion::NW,ds_,ds_detailed_,map_service_);
                 
                 //Add region to parent_lookup 
                 parent_lookup[tree_root_->getID()]=tree_root_;
@@ -196,16 +197,16 @@ void Quadtree::load(const std::string& mission_region){
                 switch (static_cast<childRegion>(feat->GetFieldAsInteger64("region")))
                 {
                 case childRegion::NW:
-                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NW,ds_,map_service_),childRegion::NW);
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NW,ds_,ds_detailed_,map_service_),childRegion::NW);
                     break;
                 case childRegion::NE:
-                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NE,ds_,map_service_),childRegion::NE);
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY()+parent->getHeight()/2,parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::NE,ds_,ds_detailed_,map_service_),childRegion::NE);
                     break;
                 case childRegion::SW:
-                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SW,ds_,map_service_),childRegion::SW);
+                    parent->addChild(new Region(parent->lower_left_.getX(),parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SW,ds_,ds_detailed_,map_service_),childRegion::SW);
                     break;
                 case childRegion::SE:
-                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SE,ds_,map_service_),childRegion::SE);
+                    parent->addChild(new Region(parent->lower_left_.getX()+parent->getWidth()/2,parent->lower_left_.getY(),parent->getWidth()/2,parent->getHeight()/2,parent->getDepth()+1,feat->GetFieldAsInteger64("id"),parent->getID(),childRegion::SE,ds_,ds_detailed_,map_service_),childRegion::SE);
                     break;
                 default:
                     ROS_ERROR_STREAM("Region type not recognized!");
@@ -307,13 +308,13 @@ int Quadtree::generateRegionID(){
 void Quadtree::splitRegion(Region* region, std::queue<Region*>& regions_to_evaluate){
     ros::Time start = ros::Time::now();
     // Calculate NW region
-    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NW,ds_,map_service_),childRegion::NW);
+    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NW,ds_,ds_detailed_,map_service_),childRegion::NW);
     //Calculate NE region
-    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NE,ds_,map_service_),childRegion::NE);
+    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY()+region->getHeight()/2,region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::NE,ds_,ds_detailed_,map_service_),childRegion::NE);
     //Calculate SW region
-    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SW,ds_,map_service_),childRegion::SW);
+    region->addChild(new Region(region->lower_left_.getX(),region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SW,ds_,ds_detailed_,map_service_),childRegion::SW);
     //Calculate SE region
-    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SE,ds_,map_service_),childRegion::SE);
+    region->addChild(new Region(region->lower_left_.getX()+region->getWidth()/2,region->lower_left_.getY(),region->getWidth()/2,region->getHeight()/2,region->getDepth()+1,generateRegionID(),region->getID(),childRegion::SE,ds_,ds_detailed_,map_service_),childRegion::SE);
     //Add child regions for evaluation
     for(std::unordered_map<childRegion,Region *>::iterator it = region->children.begin(); it!=region->children.end(); it++){
         regions_to_evaluate.push((*it).second);
@@ -437,7 +438,7 @@ void Quadtree::setGoal(double lon,double lat){
  */
 void Quadtree::build(){
     std::queue<Region*> regions_to_evaluate;
-    tree_root_ = new Region(lower_left_,upper_right_,0,generateRegionID(),0,childRegion::NW,ds_,map_service_);
+    tree_root_ = new Region(lower_left_,upper_right_,0,generateRegionID(),0,childRegion::NW,ds_,ds_detailed_,map_service_);
     regions_to_evaluate.push(tree_root_);
     int regions_added = 0;
     while(!regions_to_evaluate.empty()){
@@ -503,7 +504,7 @@ void Quadtree::build(){
 
 QuadtreeROS::QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region,bool build_immediately):
 nh_(nh),
-Quadtree(lower_left,upper_right,ds,mission_region,nullptr,build_immediately){
+Quadtree(lower_left,upper_right,ds,nullptr,mission_region,nullptr,build_immediately){
     vertex_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_vertices",1,true);
     edge_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/visual_edges",1,true);
     region_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/quadtree/highlight_region",1,true);

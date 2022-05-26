@@ -12,12 +12,12 @@ hybrid_a_star:
     #The scaling factor for sim time when approaching goal
     approach_sim_time_scaling: 0.03
     #Lower limit sim time when approaching goal
-    approach_sim_time_minimum: 30 #s
+    approach_sim_time_minimum: 15 #s
   search_pruning:
-    prune_radius_explored: 50
-    prune_radius_closed: 50
+    prune_radius_explored: 20
+    prune_radius_closed: 20
   heuristic:
-    distance_scaling_factor: 1.05
+    distance_scaling_factor: 1.25
     voronoi_field_cost_weight: 0.005
   mission_data:
     save_search_data: true

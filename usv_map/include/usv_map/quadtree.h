@@ -41,7 +41,7 @@ typedef struct {
  */
 class Quadtree{
     public:
-        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region, MapService* map_service,bool build_immediately=true);
+        Quadtree(OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, GDALDataset* ds_detailed, std::string mission_region, MapService* map_service,bool build_immediately=true);
         
         void setStart(double lon, double lat);
         void setGoal(double lon, double lat);
@@ -55,6 +55,7 @@ class Quadtree{
 
     protected:
         GDALDataset* ds_;
+        GDALDataset* ds_detailed_;
         GraphManager* gm_;
 
         Region* tree_root_;

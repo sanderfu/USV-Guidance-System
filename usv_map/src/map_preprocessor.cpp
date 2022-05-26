@@ -38,7 +38,7 @@ void MapPreprocessor::run(std::string mission_region_name, extractorRegion& regi
     MapService map_service(db,db_detailed);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,db,mission_region_name,&map_service,true);
+    Quadtree tree(lower_left_,upper_right_,db,db_detailed,mission_region_name,&map_service,true);
 
     //Build voronoi skeleton
     GeographicLib::Geodesic geod(GeographicLib::Geodesic::WGS84());
@@ -71,7 +71,8 @@ void MapPreprocessor::debug(std::string mission_region_name, extractorRegion& re
         ds = (GDALDataset*) GDALOpenEx(db_path.c_str(),GDAL_OF_VECTOR | GDAL_OF_UPDATE,NULL,NULL,NULL);
         
         std::string db_detailed_path = mission_path+"/region_detailed.sqlite";
-        GDALDataset* ds_detailed = driver_sqlite_->Create(db_detailed_path.c_str(),0,0,0,GDT_Unknown,NULL);
+        ds_detailed = (GDALDataset*) GDALOpenEx(db_detailed_path.c_str(),GDAL_OF_VECTOR,NULL,NULL,NULL);
+
     }
     
     std::cout << "PreProcessor: Build Quadtree" << std::endl;
@@ -104,7 +105,7 @@ void MapPreprocessor::buildQuadtree(std::string mission_region_name, extractorRe
     MapService map_service(ds, ds_detailed);
     OGRPoint lower_left_(region.min_lon_,region.min_lat_);
     OGRPoint upper_right_(region.max_lon_,region.max_lat_);
-    Quadtree tree(lower_left_,upper_right_,ds,mission_region_name,&map_service,build);
+    Quadtree tree(lower_left_,upper_right_,ds,ds_detailed,mission_region_name,&map_service,build);
 }
 
 void MapPreprocessor::generateVoronoi(std::string mission_region_name,extractorRegion& region, GDALDataset* ds, GDALDataset* ds_detailed){

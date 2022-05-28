@@ -66,7 +66,11 @@ class HybridAStar{
 
         //Search pruning
         double prune_radius_explored_;
+        double prune_angle_explored_;
         double prune_radius_closed_;
+        double prune_angle_closed_;
+        //TSS
+        double range_roundabout_;
         //Static simulation time
         double default_sim_time_;
         //Adaptive simulation time
@@ -77,6 +81,8 @@ class HybridAStar{
         //Heuristic
         double voronoi_field_cost_weight_;
         double distance_scaling_factor_;
+        double tss_orientation_scaling_factor_;
+        double tss_roundabout_proximity_factor_;
         //Data storage
         bool save_search_data_;
         bool save_benchmark_data_;
@@ -91,6 +97,7 @@ class HybridAStar{
         double getGridDistanceAccurate(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
+        double voronoi(extendedVertex* next);
         bool tssLane(extendedVertex* current);
         bool tssViolation(extendedVertex* current,state_type& candidate, double heading);
         double breakTie(StateVec* current);
@@ -118,6 +125,7 @@ class HybridAStar{
         std::vector<double> get_next_vertex_time_accumulation_;
         std::vector<double> get_distance_time_accumulation_;
         std::vector<double> get_grid_distance_time_accumulation_;
+        std::vector<double> voronoi_time_accumulation_;
 
 
         std::vector<std::pair<double,double>> candidateExploration_time;
@@ -130,6 +138,8 @@ class HybridAStar{
         std::vector<std::pair<double,procedureBenchmark>> get_next_vertex_time_;
         std::vector<std::pair<double,procedureBenchmark>> get_distance_time_;
         std::vector<std::pair<double,procedureBenchmark>> get_grid_distance_time_;
+        std::vector<std::pair<double,procedureBenchmark>> voronoi_time_;
+
         std::vector<double> reconstruct_path_time_;
 
         std::vector<std::pair<double,double>> dist_to_land_vec_;

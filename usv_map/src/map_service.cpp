@@ -118,13 +118,15 @@ bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
     case LayerID::TSSLPT:
         layer = ds_detailed_->GetLayerByName("tsslpt");
         break;
+    case LayerID::TSSRON:
+        layer = ds_detailed_->GetLayerByName("tssron");
+        break;
     default:
         ROS_ERROR_STREAM("Invalid LayerType");
         return false;
     }
 
-    if(!input_geom->IsValid()){
-        //This is commonly when most all path elements are the same value due to no velocity and no desired velocity in sim.
+    if(!input_geom->IsValid() || layer == NULL){
         return false;
     }
 
@@ -218,6 +220,20 @@ double MapService::tssLaneorientation(double lon, double lat){
     return orient;
 }
 
+double MapService::tssRoundaboutDistance(double lon, double lat, double range){
+    double dist = INFINITY;
+    OGRGeometry* geom = getNearestGeometry(lon,lat,range,LayerID::TSSRON);
+    if (geom==NULL){
+        return dist;
+    } else{
+        OGRPoint roundabout_centroid;
+        geom->Centroid(&roundabout_centroid);
+        GeographicLib::Geodesic::WGS84().Inverse(lat,lon,roundabout_centroid.getY(), roundabout_centroid.getX(),dist);
+        dist = abs(dist);
+        return dist;
+    }
+}
+
 
 /**
  * @brief 
@@ -243,8 +259,15 @@ OGRGeometry* MapService::getNearestGeometry(double lon, double lat, double range
     case LayerID::TSSRON:
         layer = ds_detailed_->GetLayerByName("tssron");
         break;
+    case LayerID::TSSLPT:
+        layer = ds_detailed_->GetLayerByName("tsslpt");
+    break;
     default:
         ROS_ERROR_STREAM("Invalid LayerType");
+        return NULL;
+    }
+
+    if(layer==NULL){
         return NULL;
     }
 
@@ -292,7 +315,7 @@ OGRFeature* MapService::getFeature(double lon, double lat, std::string layername
 
     OGRLayer* layer = ds_detailed_->GetLayerByName(layername.c_str());
     if(layer==NULL){
-        ROS_WARN_STREAM("Called getFeature from unrecognized layer: " << layername);
+        //ROS_WARN_STREAM("Called getFeature from unrecognized layer: " << layername);
         return nullptr;
     }
     OGRFeature* feat;

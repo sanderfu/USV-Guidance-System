@@ -1,6 +1,6 @@
 a_star:
   mission_data:
-    save_search_data: true
+    save_search_data: false
 hybrid_a_star:
   static_simulation_time:
     default_sim_time: 120 #s
@@ -15,10 +15,16 @@ hybrid_a_star:
     approach_sim_time_minimum: 15 #s
   search_pruning:
     prune_radius_explored: 20
+    prune_angle_explored: 5
     prune_radius_closed: 20
+    prune_angle_closed: 5
+  tss:
+    range_roundabout: 3000
   heuristic:
-    distance_scaling_factor: 1.25
-    voronoi_field_cost_weight: 0.005
+    distance_scaling_factor: 1.20
+    voronoi_field_cost_weight: 0.01
+    tss_orientation_scaling_factor: 0.20
+    tss_roundabout_proximity_factor: 0.01
   mission_data:
     save_search_data: true
     save_benchmark_data: true

@@ -18,7 +18,12 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_,mission_name)){
     //Load parameters
     bool parameter_load_error = false;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_explored",prune_radius_explored_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_pruning/prune_angle_explored",prune_angle_explored_)) parameter_load_error = true;
+    prune_angle_explored_*=M_PI/180;
     if(!ros::param::get("hybrid_a_star/search_pruning/prune_radius_closed",prune_radius_closed_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/search_pruning/prune_angle_closed",prune_angle_closed_)) parameter_load_error = true;
+    prune_angle_closed_*=M_PI/180;
+    if(!ros::param::get("hybrid_a_star/tss/range_roundabout",range_roundabout_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/static_simulation_time/default_sim_time",default_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/enable_adaptive_sim_time",enable_adaptive_sim_time_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/underway_sim_time_minimum",underway_sim_time_minimum_)) parameter_load_error = true;
@@ -26,6 +31,8 @@ grid_search_alg_(new AStar(tree->getGraphManager(),map_service_,mission_name)){
     if(!ros::param::get("hybrid_a_star/adaptive_simulation_time/approach_sim_time_minimum",approach_sim_time_minimum_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/voronoi_field_cost_weight",voronoi_field_cost_weight_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/heuristic/distance_scaling_factor",distance_scaling_factor_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/heuristic/tss_orientation_scaling_factor",tss_orientation_scaling_factor_)) parameter_load_error = true;
+    if(!ros::param::get("hybrid_a_star/heuristic/tss_roundabout_proximity_factor",tss_roundabout_proximity_factor_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/mission_data/save_search_data",save_search_data_)) parameter_load_error = true;
     if(!ros::param::get("hybrid_a_star/mission_data/save_benchmark_data",save_benchmark_data_)) parameter_load_error = true;
     if(parameter_load_error){
@@ -100,7 +107,11 @@ void HybridAStar::search(){
 
     bool lane_candidate_active = false;
 
-    std::vector<double> heading_candidates = {-M_PI/6,-M_PI/9,0,M_PI/9,M_PI/6};
+    std::vector<double> heading_candidates = {-45,-30,-15,0,15,30,45};
+    for(int i=0; i<heading_candidates.size(); i++){
+        heading_candidates[i]*=M_PI/180;
+    }
+
     Region* current_region;
 
     while(!frontier_.empty()){
@@ -136,15 +147,20 @@ void HybridAStar::search(){
         }
         sim_time_vec_.push_back(std::make_pair(getRelativeTime(),sim_time));
 
+        
         if(tssLane(current)){
-            ROS_WARN_STREAM("In TSS Lane, additional heading option added");
-            heading_candidates.push_back(map_service_->tssLaneorientation(current->pose->x(),current->pose->y())-current->pose->w());
-            lane_candidate_active = true;
+            double tssOrient = map_service_->tssLaneorientation(current->pose->x(),current->pose->y());
+            if(tssOrient!=current->pose->w()){
+                ROS_WARN_STREAM("In TSS Lane, additional heading option added");
+                heading_candidates.push_back(tssOrient-current->pose->w());
+                lane_candidate_active = true;
+            }
         }
+        
 
         //Calculate vertex candidates
         std::vector<std::pair<extendedVertex*, double>> candidates_container_;
-        for(auto heading_candidate_it=heading_candidates.begin();heading_candidate_it!=heading_candidates.end();heading_candidate_it++){
+        for(auto heading_candidate_it=heading_candidates.rbegin();heading_candidate_it!=heading_candidates.rend();heading_candidate_it++){
             //Calculate distance to region border
             double heading = *heading_candidate_it+current->pose->w();
             while(heading <= -M_PI) heading += 2*M_PI;
@@ -187,6 +203,7 @@ void HybridAStar::search(){
         get_next_vertex_time_.push_back(std::make_pair(getRelativeTime(),procedureBenchmark(get_next_vertex_time_accumulation_.size(),std::accumulate(get_next_vertex_time_accumulation_.begin(),get_next_vertex_time_accumulation_.end(),0.0))));
         get_distance_time_.push_back(std::make_pair(getRelativeTime(),procedureBenchmark(get_distance_time_accumulation_.size(),std::accumulate(get_distance_time_accumulation_.begin(),get_distance_time_accumulation_.end(),0.0))));
         get_grid_distance_time_.push_back(std::make_pair(getRelativeTime(),procedureBenchmark(get_grid_distance_time_accumulation_.size(),std::accumulate(get_grid_distance_time_accumulation_.begin(),get_grid_distance_time_accumulation_.end(),0.0))));
+        voronoi_time_.push_back(std::make_pair(getRelativeTime(),procedureBenchmark(voronoi_time_accumulation_.size(),std::accumulate(voronoi_time_accumulation_.begin(),voronoi_time_accumulation_.end(),0.0))));
         clearAccumulationContainers();
         
     }
@@ -306,10 +323,17 @@ double HybridAStar::getGridDistanceAccurate(StateVec* u, StateVec* v){
 std::pair<extendedVertex*,bool> HybridAStar::getNextVertex(state_type& next_state){
     //Find most similar node prdviously explored (if exists)
     ros::Time start = ros::Time::now();
+    double explored_angle;
+    double angle_diff;
     double distance_check;
     bool explored = false;
     for(auto vertex_it=cost_so_far_.begin(); vertex_it!=cost_so_far_.end();vertex_it++){
         geod_.Inverse((*vertex_it).first->pose->y(),(*vertex_it).first->pose->x(),next_state[1],next_state[0],distance_check);
+        explored_angle = (*vertex_it).first->pose->w();
+        angle_diff = abs(explored_angle-next_state[2]);
+        while(angle_diff <= -M_PI) angle_diff += 2*M_PI;
+	    while (angle_diff > M_PI) angle_diff -= 2*M_PI;
+        //Angle diff functionality not yet activated. Remains to be tested if correct.
         if (abs(distance_check)<prune_radius_explored_){
             explored=true;
             get_next_vertex_time_accumulation_.push_back(ros::Duration(ros::Time::now()-start).toSec());
@@ -368,6 +392,13 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
 }
 
+double HybridAStar::voronoi(extendedVertex* next){
+    ros::Time start = ros::Time::now();
+    double val = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
+    voronoi_time_accumulation_.push_back(ros::Duration(ros::Time::now()-start).toSec());
+    return val;
+}
+
 bool HybridAStar::tssLane(extendedVertex* current){
     OGRPoint point(current->pose->x(),current->pose->y());
     return map_service_->intersects(&point,LayerID::TSSLPT);
@@ -392,12 +423,26 @@ bool HybridAStar::tssViolation(extendedVertex* current,state_type& candidate, do
     }
 
     //Handle going wrong way around roundabout
-    OGRGeometry* geom = map_service_->getNearestGeometry(current->pose->x(),current->pose->y(),3000,LayerID::TSSRON);
+    OGRGeometry* geom = map_service_->getNearestGeometry(current->pose->x(),current->pose->y(),range_roundabout_,LayerID::TSSRON);
     if (geom!=NULL){
         OGRPoint centroid;
         geom->toPolygon()->Centroid(&centroid);
-        bool clockwise = ((current->pose->x() - centroid.getX())*(candidate[1] - centroid.getY()) - (current->pose->y() - centroid.getY())*(candidate[0] - centroid.getX())) > 0;
-        if(!clockwise){
+
+        //Convert necessary points
+        Eigen::Vector3d centroid_wgs(centroid.getX(),centroid.getY(),0);
+        Eigen::Vector3d centroid_enu;
+        geo_converter_.convert("WGS84",centroid_wgs,"start_enu",&centroid_enu);
+
+        Eigen::Vector3d current_wgs(current->pose->x(),current->pose->y(),0);
+        Eigen::Vector3d current_enu;
+        geo_converter_.convert("WGS84",current_wgs,"start_enu",&current_enu);
+
+        Eigen::Vector3d candidate_wgs(candidate[0],candidate[1],0);
+        Eigen::Vector3d candidate_enu;
+        geo_converter_.convert("WGS84",candidate_wgs,"start_enu",&candidate_enu);
+
+        bool counterclockwise = ((current_enu.x() - centroid_enu.x())*(candidate_enu.y() - centroid_enu.y()) - (current_enu.y() - centroid_enu.y())*(candidate_enu.x() - centroid_enu.x())) > 0;
+        if(!counterclockwise){
             ROS_INFO_STREAM("TSS Roundabout Violation");
             return true;
         }
@@ -422,18 +467,25 @@ double HybridAStar::breakTie(StateVec* current){
  */
 double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next,double heading, double new_cost){
     ros::Time start_heuristic = ros::Time::now();
-    double voronoi_field = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
+    double voronoi_field = voronoi(next);
     double cost_distance = voronoi_field_cost_weight_*voronoi_field;
 
     //Add cost of deviating from TSS Lane orientation
     double orientation_penalty = 1;
     double tssLaneOrient = map_service_->tssLaneorientation(current->pose->x(),current->pose->y());
     if(tssLaneOrient!=INFINITY){
-        orientation_penalty+=0.20*abs(tssLaneOrient-heading)/M_PI;
+        orientation_penalty+=tss_orientation_scaling_factor_*abs(tssLaneOrient-heading)/M_PI;
+    }
+
+    //Add cost of beeing close to roundabout center
+    double roundabout_dist=map_service_->tssRoundaboutDistance(next->pose->x(),next->pose->y(),range_roundabout_);
+    double roundabout_proximity_cost = 1;
+    if(roundabout_dist!=INFINITY){
+        roundabout_proximity_cost+=tss_roundabout_proximity_factor_*(range_roundabout_/roundabout_dist-1);
     }
 
     double priority = new_cost + cost_distance;
-    priority+=orientation_penalty*distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
+    priority+=roundabout_proximity_cost*orientation_penalty*distance_scaling_factor_*std::max(getDistance(next->pose,v_goal_->pose),getGridDistanceAccurate(next->pose,v_goal_->pose));
     heuristic_time_accumulation_.push_back(ros::Duration(ros::Time::now()-start_heuristic).toSec());
     return priority;
 }
@@ -490,6 +542,8 @@ ModelLibrary::simulatedHorizon HybridAStar::simulateVessel(state_type& state, do
     ros::Time start_sim = ros::Time::now();
     Eigen::Vector3d pos_wgs(state[0],state[1],0);
     Eigen::Vector3d pos_enu;
+    geo_converter_.removeFrame("start_enu");
+    geo_converter_.addFrameByENUOrigin("start_enu",state[1],state[0],0);
     geo_converter_.convert("WGS84",pos_wgs,"start_enu",&pos_enu);
     state_type candidate_state = {pos_enu.x(),pos_enu.y(),state[2],state[3],state[4],state[5]};
     ModelLibrary::simulatedHorizon sim_hor = vessel_model_->simulateHorizonAdaptive(candidate_state,3,heading_candidate,sim_time);
@@ -517,9 +571,16 @@ bool HybridAStar::similarClosed(state_type& state){
     //If vertex sufficiently simiar has been closed, go to next candidate
     ros::Time start = ros::Time::now();
     double closed_distance_check;
+    double closed_angle;
+    double angle_diff;
     bool next_closed =false;
     for(auto closed_it = closed_.begin(); closed_it!=closed_.end(); closed_it++){
         geod_.Inverse((*closed_it)->pose->y(),(*closed_it)->pose->x(),state[1],state[0],closed_distance_check);
+        closed_angle = (*closed_it)->pose->w();
+        angle_diff = abs(closed_angle-state[2]);
+        while(angle_diff <= -M_PI) angle_diff += 2*M_PI;
+	    while (angle_diff > M_PI) angle_diff -= 2*M_PI;
+        //Angle diff not yet activated. Testing remains.
         if(abs(closed_distance_check)<prune_radius_closed_){
             similar_closed_time_accumulation_.push_back(ros::Duration(ros::Time::now()-start).toSec());
             return true;
@@ -605,6 +666,7 @@ void HybridAStar::clearAccumulationContainers(){
     get_next_vertex_time_accumulation_.clear();
     get_distance_time_accumulation_.clear();
     get_grid_distance_time_accumulation_.clear();
+    voronoi_time_accumulation_.clear();
 }
 
 double HybridAStar::getRelativeTime(){
@@ -650,9 +712,11 @@ void HybridAStar::dumpSearchBenchmark(){
     std::ofstream benchmark_file_nextVertex_time(path+"nextVertex_time.csv");
     std::ofstream benchmark_file_getDistance_time(path+"getDistance_time.csv");
     std::ofstream benchmark_file_getGridDistance_time(path+"getGridDistance_time.csv");
+    std::ofstream benchmark_file_voronoi_time(path+"voronoi_time.csv");
     std::ofstream benchmark_file_dist_goal(path+"distance_to_goal.csv");
     std::ofstream benchmark_file_dist_land(path+"distance_to_land.csv");
     std::ofstream benchmark_file_simtime(path+"simtime.csv");
+    
 
     //Benchmark info:
     double total_distance = 0;
@@ -696,6 +760,7 @@ void HybridAStar::dumpSearchBenchmark(){
     writeBenchmarkContainer(get_next_vertex_time_,benchmark_file_nextVertex_time);
     writeBenchmarkContainer(get_distance_time_,benchmark_file_getDistance_time);
     writeBenchmarkContainer(get_grid_distance_time_,benchmark_file_getGridDistance_time);
+    writeBenchmarkContainer(voronoi_time_,benchmark_file_voronoi_time);
     writeBenchmarkContainer(dist_to_goal_vec_, benchmark_file_dist_goal);
     writeBenchmarkContainer(dist_to_land_vec_, benchmark_file_dist_land);
     writeBenchmarkContainer(sim_time_vec_, benchmark_file_simtime);

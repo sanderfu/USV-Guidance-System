@@ -21,6 +21,7 @@ class MapService {
         double distance(double lon,double lat,LayerID layer_id,double max_distance=-1);
         double voronoi_field(double lon, double lat);
         double tssLaneorientation(double lon, double lat);
+        double tssRoundaboutDistance(double lon, double lat, double range);
         OGRGeometry* getNearestGeometry(double lon, double lat, double range, LayerID layer_id); 
         OGRFeature* getFeature(double lon, double lat, std::string layername);
         std::vector<OGRFeature*> getFeatures(double lon, double lat, featureCategory category);

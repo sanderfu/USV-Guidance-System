@@ -23,6 +23,8 @@ MapService::MapService(std::string mission_region){
 
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
     ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
+    
+    /*
     OGRFeature* feat;
     for(auto&& layer: ds_->GetLayers()){
         if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
@@ -37,12 +39,29 @@ MapService::MapService(std::string mission_region){
         multi_feature->SetGeometry(&multi_poly);
         multi_layer->CreateFeature(multi_feature);
     }
+    */
+
+    //Temporary
+    OGRFeature* feat;
+    OGRLayer* voronoi_layer = ds_->GetLayerByName("voronoi");
+    OGRLayer* linestring_layer = ds_in_mem_->CreateLayer(voronoi_layer->GetName(),voronoi_layer->GetSpatialRef(),wkbLineString);
+    OGRMultiLineString* voronoi_skeleton = voronoi_layer->GetFeature(0)->GetGeometryRef()->toMultiLineString();
+    for (OGRLineString* line:voronoi_skeleton){
+        OGRFeature* feature = OGRFeature::CreateFeature(linestring_layer->GetLayerDefn());
+        feature->SetGeometry(line);
+        linestring_layer->CreateFeature(feature);
+    }
+
+
+
 
     OGRLineString* mission_region_boundary = ds_->GetLayerByName("mission_region")->GetFeature(1)->GetGeometryRef()->getBoundary()->toLineString();
     mission_region_boundary->getPoint(0,&lower_left_);
     mission_region_boundary->getPoint(2,&upper_right_);
 
-    ds_in_mem_->CopyLayer(ds_->GetLayerByName("voronoi"),"voronoi");
+    //ds_in_mem_->CopyLayer(ds_->GetLayerByName("voronoi"),"voronoi");
+    ds_in_mem_->CopyLayer(ds_->GetLayerByName("collision_dissolved"),"collision_dissolved");
+    ds_in_mem_->CopyLayer(ds_->GetLayerByName("caution_dissolved"),"caution_dissolved");
 
     //Load parameters
     bool parameter_load_error = false;
@@ -190,15 +209,45 @@ double MapService::distance(double lon,double lat,LayerID layer_id,double max_di
     }
     distance_point_.setX(lon);
     distance_point_.setY(lat);
-    OGRFeature* feat = layer->GetFeature(0);
-    if(feat==NULL){
-        ROS_ERROR_STREAM("Unable to get feature");
-        return -1;
+    OGRFeature* feat;
+
+    OGREnvelope input_env;
+    input_env.MinX = lon-max_distance;
+    input_env.MaxX = lon+max_distance;
+    input_env.MinY = lat-max_distance;
+    input_env.MaxY = lat+max_distance;
+
+    std::vector<OGRGeometry*> geometries_to_check;
+    std::vector<OGRFeature*> related_features;
+    OGREnvelope check_env;
+
+    layer->ResetReading();
+    while((feat = layer->GetNextFeature()) != NULL){
+        feat->GetGeometryRef()->getEnvelope(&check_env);
+        if(check_env.Intersects(input_env)){
+            geometries_to_check.push_back(feat->GetGeometryRef()); 
+            related_features.push_back(feat);
+        } else{
+            OGRFeature::DestroyFeature(feat);
+        }
     }
-    double distance = std::min(feat->GetGeometryRef()->Distance(&distance_point_),max_distance);
+
+    std::vector<double> distances(geometries_to_check.size());
+
+    #pragma omp parallel for
+    for(auto geom_it = geometries_to_check.begin(); geom_it!=geometries_to_check.end();geom_it++){
+        distances[geom_it-geometries_to_check.begin()] = (*geom_it)->Distance(&distance_point_);
+        OGRFeature::DestroyFeature(related_features[geom_it-geometries_to_check.begin()]);  
+    }
+
+    //double distance = std::min(feat->GetGeometryRef()->Distance(&distance_point_),max_distance);
     //double distance = feat->GetGeometryRef()->Distance(&distance_point_);
-    OGRFeature::DestroyFeature(feat);
-    return distance;
+    //OGRFeature::DestroyFeature(feat);
+    if (distances.size()==0){
+        return max_distance;
+    } else{
+        return *std::min_element(distances.begin(), distances.end());
+    }
 }
 
 double MapService::voronoi_field(double lon, double lat){

@@ -133,6 +133,7 @@ void HybridAStar::search(){
         if(!ros::ok()){
             std::cout << "Stopping Hybrid A* prematurely" << std::endl;
             saveDataContainers();
+            dumpSearchBenchmark();
             exit(1);
         }
 
@@ -523,7 +524,7 @@ std::vector<extendedVertex*> HybridAStar::getPath(){
 
 double HybridAStar::adaptiveSimulationTime(extendedVertex* current,double distance_to_goal){
     ros::Time start_calc_sim = ros::Time::now();
-    double dist_land = 1e5*map_service_->distance(current->pose->x(), current->pose->y(),LayerID::COLLISION,INFINITY);
+    double dist_land = 1e5*map_service_->distance(current->pose->x(), current->pose->y(),LayerID::COLLISION);
     double sim_time = std::min(std::max(dist_land/5.0,underway_sim_time_minimum_),std::max(approach_sim_time_scaling_*distance_to_goal/5.0,approach_sim_time_minimum_));
     ros::Time end_calc_sim = ros::Time::now();
     calcSimTime_time_accumulation_.push_back(ros::Duration(end_calc_sim-start_calc_sim).toSec());
@@ -678,6 +679,7 @@ void HybridAStar::writeBenchmarkContainer(std::vector<std::pair<double,double>>&
     for(auto it = container.begin(); it!=container.end(); it++){
         outfile<<std::fixed<<(*it).first<<","<<(*it).second<<"\n";
     }
+    outfile.close();
 }
 
 void HybridAStar::writeBenchmarkContainer(std::vector<std::pair<double,procedureBenchmark>>& container,std::ofstream& outfile){
@@ -685,6 +687,7 @@ void HybridAStar::writeBenchmarkContainer(std::vector<std::pair<double,procedure
     for(auto it = container.begin(); it!=container.end(); it++){
         outfile<<std::fixed<<(*it).first<<","<<(*it).second.calls_<<","<<(*it).second.accumulated_time_<<"\n";
     }
+    outfile.close();
 }
 
 /**
@@ -692,6 +695,7 @@ void HybridAStar::writeBenchmarkContainer(std::vector<std::pair<double,procedure
  * 
  */
 void HybridAStar::dumpSearchBenchmark(){
+    std::cout << "Dump search benchmark start" << std::endl;
     std::string path = ros::package::getPath("usv_mission_planner")+"/data/missions/"+mission_name_+"/hybrid_astar/";
     if(!boost::filesystem::exists(path)){
         boost::filesystem::create_directories(path);
@@ -721,11 +725,11 @@ void HybridAStar::dumpSearchBenchmark(){
     //Benchmark info:
     double total_distance = 0;
     double spline_distance = 0;
-    for (int i=0; i!=path_.size()-1; i++){
+    for (int i=0; i<path_.size()-1; i++){
         geod_.Inverse(path_[i]->pose->y(),path_[i]->pose->x(),path_[i+1]->pose->y(),path_[i+1]->pose->x(),spline_distance);
         total_distance+=spline_distance;
     }
-    ROS_INFO_STREAM("Total distance to travel: " << total_distance << " m" );
+    std::cout << "Total distance to travel: " << total_distance << " m" << std::endl;
     benchmark_file_misc<<"total_distance"<<","<<total_distance<<"\n";
 
     double min_distance_to_land = INFINITY;
@@ -738,16 +742,16 @@ void HybridAStar::dumpSearchBenchmark(){
         accumulated_distance_to_land+=distance_to_land;
         dist_to_land_vec_.push_back(std::make_pair(0,distance_to_land));
     }
-    ROS_INFO_STREAM("Min. distance to land: " << min_distance_to_land*1e5);
-    ROS_INFO_STREAM("Accumulated distance to land: " << accumulated_distance_to_land*1e5);
+    std::cout << "Min. distance to land: " << min_distance_to_land*1e5 << std::endl;
+    std::cout << "Accumulated distance to land: " << accumulated_distance_to_land*1e5 << std::endl;
     benchmark_file_misc<<"min_distance_land"<<","<<min_distance_to_land*1e5<<"\n";
     benchmark_file_misc<<"accumulated_distance_land"<<","<<accumulated_distance_to_land*1e5<<"\n";
 
 
-    ROS_INFO_STREAM("Search took: " << ros::Duration(end_search_-start_search_).toSec());
+    std::cout << "Search took: " << ros::Duration(end_search_-start_search_).toSec() << std::endl;
     benchmark_file_time<<"search_time"<<","<<1<<","<<ros::Duration(end_search_-start_search_).toSec()<<"\n";
     benchmark_file_time<<"reconstruct_path"<<","<<reconstruct_path_time_.size()<<","<<std::accumulate(reconstruct_path_time_.begin(), reconstruct_path_time_.end(), 0.0)<<"\n";
-    ROS_INFO_STREAM("Grid search algorithm:");
+    std::cout << "Grid search algorithm:" << std::endl;
 
     //Dump all benchmark containers
     writeBenchmarkContainer(candidateExploration_time,benchmark_file_candidateExploration);
@@ -769,6 +773,7 @@ void HybridAStar::dumpSearchBenchmark(){
 
 
     grid_search_alg_->dumpSearchBenchmark();
+    std::cout << "Dump search benchmark done" << std::endl;
 }
 
 HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):

@@ -10,6 +10,7 @@
 #include <iostream>
 #include "usv_mission_planner/priority_queue.h"
 #include "usv_mission_planner/astar.h"
+#include "usv_mission_planner/dubins.h"
 
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
@@ -31,6 +32,8 @@ struct procedureBenchmark{
     double accumulated_time_;
     procedureBenchmark(int calls, double accumulated_time):calls_(calls),accumulated_time_(accumulated_time){}
 };
+
+typedef std::vector<std::pair<double,double>> DubinDebugContainer;
 
 class HybridAStar{
     public:
@@ -81,8 +84,9 @@ class HybridAStar{
         //Heuristic
         double voronoi_field_cost_weight_;
         double distance_scaling_factor_;
-        double tss_orientation_scaling_factor_;
-        double tss_roundabout_proximity_factor_;
+        double tss_lane_orientation_scaling_factor_;
+        double tss_roundabout_proximity_scaling_factor_;
+        double tss_roundabout_orientation_scaling_factor_;
         //Data storage
         bool save_search_data_;
         bool save_benchmark_data_;
@@ -93,6 +97,7 @@ class HybridAStar{
         std::vector<extendedVertex*> reconstructPath();
 
         double getDistance(StateVec* u, StateVec* v);
+        double getShortestDubinDistance(StateVec* u, StateVec* v);
         double getGridDistance(StateVec* u, StateVec* v);
         double getGridDistanceAccurate(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
@@ -111,6 +116,7 @@ class HybridAStar{
         std::string mission_name_;
         std::vector<std::pair<extendedVertex*,std::vector<std::pair<extendedVertex*,double>>>> candidate_exploration_;
         std::vector<std::pair<double,double>> points_outside_quadtree_;
+        std::vector<DubinDebugContainer> dubin_paths_;
         void saveDataContainers();
 
         //Benchmark tools
@@ -126,6 +132,7 @@ class HybridAStar{
         std::vector<double> get_distance_time_accumulation_;
         std::vector<double> get_grid_distance_time_accumulation_;
         std::vector<double> voronoi_time_accumulation_;
+        std::vector<double> get_dubin_distance_time_accumulation_;
 
 
         std::vector<std::pair<double,double>> candidateExploration_time;
@@ -139,6 +146,7 @@ class HybridAStar{
         std::vector<std::pair<double,procedureBenchmark>> get_distance_time_;
         std::vector<std::pair<double,procedureBenchmark>> get_grid_distance_time_;
         std::vector<std::pair<double,procedureBenchmark>> voronoi_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_dubin_distance_time_;
 
         std::vector<double> reconstruct_path_time_;
 

@@ -7,10 +7,10 @@
 
     <param name="predefined_mission" type="bool" value = "false"/>
     <param name="predefined_mission_name" type="str" value = "stavanger_sauda_ryfylke"/>
-    <param name="goal_pose" type="yaml" value = "[5.29143,59.11302,0]"/>
-    <param name="initial_pose" type="yaml" value = "[5.34125,59.01273,1.67]"/>
+    <param name="goal_pose" type="yaml" value = "[5.266659,59.127295,0]"/>
+    <param name="initial_pose" type="yaml" value = "[5.345468,59.021870,3.14]"/>
 
-    <param name="simulation_collection_name" type="str" value = "west_coast_norway_tseznetsslpt_"/>
+    <param name="simulation_collection_name" type="str" value = "west_coast_norway_tss1_closeron_"/>
     <param name="simulations" type="int" value = "1"/>
 
     <param name="sim_origin" type="yaml" value = "[5.27250,59.07564,0]"/>

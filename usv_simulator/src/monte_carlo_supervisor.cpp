@@ -80,7 +80,7 @@ void MonteCarloSupervisor::sendMission(std::string mission_name){
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
     ros::Duration(2).sleep();
     if(!predefined_mission_){
-        mission_planner_client.searchFromOdom(goal_pose_[0],goal_pose_[1],mission_name);
+        mission_planner_client.searchFromOdom(goal_pose_[0],goal_pose_[1],goal_pose_[2],mission_name);
     } else{
         mission_planner_client.loadPredefined(predefined_mission_name_);
     }

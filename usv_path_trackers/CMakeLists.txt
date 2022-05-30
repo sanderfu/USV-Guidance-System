@@ -54,6 +54,7 @@ cs_export()
 set(py_nodes
   los_controller_node_usv
   los_controller_node_obstacle
+  los_controller_turn_radius_enforcer
 )
 
 foreach(py_node IN LISTS py_nodes)

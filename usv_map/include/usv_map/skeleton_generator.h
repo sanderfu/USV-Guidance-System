@@ -72,7 +72,6 @@ class VoronoiSkeletonGenerator{
         bool collision(const jcv_edge* edge);
 
         //Debug functions
-        double smallestDistanceMeasured(boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map);
         void dumpDebug();
 
 

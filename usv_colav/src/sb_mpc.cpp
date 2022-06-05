@@ -323,8 +323,6 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
 	Chi_ca_last_ = psi_corr_best;
     ROS_INFO_STREAM_COND(verbose_,"Path num points: " << choosen_path.getNumPoints());
     ROS_INFO_STREAM_COND(verbose_,"Best cost: " << cost);
-    //clearVisualPath();
-    //visualizePath(choosen_path);
     colav_msg_.getBestControlOffset_time=ros::Duration(ros::Time::now()-start).toSec();
     ros::Time stop = ros::Time::now();
 }
@@ -350,31 +348,26 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
     //Publish debug/post-visualization message
     colav_data_pub_.publish(colav_msg_);
     ROS_INFO_STREAM_COND(verbose_, "Offset u_os: " << u_os << " Offset psi_os: " << psi_os*RAD2DEG);
-    //ROS_INFO_STREAM_COND(verbose_,"Getting offset took: " << (stop-start).toSec() << " [s]");
 }
 
+/**
+ * @brief Reinitialize COLAV system upon instruction from a Monte Carlo Supervisor or other future system.
+ * 
+ * @param msg Renitialize message
+ */
 void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
     main_loop_timer_.stop();
-
-    //ROS_INFO_STREAM("COLAV reinit, waiting for odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
-    //ROS_INFO_STREAM("Odometry and LOS setpoint received");
-
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
-    
     main_loop_timer_.start();
-
-
-
-
 }
 
 /**
  * @brief Cost function to avoid other vessels in COLREG compliant manner. Calculate cost for a given obstacle vessel horizon.
  * 
- * @remark This cost function is from https://github.com/olesot/ros_asv_system
+ * @remark This cost function is based on the work in https://github.com/ingerbha/ros_asv_system
  * 
  * @param usv_horizon The simulated horizon for the ownship
  * @param obstacle_horizon The simulated horizon for an obstacle ship
@@ -414,9 +407,6 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
         obstacle_state[0] += delta_p_obs.x();
         obstacle_state[1] += delta_p_obs.y();
         t_prev = t;
-        
-        //state_type obstacle_state = obstacle_vessel.latest_obstacle_state_;
-        //obstacle_vessel.model_.simulateToTime(obstacle_state,t);
 
 		d(0) = obstacle_state[0] - usv_horizon.state[i][0];
 		d(1) = obstacle_state[1] - usv_horizon.state[i][1];
@@ -507,10 +497,6 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
             if(mu){
                 candidate_violating_colreg_14_=( SB && HO );
                 candidate_violating_colreg_15_=( SB && CR && !OT);
-                /*if(Chi_ca==0){
-                    std::cout << "USV Angle: " << usv_horizon.state[usv_horizon.state.size()-1][2]*RAD2DEG << "d_vec(" << d(0) << " " << d(1) << ") Phi: " << phi*RAD2DEG << std::endl;
-                }
-                */
             }
 
 		}
@@ -521,26 +507,13 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 			H1 = H0;  // Maximizing the cost with regards to time
 		}
         
-       //H1+=H0;
-        
 	}
-    //H1 = H1/usv_horizon.steps;
 	H2 = K_P_*(1-P_ca) + K_CHI_*(pow(Chi_ca,2)) + Delta_P(P_ca,P_ca_last) + Delta_Chi(Chi_ca, Chi_ca_last,mu) + K_CORR_*(Chi_ca!=0);
 	cost =  H1 + H2 + H3;
 
     ROS_WARN_STREAM_COND(Chi_ca==0,"Cost of zero option" << cost);
     ROS_WARN_STREAM_COND(Chi_ca==0,"H1:" << H1 << " H2: " << H2 << " H3: " << H3); 
     ROS_WARN_STREAM_COND(Chi_ca==0,"Smallest dist: " << *(dist_set.begin()) << " deltaP: " << Delta_P(P_ca,P_ca_last) << " deltaChi: " <<  Delta_Chi(Chi_ca, Chi_ca_last,mu)); 
-
-	// Print H1 and H2 for P==X
-    //	ROS_DEBUG_COND_NAMED(P_ca == 0.5,"Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
-    //	ROS_DEBUG_COND_NAMED(k == 2 , "Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
-    //	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","Chi: " << Chi_ca*RAD2DEG << "  \tSB " << sb << "\tCR " << cr << "\tHO " << ho << "\tOT " << ot);
-    // Print H1 and H2 for all P
-    //	ROS_DEBUG_NAMED("Testing","Chi: %0.0f   \tP: %0.1f  \tH1: %0.2f  \tH2: %0.2f  \tcost: %0.2f", Chi_ca*RAD2DEG, P_ca, H1, H2, cost);
-    // Print mu_1 and mu_2
-    //	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","Chi: " << Chi_ca*RAD2DEG << "  \tSB " << mu_1  << " CR " << mu_2 << " OT " << mu_3);
-    //	ROS_DEBUG_STREAM_COND_NAMED(P_ca == 1, "Testing","psi_o: "<<psi_o*RAD2DEG<<"\tpsi_s: "<<psi_s*RAD2DEG);
 
 	return cost;
 }

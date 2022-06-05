@@ -61,11 +61,6 @@ cs_add_executable(geotf_server_node
 )
 target_link_libraries(geotf_server_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
-cs_add_executable(map_preprocessor_node
-  src/map_preprocessor_node.cpp
-)
-target_link_libraries(map_preprocessor_node ${PROJECT_NAME} ${gdal_LIBRARIES} ${GeographicLib_LIBRARIES})
-
 cs_add_executable(test_map_preprocessor
   src/test_map_preprocessor.cpp
 )

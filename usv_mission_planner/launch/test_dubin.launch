@@ -1,16 +1,16 @@
 <launch>
     <param name="id" type="int" value = "0"/>
     <param name="preprocessed_map" type="bool" value = "true"/>
-    <param name="map_name" type="str" value = "stavanger_sauda_ryfylke"/>
+    <param name="map_name" type="str" value = "west_coast_norway_tss"/>
     <param name="map_extent" type="yaml" value = "[0,0,0,0]"/>
     <param name="desired_speed" type="double" value = "5"/>
 
     <param name="predefined_mission" type="bool" value = "false"/>
-    <param name="predefined_mission_name" type="str" value = "stavanger_sauda_ryfylke"/>
-    <param name="goal_pose" type="yaml" value = "[6.348977,59.640291,0]"/>
-    <param name="initial_pose" type="yaml" value = "[5.729235,58.971442,1.77]"/>
+    <param name="predefined_mission_name" type="str" value = "west_coast_norway_tss"/>
+    <param name="goal_pose" type="yaml" value = "[5.51106,59.16331,-3.14]"/>
+    <param name="initial_pose" type="yaml" value = "[5.51106,59.15331,0]"/>
 
-    <param name="simulation_collection_name" type="str" value = "stavanger_sauda_ryfylke_debug10_"/>
+    <param name="simulation_collection_name" type="str" value = "test_dubins_"/>
     <param name="simulations" type="int" value = "1"/>
 
     <param name="sim_origin" type="yaml" value = "[5.85823,59.05803,0]"/>

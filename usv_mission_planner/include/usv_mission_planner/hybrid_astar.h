@@ -10,6 +10,7 @@
 #include <iostream>
 #include "usv_mission_planner/priority_queue.h"
 #include "usv_mission_planner/astar.h"
+#include "usv_mission_planner/dubins.h"
 
 struct extendedVertex{
     extendedVertex(int id,state_type& state){
@@ -25,6 +26,14 @@ struct extendedVertex{
         delete twist;    
     }
 };
+
+struct procedureBenchmark{
+    int calls_;
+    double accumulated_time_;
+    procedureBenchmark(int calls, double accumulated_time):calls_(calls),accumulated_time_(accumulated_time){}
+};
+
+typedef std::vector<std::pair<double,double>> DubinDebugContainer;
 
 class HybridAStar{
     public:
@@ -60,7 +69,11 @@ class HybridAStar{
 
         //Search pruning
         double prune_radius_explored_;
+        double prune_angle_explored_;
         double prune_radius_closed_;
+        double prune_angle_closed_;
+        //TSS
+        double range_roundabout_;
         //Static simulation time
         double default_sim_time_;
         //Adaptive simulation time
@@ -71,6 +84,9 @@ class HybridAStar{
         //Heuristic
         double voronoi_field_cost_weight_;
         double distance_scaling_factor_;
+        double tss_lane_orientation_scaling_factor_;
+        double tss_roundabout_proximity_scaling_factor_;
+        double tss_roundabout_orientation_scaling_factor_;
         //Data storage
         bool save_search_data_;
         bool save_benchmark_data_;
@@ -81,12 +97,16 @@ class HybridAStar{
         std::vector<extendedVertex*> reconstructPath();
 
         double getDistance(StateVec* u, StateVec* v);
+        double getShortestDubinDistance(StateVec* u, StateVec* v);
         double getGridDistance(StateVec* u, StateVec* v);
         double getGridDistanceAccurate(StateVec* u, StateVec* v);
         std::pair<extendedVertex*,bool> getNextVertex(state_type& next_state);
         bool collision(state_type& current_state, Region* current_region, ModelLibrary::simulatedHorizon& sim_hor);
+        double voronoi(extendedVertex* next);
+        bool tssLane(extendedVertex* current);
+        bool tssViolation(extendedVertex* current,state_type& candidate, double heading);
         double breakTie(StateVec* current);
-        double heuristic(extendedVertex* current,extendedVertex* next,double new_cost);
+        double heuristic(extendedVertex* current,extendedVertex* next,double heading,double new_cost);
 
         double adaptiveSimulationTime(extendedVertex* current, double distance_to_goal);
         ModelLibrary::simulatedHorizon simulateVessel(state_type& state, double heading_candidate, double sim_time);
@@ -96,20 +116,47 @@ class HybridAStar{
         std::string mission_name_;
         std::vector<std::pair<extendedVertex*,std::vector<std::pair<extendedVertex*,double>>>> candidate_exploration_;
         std::vector<std::pair<double,double>> points_outside_quadtree_;
+        std::vector<DubinDebugContainer> dubin_paths_;
         void saveDataContainers();
 
         //Benchmark tools
         ros::Time start_search_;
         ros::Time end_search_;
-        std::vector<double> collision_time_;
-        std::vector<double> leaf_time_;
-        std::vector<double> simulate_time_;
-        std::vector<double> heuristic_time_;
-        std::vector<double> calc_sim_time_;
-        std::vector<double> similar_closed_time_;
-        std::vector<double> get_next_vertex_time_;
-        std::vector<double> get_distance_time_;
+        std::vector<double> collision_time_accumulation_;
+        std::vector<double> leaf_time_accumulation_;
+        std::vector<double> simulate_time_accumulation_;
+        std::vector<double> heuristic_time_accumulation_;
+        std::vector<double> calcSimTime_time_accumulation_;
+        std::vector<double> similar_closed_time_accumulation_;
+        std::vector<double> get_next_vertex_time_accumulation_;
+        std::vector<double> get_distance_time_accumulation_;
+        std::vector<double> get_grid_distance_time_accumulation_;
+        std::vector<double> voronoi_time_accumulation_;
+        std::vector<double> get_dubin_distance_time_accumulation_;
+
+
+        std::vector<std::pair<double,double>> candidateExploration_time;
+        std::vector<std::pair<double,procedureBenchmark>> collision_time_;
+        std::vector<std::pair<double,procedureBenchmark>> leaf_time_;
+        std::vector<std::pair<double,procedureBenchmark>> simulate_time_;
+        std::vector<std::pair<double,procedureBenchmark>> heuristic_time_;
+        std::vector<std::pair<double,procedureBenchmark>> calcSimTime_time_;
+        std::vector<std::pair<double,procedureBenchmark>> similar_closed_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_next_vertex_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_distance_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_grid_distance_time_;
+        std::vector<std::pair<double,procedureBenchmark>> voronoi_time_;
+        std::vector<std::pair<double,procedureBenchmark>> get_dubin_distance_time_;
+
         std::vector<double> reconstruct_path_time_;
+
+        std::vector<std::pair<double,double>> dist_to_land_vec_;
+        std::vector<std::pair<double,double>> dist_to_goal_vec_;
+        std::vector<std::pair<double,double>> sim_time_vec_;
+        void clearAccumulationContainers();
+        double getRelativeTime();
+        void writeBenchmarkContainer(std::vector<std::pair<double,double>>& container,std::ofstream& outfile);
+        void writeBenchmarkContainer(std::vector<std::pair<double,procedureBenchmark>>& container,std::ofstream& outfile);
         void dumpSearchBenchmark();
 
 };

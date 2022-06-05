@@ -1,24 +1,31 @@
 a_star:
   mission_data:
-    save_search_data: false
+    save_search_data: true
 hybrid_a_star:
   static_simulation_time:
-    default_sim_time: 120 #s
+    default_sim_time: 30 #s
   adaptive_simulation_time:
     #Should adaptive simulation time be used (alternative is fixed)
     enable_adaptive_sim_time: true
     #The lower limit for sim time when land distance smallest
-    underway_sim_time_minimum: 60 #s
+    underway_sim_time_minimum: 30 #s
     #The scaling factor for sim time when approaching goal
-    approach_sim_time_scaling: 0.05
+    approach_sim_time_scaling: 0.015
     #Lower limit sim time when approaching goal
-    approach_sim_time_minimum: 25 #s
+    approach_sim_time_minimum: 15 #s
   search_pruning:
-    prune_radius_explored: 50
-    prune_radius_closed: 50
+    prune_radius_explored: 20
+    prune_angle_explored: 10
+    prune_radius_closed: 20
+    prune_angle_closed: 10
+  tss:
+    range_roundabout: 3000
   heuristic:
-    distance_scaling_factor: 1.05
-    voronoi_field_cost_weight: 0.005
+    distance_scaling_factor: 1.20
+    voronoi_field_cost_weight: 0.001
+    tss_lane_orientation_scaling_factor: 0.20
+    tss_roundabout_proximity_scaling_factor: 0.00
+    tss_roundabout_orientation_scaling_factor: 0
   mission_data:
     save_search_data: true
     save_benchmark_data: true

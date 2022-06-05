@@ -14,7 +14,7 @@ std::pair<OGRPoint, OGRPoint> setCutsomExtent(double lon_lower, double lat_lower
 
 int main(int argc, char** argv){
     ros::init(argc,argv,"test_artificial_field");
-    std::string mission_region = "outside_new_york_2";
+    std::string mission_region = "outside_ny_updated";
     std::string debug_path = ros::package::getPath("usv_map")+"/data/mission_regions/"+mission_region+"/debug/";
     if(!boost::filesystem::exists(debug_path)){
             boost::filesystem::create_directories(debug_path);
@@ -24,7 +24,7 @@ int main(int argc, char** argv){
     double resolution = 0.0002;
 
     //Get mission region extent
-    std::pair<OGRPoint, OGRPoint> extent = setCutsomExtent(-73.878529,40.581363,-73.846124,40.623166);//map_service.getMapExtent();
+    std::pair<OGRPoint, OGRPoint> extent = setCutsomExtent(-73.892433,40.603140 , -73.877455,40.632012);//map_service.getMapExtent();
     std::vector<std::pair<double,double>> points_to_check;
     for(double x=extent.first.getX(); x<extent.second.getX(); x+=resolution){
         for(double y=extent.first.getY(); y<extent.second.getY(); y+=resolution){
@@ -39,14 +39,14 @@ int main(int argc, char** argv){
 
     int i = 0;
     for(auto it=points_to_check.begin();it!=points_to_check.end();it++){
-        if(i%1000==0){
+        if(i%1==0){
             std::cout << "Points processed: " << i << std::endl;
         }
         OGRPoint point;
         point.setX((*it).first);
         point.setY((*it).second);
-        double distance_voronoi= map_service.distance((*it).first,(*it).second,LayerID::VORONOI);
-        double distance_obstacle= map_service.distance((*it).first,(*it).second,LayerID::COLLISION);
+        double distance_voronoi= 0;//map_service.distance((*it).first,(*it).second,LayerID::VORONOI);
+        double distance_obstacle= 0;//map_service.distance((*it).first,(*it).second,LayerID::COLLISION);
         double voronoi_field = map_service.voronoi_field((*it).first,(*it).second);
         
         distance_tiles_file<<(*it).first<<","<<(*it).second<<","<<distance_obstacle<<","<<distance_voronoi<<","<<voronoi_field<<"\n";

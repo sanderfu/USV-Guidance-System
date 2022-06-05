@@ -38,7 +38,7 @@ MissionPlanner::MissionPlanner(const ros::NodeHandle& nh): nh_(nh){
 
     map_service_ = new MapService(map_name_);
     std::pair<OGRPoint,OGRPoint> map_extent = map_service_->getMapExtent();
-    tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_name_,map_service_,false);
+    tree_ = new Quadtree(map_extent.first,map_extent.second,map_service_->getDataset(),map_service_->getDetailedDataset(),map_name_,map_service_,false);
     vessel_model_ = new ModelLibrary::Viknes830();
     search_alg_ = new HybridAStar(tree_,vessel_model_,map_service_,mission_name_);
     ROS_INFO_STREAM("Done initializing MissionPlanner");
@@ -122,7 +122,7 @@ bool MissionPlanner::search(usv_mission_planner::search::Request &req, usv_missi
     } else{
         search_alg_->setStart(req.custom_start_lon,req.custom_start_lat,req.custom_start_heading);
     }
-    search_alg_->setGoal(req.goal_lon,req.goal_lat,0);
+    search_alg_->setGoal(req.goal_lon,req.goal_lat,req.goal_course);
     search_alg_->search();
     path_ = search_alg_->getPath();
 
@@ -187,12 +187,13 @@ MissionPlannerClient::MissionPlannerClient(ros::NodeHandle& nh): nh_(nh){
  * @param goal_lat Goal latitude
  * @param publish_path Should path be published in ROS network?
  */
-void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat, std::string mission_name, bool publish_path){
+void MissionPlannerClient::searchFromOdom(double goal_lon, double goal_lat,double goal_course,std::string mission_name, bool publish_path){
     usv_mission_planner::search srv;
     srv.request.use_odom=true;
     srv.request.publish_path = publish_path;
     srv.request.goal_lon = goal_lon;
     srv.request.goal_lat = goal_lat;
+    srv.request.goal_course = goal_course;
     srv.request.mission_name.data = mission_name;
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }

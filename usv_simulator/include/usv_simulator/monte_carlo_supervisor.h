@@ -18,6 +18,7 @@ class MonteCarloSupervisor{
         //Parameters
         bool leader_supervisor_;
         double done_timeout_time_;
+        int initial_pose_variance_enabled_;
         double initial_pose_variance_x_;
         double initial_pose_variance_y_;
         double initial_pose_variance_course_;

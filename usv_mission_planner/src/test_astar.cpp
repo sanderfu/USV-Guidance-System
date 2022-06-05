@@ -11,7 +11,7 @@ int main(int argc, char** argv) {
     std::string map_name = "atloy_fixed_divisor_qt";
     MapService map_service(map_name);
     std::pair<OGRPoint,OGRPoint> map_extent = map_service.getMapExtent();
-    Quadtree tree(map_extent.first,map_extent.second,map_service.getDataset(),map_name,&map_service,false);
+    Quadtree tree(map_extent.first,map_extent.second,map_service.getDataset(),map_service.getDetailedDataset(),map_name,&map_service,false);
 
     AStar astar_alg(tree.getGraphManager(),&map_service,map_name);
 

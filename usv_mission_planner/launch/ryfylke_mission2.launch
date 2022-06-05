@@ -7,10 +7,10 @@
 
     <param name="predefined_mission" type="bool" value = "false"/>
     <param name="predefined_mission_name" type="str" value = "stavanger_sauda_ryfylke"/>
-    <param name="goal_pose" type="yaml" value = "[6.348977,59.640291,0]"/>
-    <param name="initial_pose" type="yaml" value = "[5.729235,58.971442,1.77]"/>
+    <param name="goal_pose" type="yaml" value = "[6.154504,59.143091,0]"/>
+    <param name="initial_pose" type="yaml" value = "[5.57739,59.05859,0]"/>
 
-    <param name="simulation_collection_name" type="str" value = "stavanger_sauda_ryfylke_debug10_"/>
+    <param name="simulation_collection_name" type="str" value = "stavanger_sauda_ryfylke_robustness1_"/>
     <param name="simulations" type="int" value = "1"/>
 
     <param name="sim_origin" type="yaml" value = "[5.85823,59.05803,0]"/>

@@ -45,18 +45,29 @@ except Exception as e:
     )
 
 BLUE = '#6699cc'
+DARK_BLUE = '#152238'
 GRAY = '#999999'
 GREEN = '#4F7942'
+DARK_GREEN = '#001000'
+RED = "#FF0000"
+ORANGE = "#ff6600"
+DARK_ORANGE = "#a34100"
 
 def main():
     rospack = rospkg.RosPack()
-    map_name = "trondheim_hitra_4x"
-    mission_name = "test_adaptive_TRD_ON"
+    map_name = "stavanger_sauda_ryfylke"
+    mission_name = "stavanger_sauda_ryfylke_debug10_0"
     datasource_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region.sqlite"
+    datasource_detailed_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/region_detailed.sqlite"
     ds:gdal.Dataset = gdal.OpenEx(datasource_path)
+    ds_detailed:gdal.Dataset = gdal.OpenEx(datasource_detailed_path)
     if ds==None:
         raise RuntimeError("Failed to load datasource",datasource_path)
     collision_layer:ogr.Layer = ds.GetLayerByName("collision_dissolved")
+
+    tsezne_layer:ogr.Layer = ds_detailed.GetLayerByName("tsezne")
+    tsslpt_layer:ogr.Layer = ds_detailed.GetLayerByName("tsslpt")
+    tssron_layer:ogr.Layer = ds_detailed.GetLayerByName("tssron")
 
     figure,ax = plt.subplots(1,1)
 
@@ -68,6 +79,45 @@ def main():
             poly:Polygon = Polygon(loads(wkt))
             patch1 = PolygonPatch(poly, fc=GREEN, ec=GREEN, alpha=1, zorder=2)
             ax.add_patch(patch1)
+
+    #Plot traffic separation zone
+    if tsezne_layer!=None:
+        tsezne_layer.ResetReading()
+        for feat in tsezne_layer:
+            for geom in feat.GetGeometryRef():
+                wkt = geom.ExportToWkt()
+                poly:Polygon = Polygon(loads(wkt))
+                patch1 = PolygonPatch(poly, fc=DARK_ORANGE,ec=(0,0,0,0), alpha=0.75, zorder=6)
+                ax.add_patch(patch1)
+
+    #Plot traffic separation lane
+    if tsslpt_layer!=None:
+        tsslpt_layer.ResetReading()
+        tsslpt_count=0
+        for feat in tsslpt_layer:
+            for geom in feat.GetGeometryRef():
+                wkt = geom.ExportToWkt()
+                poly:Polygon = Polygon(loads(wkt))
+                [centroid_x,centroid_y] = poly.centroid.xy
+                angle = feat.GetFieldAsDouble("orient")*np.pi/180
+                if tsslpt_count==0:
+                    ax.arrow(centroid_x[0],centroid_y[0],0.001*np.sin(angle),0.001*np.cos(angle),zorder=6,color=ORANGE,label="Traffic direction")
+                    patch1 = PolygonPatch(poly, fc=ORANGE,ec=(0,0,0,0), alpha=0.25, zorder=5,label="TSS")
+                else:
+                    ax.arrow(centroid_x[0],centroid_y[0],0.001*np.sin(angle),0.001*np.cos(angle),zorder=6,color=ORANGE)
+                    patch1 = PolygonPatch(poly, fc=ORANGE,ec=(0,0,0,0), alpha=0.25, zorder=5)
+                tsslpt_count+=1
+                ax.add_patch(patch1)
+
+    #Plot traffic separation roundabout
+    if tssron_layer!=None:
+        tssron_layer.ResetReading()
+        for feat in tssron_layer:
+            for geom in feat.GetGeometryRef():
+                wkt = geom.ExportToWkt()
+                poly:Polygon = Polygon(loads(wkt))
+                patch1 = PolygonPatch(poly, fc=ORANGE,ec=(0,0,0,0), alpha=0.25, zorder=5)
+                ax.add_patch(patch1)
 
     #Plot distance coloured
     #distance_path = rospack.get_path('usv_map')+"/data/debug_distance_concept/distance_tiles.csv"
@@ -99,6 +149,16 @@ def main():
         lines.append(line)
     lc = mc.LineCollection(lines, linewidths=0.1,zorder=3)
     ax.add_collection(lc)
+
+    #Plot quadtree
+    #quadtree_path = rospack.get_path('usv_map')+"/data/mission_regions/"+map_name+"/quadtree.csv"
+    #quadtree_df = pd.read_csv(quadtree_path)
+    #lines = []
+    #for index,row in quadtree_df.iterrows():
+    #    line = [(row["u_lon"],row["u_lat"]),(row["v_lon"],row["v_lat"])]
+    #    lines.append(line)
+    #lc = mc.LineCollection(lines, linewidths=0.1,zorder=3)
+    #ax.add_collection(lc)
 
     #Plot closed
     plotpause = 0.00001

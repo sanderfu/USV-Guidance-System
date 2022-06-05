@@ -25,6 +25,7 @@ cs_add_library(${PROJECT_NAME}
   src/astar.cpp
   src/hybrid_astar.cpp
   src/mission_planner.cpp
+  src/dubins.cpp
 )
 
 

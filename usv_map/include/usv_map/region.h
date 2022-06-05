@@ -31,8 +31,8 @@ enum childRegion{
  */
 class Region{
     public:
-        Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, MapService* map_service);
-        Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds,MapService* map_service);
+        Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, GDALDataset* ds_detailed, MapService* map_service);
+        Region(double lon_lower, double lat_lower, double width, double height, int depth, int id, int parent_id, childRegion own_region, GDALDataset* ds, GDALDataset* ds_detailed, MapService* map_service);
         
         int getID();
         int getDepth();
@@ -59,7 +59,9 @@ class Region{
         bool is_leaf_;
     private:
         GDALDataset* ds_;
+        GDALDataset* ds_detailed_;
         OGRLayer* comparison_layer_;
+        OGRLayer* tsezne_layer_;
         OGRLayer* unknown_layer_;
         MapService* map_service_;
 

@@ -160,19 +160,3 @@ class HybridAStar{
         void dumpSearchBenchmark();
 
 };
-
-class HybridAStarROS : public HybridAStar{
-    public:
-        HybridAStarROS(ros::NodeHandle& nh,Quadtree* tree, ModelLibrary::Viknes830* vessel_model,MapService* map_service, std::string mission_name);
-        void visualize();
-    private:
-        geotf::GeodeticConverter geo_converter_;
-        ros::NodeHandle nh_;
-
-        ros::Publisher path_marker_pub_;
-        visualization_msgs::Marker path_marker_;
-
-        void initializeMarkers();
-        void addVisualPath();
-        void publishVisualPath();
-};

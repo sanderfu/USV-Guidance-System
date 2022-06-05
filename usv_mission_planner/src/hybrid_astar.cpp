@@ -72,6 +72,11 @@ void HybridAStar::setGoal(double lon, double lat, double yaw){
     v_goal_ = new extendedVertex(generateVertexID(),state);
 }
 
+/**
+ * @brief Set name of mission. For storage of debug data and the mission plan itself.
+ * 
+ * @param mission_name Mission Name
+ */
 void HybridAStar::setMissionName(std::string mission_name){
     mission_name_ = mission_name;
     grid_search_alg_->setMissionName(mission_name);
@@ -241,23 +246,39 @@ double HybridAStar::getDistance(StateVec* u, StateVec* v){
     return abs(distance);
 }
 
+/**
+ * @brief Supporting function for Shortest Dubin Distance function.
+ * 
+ * @param q Configuration (x,y,yaw)
+ * @param x 
+ * @param input Dubin debug container, for observing purposes.
+ * @return int 
+ */
 int saveConfiguration(double q[3], double x, void* input) {
     DubinDebugContainer* debug_container = (DubinDebugContainer*)input;
     debug_container->push_back(std::make_pair(q[0],q[1]));
     return 0;
 }
 
+/**
+ * @brief Get shortest Dubin distance in meters. 
+ * 
+ * @warning Only valid in proximity of goal due to local ENU projection being utilized.
+ * @todo Consistency testing and tuning of turning radius.
+ * 
+ * @param u Candidate configuration
+ * @param v Goal configuration.
+ * @return double Distance between configurations following Dubins path.
+ */
 double HybridAStar::getShortestDubinDistance(StateVec* u, StateVec* v){
     ros::Time start = ros::Time::now();
     Eigen::Vector3d u_pos_wgs(u->x(),u->y(),0);
     Eigen::Vector3d u_pos_enu;
     geo_converter_.convert("WGS84",u_pos_wgs,"goal_enu",&u_pos_enu);
-    //std::cout << "Candidate_x: " << u_pos_enu.x() << " Candidate_y: " << u_pos_enu.y() << std::endl;
 
     Eigen::Vector3d v_pos_wgs(v->x(),v->y(),0);
     Eigen::Vector3d v_pos_enu;
     geo_converter_.convert("WGS84",v_pos_wgs,"goal_enu",&v_pos_enu);
-    //std::cout << "Goal_x: " << v_pos_enu.x() << " Goal_y: " << v_pos_enu.y() << std::endl;
 
     double q0[] = { u_pos_enu.x(),u_pos_enu.y(),-u->w()};
     double q1[] = { v_pos_enu.x(),v_pos_enu.y(),v->w()};
@@ -269,11 +290,7 @@ double HybridAStar::getShortestDubinDistance(StateVec* u, StateVec* v){
     dubins_path_sample_many(&path,1,saveConfiguration,&dubin_path);
     dubin_paths_.push_back(dubin_path);
 
-
-
     double dist = dubins_path_length(&path);
-    std::cout << "Dubin distance: " << dist << std::endl;
-    std::cout << "Dubin path elements: " << dubin_path.size() << std::endl;
     get_dubin_distance_time_accumulation_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return dist;
 }
@@ -283,6 +300,9 @@ double HybridAStar::getShortestDubinDistance(StateVec* u, StateVec* v){
 
 /**
  * @brief Get a coarse collision-free-path length approximation using A* on Quadtree graph
+ * 
+ * @warning Using this function in testing introduced significant search inconsistency. Using getGridDistanceAccurate()
+ * is recommended.
  * 
  * @param u Position A 
  * @param v Position B
@@ -357,8 +377,6 @@ double HybridAStar::getGridDistanceAccurate(StateVec* u, StateVec* v){
 
 /**
  * @brief Given a vessel state, return search vertex and boolean flag informing if has been previously explored.
- * 
- * @remark Currently, heading is not taken into consideration when comparing internally in this function.
  * 
  * @param next_state The vessel state
  * @return std::pair<extendedVertex*,bool>
@@ -435,6 +453,12 @@ bool HybridAStar::collision(state_type& current_state, Region* current_region, M
     }
 }
 
+/**
+ * @brief Obtain the value of the voronoi field
+ * 
+ * @param next Configuration at which to check the Voronoi field strength.
+ * @return double Voronoi field strength.
+ */
 double HybridAStar::voronoi(extendedVertex* next){
     ros::Time start = ros::Time::now();
     double val = 1e5*map_service_->voronoi_field(next->pose->x(),next->pose->y());
@@ -442,11 +466,27 @@ double HybridAStar::voronoi(extendedVertex* next){
     return val;
 }
 
+/**
+ * @brief Check if in a TSS Lane by consulting the GDAL API through the map service.
+ * 
+ * @param current COnfiguration at which to check.
+ * @return true 
+ * @return false 
+ */
 bool HybridAStar::tssLane(extendedVertex* current){
     OGRPoint point(current->pose->x(),current->pose->y());
     return map_service_->intersects(&point,LayerID::TSSLPT);
 }
 
+/**
+ * @brief Implementation of hard costraints facilitating compliance with TSS Lanes and Roundabouts.
+ * 
+ * @param current Current configuration
+ * @param candidate Candidate configuration
+ * @param heading Heading of USV at candidate configuration
+ * @return true Hard constraint is broken. There is violation.
+ * @return false There is no TSS violation.
+ */
 bool HybridAStar::tssViolation(extendedVertex* current,state_type& candidate, double heading){
     //Handle going completely wrong way in TSSLPT crossing
     double tssLaneOrient = map_service_->tssLaneorientation(current->pose->x(),current->pose->y());
@@ -496,18 +536,12 @@ bool HybridAStar::tssViolation(extendedVertex* current,state_type& candidate, do
     return false;
 }
 
-double HybridAStar::breakTie(StateVec* current){
-    double dx1, dy1, dx2, dy2;
-    return 0;
-}
-
 /**
  * @brief The Hybrid A* Heuristic specially developed and tuned for this application.
  * 
  * @param current The current state
  * @param next The candidate state 
  * @param new_cost The cost-so-far, including distance cost of moving from current->next
- * @param search_phase The current search phase
  * @return double The heuristic value
  */
 double HybridAStar::heuristic(extendedVertex* current,extendedVertex* next,double heading, double new_cost){
@@ -642,8 +676,6 @@ ModelLibrary::simulatedHorizon HybridAStar::simulateVessel(state_type& state, do
 
 /**
  * @brief Evaluate the state has already previously been assigned with a search vertex that has been closed.
- * 
- * @remark Does not take heading into account in comparison checking
  * 
  * @param state 
  * @return true 
@@ -867,69 +899,6 @@ void HybridAStar::dumpSearchBenchmark(){
     writeBenchmarkContainer(dist_to_land_vec_, benchmark_file_dist_land);
     writeBenchmarkContainer(sim_time_vec_, benchmark_file_simtime);
 
-
-
-
     grid_search_alg_->dumpSearchBenchmark();
     std::cout << "Dump search benchmark done" << std::endl;
-}
-
-HybridAStarROS::HybridAStarROS(ros::NodeHandle& nh, Quadtree* tree, ModelLibrary::Viknes830* vessel_model, MapService* map_service, std::string mission_name):
-nh_(nh),
-HybridAStar(tree,vessel_model,map_service,mission_name){
-    path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/hybrid_astar/visual_path",1,true);
-
-    geo_converter_.addFrameByEPSG("WGS84",4326);
-    geo_converter_.addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
-
-    initializeMarkers();
-}
-
-void HybridAStarROS::initializeMarkers(){
-    path_marker_.header.frame_id = "map";
-    path_marker_.header.stamp = ros::Time::now();
-    path_marker_.type = visualization_msgs::Marker::LINE_LIST;
-    path_marker_.action = visualization_msgs::Marker::ADD;
-    path_marker_.lifetime = ros::Duration();
-
-    path_marker_.pose.position.x = 0.0;
-    path_marker_.pose.position.y = 0.0;
-    path_marker_.pose.position.z = 0.0;
-    
-    path_marker_.color.r = 0.5f;
-    path_marker_.color.g = 0.0f;
-    path_marker_.color.b = 0.5f;
-    path_marker_.color.a = 1.0f;
-
-    // Scale unit is meters
-    path_marker_.scale.x = 1.0;
-    path_marker_.scale.y = 1.0;
-    path_marker_.scale.z = 1.0;
-
-    path_marker_.pose.orientation.w = 1.0;
-    path_marker_.id = 0;
-}
-
-void HybridAStarROS::addVisualPath(){
-    geometry_msgs::Point point;
-    for (auto path_it=path_.begin(); path_it!=path_.end();path_it++){
-        if(path_it>path_.begin()+1){
-            path_marker_.points.push_back(point);
-        }
-        Eigen::Vector3d u_wgs_eig((*path_it)->pose->x(),(*path_it)->pose->y(),0);
-        Eigen::Vector3d u_enu_eig;
-        geo_converter_.convert("WGS84",u_wgs_eig,"global_enu",&u_enu_eig);
-        point.x = u_enu_eig.x();
-        point.y = u_enu_eig.y();
-        path_marker_.points.push_back(point);
-    }
-    publishVisualPath();
-}
-
-void HybridAStarROS::publishVisualPath(){
-    path_marker_pub_.publish(path_marker_);
-}
-
-void HybridAStarROS::visualize(){
-    addVisualPath();
 }

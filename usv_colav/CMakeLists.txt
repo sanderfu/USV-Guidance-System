@@ -20,7 +20,7 @@ find_library(gdal_LIBRARIES
 # LIBRARIES #
 #############
 cs_add_library(${PROJECT_NAME}
-  src/sb_mpc.cpp
+  src/colav.cpp
 )
 
 #add_library(graph_builder src/graph_builder.cpp)
@@ -36,10 +36,10 @@ cs_add_library(${PROJECT_NAME}
 ############
 # BINARIES #
 ############
-cs_add_executable(sb_mpc_node
-  src/sb_mpc_node.cpp
+cs_add_executable(colav_node
+  src/colav_node.cpp
 )
-target_link_libraries(sb_mpc_node ${PROJECT_NAME} ${gdal_LIBRARIES})
+target_link_libraries(colav_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 
 
 
@@ -48,13 +48,3 @@ target_link_libraries(sb_mpc_node ${PROJECT_NAME} ${gdal_LIBRARIES})
 ##########
 cs_install()
 cs_export()
-
-## Install python nodes
-#set(py_nodes
-#  static_mission_planner_node
-#)
-
-foreach(py_node IN LISTS py_nodes)
-  catkin_install_python(PROGRAMS scripts/${py_node}.py
-    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-endforeach()

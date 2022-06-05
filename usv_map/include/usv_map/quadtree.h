@@ -87,36 +87,3 @@ class Quadtree{
         //Debug
         std::vector<Region*> region_sequence_;
 };
-
-class QuadtreeROS : public Quadtree{
-    public:
-        QuadtreeROS(ros::NodeHandle& nh, OGRPoint lower_left, OGRPoint upper_right, GDALDataset* ds, std::string mission_region, bool build_immediately=true);
-        void visualize();
-        Region* testGetRegion(double lon, double lat);
-    private:
-        geotf::GeodeticConverter geo_converter_;
-        ros::NodeHandle nh_;
-
-        ros::Publisher vertex_marker_pub_;
-        ros::Publisher edge_marker_pub_;
-        ros::Publisher region_marker_pub_;
-        ros::Publisher test_point_pub_;
-
-        visualization_msgs::Marker region_marker_;
-        visualization_msgs::Marker test_point_;
-        visualization_msgs::Marker edge_marker_;
-        visualization_msgs::Marker vertex_marker_;
-
-        //Visualization
-        void highlightRegion(Region* region);
-
-        void initializeMarkers();
-        void addVisualVertex(Eigen::Vector3d& vertex);
-        void addVisualEdge(Eigen::Vector3d& from_vertex, Eigen::Vector3d& to_vertex);
-        
-        inline void publishVisualGraph(){
-            std::cout << "Edge marker frame id:" << edge_marker_.header.frame_id << std::endl;
-            vertex_marker_pub_.publish(vertex_marker_);
-            edge_marker_pub_.publish(edge_marker_);
-        }
-};

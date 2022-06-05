@@ -46,12 +46,6 @@ Region::Region(OGRPoint lower_left, OGRPoint upper_right, int depth, int id, int
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
     tsezne_layer_ = ds_detailed_->GetLayerByName("tsezne");
     unknown_layer_ = ds->GetLayerByName("unknown");
-
-    /*
-    if(comparison_layer_==NULL || tsezne_layer_==NULL ||unknown_layer_==NULL){
-        ROS_WARN_STREAM("Problem with input layer in region object");
-    }
-    */
     
 }
 
@@ -109,12 +103,6 @@ ds_detailed_(ds_detailed){
     comparison_layer_ = ds->GetLayerByName("collision_dissolved");
     tsezne_layer_ = ds_detailed_->GetLayerByName("tsezne");
     unknown_layer_ = ds->GetLayerByName("unknown");
-
-    /*
-    if(comparison_layer_==NULL || tsezne_layer_==NULL ||unknown_layer_==NULL){
-        ROS_WARN_STREAM("Problem with input layer in region object");
-    }
-    */
 }
 
 /**

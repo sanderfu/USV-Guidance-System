@@ -2,6 +2,7 @@
 
 namespace ModelLibrary{
 
+// Viknes parameters from https://github.com/ingerbha/ros_asv_system
 Viknes830::Viknes830(){
     //default_T = 100.0;
     //default_dt = 0.1;
@@ -56,6 +57,12 @@ Viknes830::Viknes830(){
     Kp_r = 8.0;
 }
 
+/**
+ * @brief Definition of Differential Equations for EoMs for the Viknes 830 vessel
+ * on a format supported by Odeint. The implementation is an adaption of similar code 
+ * in https://github.com/ingerbha/ros_asv_system
+ * 
+ */
 void Viknes830::operator()(const state_type& state, state_type & state_dt, const double /*t*/){
     double x = state[0];
     double y = state[1];
@@ -111,6 +118,16 @@ void Viknes830::operator()(const state_type& state, state_type & state_dt, const
 
 }
 
+/**
+ * @brief Simulate the Viknes 830 vessel from an initial state with a specific speed and course
+ * setpoint using fixed-stepzie RK4. Return the entire simulation trajectory.
+ * 
+ * @param x_init Initial state
+ * @param u_d Speed setpoint
+ * @param psi_d Course setpoint
+ * @param T Simulation time
+ * @return simulatedHorizon 
+ */
 simulatedHorizon Viknes830::simulateHorizon(state_type x_init, double u_d, double psi_d, double T){
     simulatedHorizon sim_hor;
     this->u_d = u_d;
@@ -120,6 +137,16 @@ simulatedHorizon Viknes830::simulateHorizon(state_type x_init, double u_d, doubl
     return sim_hor;
 }
 
+/**
+ * @brief Simulate the Viknes 830 vessel from an initial state with a specific speed and course
+ * setpoint using adaptive step-size RK4. Return the entire simulation trajectory.
+ * 
+ * @param x_init Initial state
+ * @param u_d Speed setpoint
+ * @param psi_d Course setpoint
+ * @param T Simulation time
+ * @return simulatedHorizon 
+ */
 simulatedHorizon Viknes830::simulateHorizonAdaptive(state_type& x_init, double u_d, double psi_d, double T){
     simulatedHorizon sim_hor;
     this->u_d = u_d;
@@ -129,16 +156,39 @@ simulatedHorizon Viknes830::simulateHorizonAdaptive(state_type& x_init, double u
 }
 
 
+/**
+ * @brief Simulate the Vikjnes 830 vessel from an initial state with a specific speed and 
+ * course setpoint using adaptive RK4. Return the resulting state in the x variable passed
+ * by reference.
+ * 
+ * @param x Initial state in, resulting state upon termination.
+ * @param u_d Speed stepoint
+ * @param psi_d Course setpoint
+ * @param T Simulation time
+ */
 void Viknes830::simulate(state_type& x, double u_d, double psi_d, double T){
     this->u_d = u_d;
     this->psi_d = psi_d;
     size_t steps = integrate(*this,x,0.0,T,0.01);
 }
 
+/**
+ * @brief Smallest signed angle function from Fossen(2011)
+ * 
+ * @param angle 
+ * @return double 
+ */
 double SSA(double angle){
         return fmod(angle+M_PI,2*M_PI) - M_PI;
     }
 
+/**
+ * @brief Normalize angle difference. Function from https://github.com/ingerbha/ros_asv_system
+ * 
+ * @param angle 
+ * @param angle_ref 
+ * @return double 
+ */
 double normalize_angle_diff(double angle, double angle_ref){
     double new_angle;
     double diff = angle_ref - angle;
@@ -195,8 +245,5 @@ simulatedHorizon LinearObstacleShip::simulateHorizon(state_type x_init, double T
 void LinearObstacleShip::simulateToTime(state_type& x, double T){
   size_t steps = integrate(*this,x,0.0,T,0.1);
 }
-
-
-
 
 } // End namespace ModelLibrary

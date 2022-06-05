@@ -12,6 +12,10 @@ upper_right_(upper_right){
     voronoi_layer_ = ds_->CreateLayer("voronoi",nullptr,wkbMultiLineString);
 }
 
+/**
+ * @brief Run the Voronoi SKeleton Generator.
+ * 
+ */
 void VoronoiSkeletonGenerator::run(){
     ros::Time start = ros::Time::now();
     OGRFeature* feat;
@@ -43,6 +47,12 @@ void VoronoiSkeletonGenerator::run(){
     dumpDebug();
 }
 
+/**
+ * @brief Procedure for taking in a Voronoi Diagram of a mission region
+ * and building a Voronoi skeleton from it.
+ * 
+ * @param diagram 
+ */
 void VoronoiSkeletonGenerator::buildSkeleton(jcv_diagram& diagram){
     //Identify for every point every edge connected to it
     ros::Time start = ros::Time::now();
@@ -68,6 +78,15 @@ void VoronoiSkeletonGenerator::buildSkeleton(jcv_diagram& diagram){
     benchmark_data_.build_time = ros::Duration(ros::Time::now()-start).toSec();
 }
 
+/**
+ * @brief Go throug all edges in Voronoi diagram and remove all that 
+ * can be trivially discarded due to land intersection or mission region border
+ * intersection
+ * 
+ * @param diagram 
+ * @param edge_map 
+ * @param point_map 
+ */
 void VoronoiSkeletonGenerator::registerCandidateEdges(jcv_diagram& diagram, std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
     const jcv_edge* edges_for_counting = jcv_diagram_get_edges(&diagram);
     int counter = 0;
@@ -118,6 +137,13 @@ void VoronoiSkeletonGenerator::registerCandidateEdges(jcv_diagram& diagram, std:
     benchmark_data_.candidate_edges = edge_map.size();
 }
 
+/**
+ * @brief Itertaively prune all edges in an edge map to remove edges not belonging in Voronoi skeleton but not trivially
+ * discarded by intersection checking.
+ * 
+ * @param edge_map 
+ * @param point_map 
+ */
 void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
     ros::Time start;
     ros::Time start_sub;
@@ -198,6 +224,13 @@ void VoronoiSkeletonGenerator::pruneEdges(std::unordered_map<int,const jcv_edge*
     benchmark_data_.skeleton_edges = pruned_edges_count_;
 }
 
+/**
+ * @brief Reconstruct edge map from point map
+ * 
+ * @param unique_remaining_edges 
+ * @param edge_map 
+ * @param point_map 
+ */
 void VoronoiSkeletonGenerator::identifyUniqueEdges(std::set<const jcv_edge*>& unique_remaining_edges,std::unordered_map<int,const jcv_edge*>& edge_map, boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
     ros::Time start = ros::Time::now();
     for (auto point_map_it = point_map.begin(); point_map_it!=point_map.end(); point_map_it++){
@@ -209,6 +242,11 @@ void VoronoiSkeletonGenerator::identifyUniqueEdges(std::set<const jcv_edge*>& un
     identify_unique_edges_time_=ros::Duration(ros::Time::now()-start).toSec();
 }
 
+/**
+ * @brief Add Voronoi skeleton edges to mission region spatial database.
+ * 
+ * @param unique_remaining_edges 
+ */
 void VoronoiSkeletonGenerator::addEdgesToDataset(std::set<const jcv_edge*>& unique_remaining_edges){
     ros::Time start = ros::Time::now();
     OGRPoint point_a, point_b;
@@ -233,6 +271,15 @@ void VoronoiSkeletonGenerator::addEdgesToDataset(std::set<const jcv_edge*>& uniq
     add_edges_to_dataset_time_ = ros::Duration(ros::Time::now()-start).toSec();
 }
 
+/**
+ * @brief Supporting function to check if a geodetic position (lon,lat) is
+ * within the mission region extent.
+ * 
+ * @param lon 
+ * @param lat 
+ * @return true 
+ * @return false 
+ */
 bool VoronoiSkeletonGenerator::pointInRegion(double lon, double lat){
     ros::Time start = ros::Time::now();
     bool in_region = lon>=lower_left_.getX() && lat>=lower_left_.getY() && lon<=upper_right_.getX() && lat<=upper_right_.getY();
@@ -240,14 +287,18 @@ bool VoronoiSkeletonGenerator::pointInRegion(double lon, double lat){
     return in_region;
 }
 
+/**
+ * @brief Supporting function to check if a Voronoi Diagram edge
+ * collides with any geometry in the collision layer of the mission region overview 
+ * spatial database.
+ * 
+ * @param edge 
+ * @return true 
+ * @return false 
+ */
 bool VoronoiSkeletonGenerator::collision(const jcv_edge* edge){
     ros::Time start = ros::Time::now();
     bool intersects = false;
-    
-    //Fast method but relies on quadtree minimum region area, so disabled (at least for now)
-    //if(tree_->getLeafRegionContaining(edge->pos[0].x,edge->pos[0].y)==nullptr || tree_->getLeafRegionContaining(edge->pos[1].x,edge->pos[1].y)==nullptr){
-    //    intersects=true;
-    //}
 
     OGRPoint point_a, point_b;
     point_a.setX(edge->pos[0].x);
@@ -260,22 +311,6 @@ bool VoronoiSkeletonGenerator::collision(const jcv_edge* edge){
     intersects = map_service_->intersects(&line,LayerID::COLLISION);
     collision_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
     return intersects;
-}
-
-double VoronoiSkeletonGenerator::smallestDistanceMeasured(boost::unordered_map<std::pair<int,int>,std::vector<int64_t>>& point_map){
-    double dist = 0;
-    double smallest_dist = INFINITY;
-    for(auto point_a_it=point_map.begin(); point_a_it!=point_map.end(); point_a_it++){
-        for(auto point_b_it=point_map.begin(); point_b_it!=point_map.end(); point_b_it++){
-            if(point_a_it!=point_b_it){
-                GeographicLib::Geodesic::WGS84().Inverse(point_a_it->first.second/precision,point_a_it->first.first/precision,point_b_it->first.second/precision,point_b_it->first.first/precision,dist);
-                dist = abs(dist);
-                if(dist<smallest_dist){
-                    smallest_dist=dist;
-                }
-            }
-        }
-    }
 }
 
 void VoronoiSkeletonGenerator::dumpDebug(){

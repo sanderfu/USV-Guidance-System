@@ -24,24 +24,6 @@ MapService::MapService(std::string mission_region){
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
     ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
     
-    /*
-    OGRFeature* feat;
-    for(auto&& layer: ds_->GetLayers()){
-        if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
-        OGRLayer* multi_layer = ds_in_mem_->CreateLayer(layer->GetName(),layer->GetSpatialRef(),wkbMultiPolygon);
-        OGRFeature* multi_feature = OGRFeature::CreateFeature(multi_layer->GetLayerDefn());
-        OGRMultiPolygon multi_poly;
-        layer->ResetReading();
-            while((feat = layer->GetNextFeature()) != NULL){
-                multi_poly.addGeometry(feat->GetGeometryRef());
-                OGRFeature::DestroyFeature(feat);
-            }
-        multi_feature->SetGeometry(&multi_poly);
-        multi_layer->CreateFeature(multi_feature);
-    }
-    */
-
-    //Temporary
     OGRFeature* feat;
     OGRLayer* voronoi_layer = ds_->GetLayerByName("voronoi");
     OGRLayer* linestring_layer = ds_in_mem_->CreateLayer(voronoi_layer->GetName(),voronoi_layer->GetSpatialRef(),wkbLineString);
@@ -52,14 +34,10 @@ MapService::MapService(std::string mission_region){
         linestring_layer->CreateFeature(feature);
     }
 
-
-
-
     OGRLineString* mission_region_boundary = ds_->GetLayerByName("mission_region")->GetFeature(1)->GetGeometryRef()->getBoundary()->toLineString();
     mission_region_boundary->getPoint(0,&lower_left_);
     mission_region_boundary->getPoint(2,&upper_right_);
 
-    //ds_in_mem_->CopyLayer(ds_->GetLayerByName("voronoi"),"voronoi");
     ds_in_mem_->CopyLayer(ds_->GetLayerByName("collision_dissolved"),"collision_dissolved");
     ds_in_mem_->CopyLayer(ds_->GetLayerByName("caution_dissolved"),"caution_dissolved");
 
@@ -78,9 +56,7 @@ MapService::MapService(GDALDataset* ds, GDALDataset* ds_detailed):
 ds_(ds),
 ds_detailed_(ds_detailed){
     driver_mem_ = GetGDALDriverManager()->GetDriverByName("Memory");
-    //driver_mem_ = GetGDALDriverManager()->GetDriverByName("SQLite");
     ds_in_mem_ = driver_mem_->Create("in_mem",0,0,0,GDT_Unknown,NULL);
-    //ds_in_mem_ = driver_mem_->Create((ros::package::getPath("usv_map")+"/data/debug/debug.sqlite").c_str(),0,0,0,GDT_Unknown,NULL);
     OGRFeature* feat;
     for(auto&& layer: ds_->GetLayers()){
         if(!(std::string(layer->GetName())=="collision_dissolved" || std::string(layer->GetName())=="caution_dissolved")) continue;
@@ -125,6 +101,14 @@ ds_detailed_(ds_detailed){
     }
 }
 
+/**
+ * @brief Check if input geometry intersects with any geometry in a specified supported layer.
+ * 
+ * @param input_geom 
+ * @param layer_id 
+ * @return true 
+ * @return false 
+ */
 bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
     OGRLayer* layer; 
     switch(layer_id){
@@ -184,6 +168,16 @@ bool MapService::intersects(OGRGeometry* input_geom, LayerID layer_id){
     return intersection;
 }
 
+/**
+ * @brief Find the closest distance from a given geidetic position (lon,lat) to any geometry in a supported layer
+ * within some defined max distance.
+ * 
+ * @param lon 
+ * @param lat 
+ * @param layer_id 
+ * @param max_distance 
+ * @return double 
+ */
 double MapService::distance(double lon,double lat,LayerID layer_id,double max_distance){
     if(max_distance==-1){
         max_distance = default_saturation_;
@@ -240,9 +234,6 @@ double MapService::distance(double lon,double lat,LayerID layer_id,double max_di
         OGRFeature::DestroyFeature(related_features[geom_it-geometries_to_check.begin()]);  
     }
 
-    //double distance = std::min(feat->GetGeometryRef()->Distance(&distance_point_),max_distance);
-    //double distance = feat->GetGeometryRef()->Distance(&distance_point_);
-    //OGRFeature::DestroyFeature(feat);
     if (distances.size()==0){
         return max_distance;
     } else{
@@ -250,13 +241,29 @@ double MapService::distance(double lon,double lat,LayerID layer_id,double max_di
     }
 }
 
+
+/**
+ * @brief Calculate the value of the Voronoi field.
+ * 
+ * @remark For details concerning the formula used to calculate the value, see the Master Thesis accompanying this repository.
+ * 
+ * @param lon 
+ * @param lat 
+ * @return double 
+ */
 double MapService::voronoi_field(double lon, double lat){
     double distance_to_land = distance(lon,lat,LayerID::COLLISION);
     double distance_voronoi = distance(lon,lat,LayerID::VORONOI);
     return (alpha_/(alpha_+distance_to_land))*(distance_voronoi/(distance_voronoi+distance_to_land))*(pow(distance_to_land-default_saturation_,2)/pow(default_saturation_,2));
 }
 
-
+/**
+ * @brief Get orientation of traffic flow in a TSS Lane.
+ * 
+ * @param lon 
+ * @param lat 
+ * @return double 
+ */
 double MapService::tssLaneorientation(double lon, double lat){
     OGRFeature* tsslpt_feat = getFeature(lon,lat,"tsslpt");
     if(tsslpt_feat==nullptr){
@@ -269,6 +276,15 @@ double MapService::tssLaneorientation(double lon, double lat){
     return orient;
 }
 
+/**
+ * @brief Get geodetic distance to nearest TSS Roundabout center within
+ * some defined max range.
+ * 
+ * @param lon 
+ * @param lat 
+ * @param range 
+ * @return double 
+ */
 double MapService::tssRoundaboutDistance(double lon, double lat, double range){
     double dist = INFINITY;
     OGRGeometry* geom = getNearestGeometry(lon,lat,range,LayerID::TSSRON);
@@ -285,10 +301,11 @@ double MapService::tssRoundaboutDistance(double lon, double lat, double range){
 
 
 /**
- * @brief 
+ * @brief Get the nearest geometry object for any geodetic position (lon,lat)
+ * in some specified and uspported layer and within some max defined range.
  * 
- * @warning The current implementation does not destroy the geature of the selected geometry and
- * thus causes a small memory leak. This must be fixed eventually.
+ * @warning The current implementation does not destroy the feature of the returned geometry and
+ * thus causes a small memory leak.
  * 
  * @param lon 
  * @param lat 
@@ -351,6 +368,15 @@ OGRGeometry* MapService::getNearestGeometry(double lon, double lat, double range
     return closest_geom;
 }
 
+/**
+ * @brief Supporting function used internally to get the first feature in a layer intersecting some geodetic
+ * position (lon,lat)
+ * 
+ * @param lon 
+ * @param lat 
+ * @param layername 
+ * @return OGRFeature* 
+ */
 OGRFeature* MapService::getFeature(double lon, double lat, std::string layername){
     OGRPoint interest_point(lon,lat);
     std::vector<OGRFeature*> features_intersecting;
@@ -364,7 +390,6 @@ OGRFeature* MapService::getFeature(double lon, double lat, std::string layername
 
     OGRLayer* layer = ds_detailed_->GetLayerByName(layername.c_str());
     if(layer==NULL){
-        //ROS_WARN_STREAM("Called getFeature from unrecognized layer: " << layername);
         return nullptr;
     }
     OGRFeature* feat;
@@ -393,7 +418,7 @@ OGRFeature* MapService::getFeature(double lon, double lat, std::string layername
 }
 
 /**
- * @brief Get all features present at a geudetic location.
+ * @brief Get all features present at a geodetic location (lon,lat).
  * 
  * @warning The caller is responsible to destory the returned geometry pointers using OGRFeature::DestroyFeature!
  * 
@@ -450,15 +475,29 @@ std::vector<OGRFeature*> MapService::getFeatures(double lon, double lat, feature
 
 }
 
+/**
+ * @brief Get the extent of the mission region (lower left, upper right)
+ * 
+ * @return std::pair<OGRPoint, OGRPoint> 
+ */
 std::pair<OGRPoint, OGRPoint> MapService::getMapExtent(){
     return std::make_pair(lower_left_,upper_right_);
 }
 
+/**
+ * @brief Get the pointer to the overview spatial database.
+ * 
+ * @return GDALDataset* 
+ */
 GDALDataset* MapService::getDataset(){
     return ds_;
 }
 
-
+/**
+ * @brief Get the pointer value to the detailed spatial database.
+ * 
+ * @return GDALDataset* 
+ */
 GDALDataset* MapService::getDetailedDataset(){
     return ds_detailed_;
 }

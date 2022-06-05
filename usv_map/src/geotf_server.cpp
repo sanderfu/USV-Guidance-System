@@ -17,6 +17,14 @@ GeodeticConverterSynchronized("SERVER",true,true,nh) {
     add_frame_srv_ = nh_.advertiseService("map/add_frame",&GeodeticConverterServer::addFrame,this);
 }
 
+/**
+ * @brief ROS Service to perform frame conversions
+ * 
+ * @param req 
+ * @param res 
+ * @return true 
+ * @return false 
+ */
 bool GeodeticConverterServer::frameConversion(usv_map::frame_conversion::Request& req, usv_map::frame_conversion::Response& res){
     if(!canConvertSynced(req.from_frame,req.to_frame)){
         ROS_WARN_STREAM("Illegal frame conversion attempted");
@@ -28,6 +36,14 @@ bool GeodeticConverterServer::frameConversion(usv_map::frame_conversion::Request
     return true;
 }
 
+/**
+ * @brief ROS Service add an ENU frame.
+ * 
+ * @param req 
+ * @param res 
+ * @return true 
+ * @return false 
+ */
 bool GeodeticConverterServer::addFrame(usv_map::add_frame::Request& req, usv_map::add_frame::Response& res){
     if(hasFrameSynced(req.frame_name) && !req.replace){
         ROS_WARN_STREAM("Frame name already in use");
@@ -37,6 +53,12 @@ bool GeodeticConverterServer::addFrame(usv_map::add_frame::Request& req, usv_map
     return true;
 }
 
+/**
+ * @brief Function for casting a geometry_msgs::Point to an Eigen::Vector3d
+ * 
+ * @param point 
+ * @return Eigen::Vector3d 
+ */
 Eigen::Vector3d pointToVector(geometry_msgs::Point& point){
     Eigen::Vector3d vec;
     vec(0) = point.x;
@@ -45,6 +67,12 @@ Eigen::Vector3d pointToVector(geometry_msgs::Point& point){
     return vec;
 }
 
+/**
+ * @brief Function for casting a Eigen::Vector3d to a geometry_msgs::Point
+ * 
+ * @param point 
+ * @return Eigen::Vector3d 
+ */
 geometry_msgs::Point vectorToPoint(Eigen::Vector3d& vec){
     geometry_msgs::Point point;
     point.x = vec(0);

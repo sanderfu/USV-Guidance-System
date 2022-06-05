@@ -167,6 +167,11 @@ void MissionPlanner::savePath(){
     ROS_INFO_STREAM("Done writing waypoints to gpx");
 }
 
+/**
+ * @brief Callback when waypoint reached sent from Path Tracker. Checks if goal reached and if so publishes mission done.
+ * 
+ * @param msg Callback message
+ */
 void MissionPlanner::waypointReachedCb(const geometry_msgs::Pose& msg){
     if(path_.empty()) return;
     extendedVertex* goal = *(path_.end()-1);
@@ -222,6 +227,11 @@ void MissionPlannerClient::searchFromCustom(double start_lon,double start_lat, d
     if(!search_client_.call(srv)) ROS_ERROR_STREAM("Search service call failed!");
 }
 
+/**
+ * @brief Instruct the Mission Planner Server to load a predefined path based on a mission name where the path is stored.
+ * 
+ * @param predefined_mission_name 
+ */
 void MissionPlannerClient::loadPredefined(std::string predefined_mission_name){
     usv_mission_planner::search srv;
     srv.request.predefined = true;

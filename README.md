@@ -4,7 +4,7 @@ The USV Guidance System is a collection of ROS Noetic packages developed for the
 
 
 ## Installation:
-The guidance system includes a devcontainer environment for use with Docker in Visual Studio Code. Opening the contrainer will fetch and build all necessary dependencies.
+The guidance system includes a devcontainer environment for use with Docker in Visual Studio Code. Opening the contrainer and running install_dependencies.sh in <em>scripts</em> with sudo privelege will fetch and build all dependencies.
 > :warning: **The devcontainer environment is still in development**: Proceed with persistence!
 
 ## Running the Guidance System

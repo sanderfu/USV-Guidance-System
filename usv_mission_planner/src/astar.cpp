@@ -40,6 +40,11 @@ void AStar::setGoal(double lon,double lat){
     gm_->getNearestVertex(&goal,&v_goal_);
 }
 
+/**
+ * @brief Set the mission name for debug data saving purposes.
+ * 
+ * @param mission_name Mission name
+ */
 void AStar::setMissionName(std::string mission_name){
     mission_name_ = mission_name;
 }
@@ -169,10 +174,22 @@ bool AStar::reconstructPath() {
     return true;
 }
 
+/**
+ * @brief Check if directed edge in path sequence matching lookup table
+ * 
+ * @param from 
+ * @param to 
+ * @return true 
+ * @return false 
+ */
 bool AStar::edgeInLookupTable(const Vertex* from, const Vertex* to){
     return (path_lookup_table_.find(from->id)!=path_lookup_table_.end() && (*path_lookup_table_.find(from->id)).second==to->id);
 }
 
+/**
+ * @brief Update sequence matching lookup table whenever a search is done.
+ * 
+ */
 void AStar::updateLookupTable(){
     ros::Time start = ros::Time::now();
     for(int i=0; i<path_.size()-1; i++){
@@ -181,6 +198,14 @@ void AStar::updateLookupTable(){
     update_lookup_table_times_.push_back(ros::Duration(ros::Time::now()-start).toSec());
 }
 
+/**
+ * @brief Reconstruct the optimal path for the search query when it at some point was fast
+ * forwarded due to a sequence match with the optimal search tree.
+ * 
+ * @param v Vertex
+ * @return true Path was sucessfully reconstructed
+ * @return false Path reconstruction failed.
+ */
 bool AStar::reconstructPathFromLookup(Vertex* v){
     //Knows optimal path from v to goal.
     ros::Time start = ros::Time::now();
@@ -209,6 +234,15 @@ bool AStar::reconstructPathFromLookup(Vertex* v){
     return true;
 }
 
+/**
+ * @brief Sequence matching algorithm. For a current vertex beeing explored, 
+ * check if the search up until now has followed part of the optimal path tree
+ * long enough to build confidence.
+ * 
+ * @param v The vertex from which to check backwards in direction of the start vertex.
+ * @return true Confidenct that follows optimal path tree.
+ * @return false Not confident that follows optimal path tree.
+ */
 bool AStar::followingStoredPath(Vertex* v){
     ros::Time start = ros::Time::now();
     Vertex* current = v;
@@ -229,6 +263,11 @@ bool AStar::followingStoredPath(Vertex* v){
     return true;
 }
 
+/**
+ * @brief generate search id. For debug data logistics.
+ * 
+ * @return int Search id.
+ */
 int AStar::generateSearchID(){
     return search_id_++;
 }
@@ -373,64 +412,4 @@ void AStar::dumpSearchBenchmark(){
 
     search_early_exit_file.close();
     search_sequence_match_file.close();
-}
-
-AStarROS::AStarROS(ros::NodeHandle& nh, GraphManager* gm, MapService* map_service):
-nh_(nh),
-AStar(gm,map_service,"dummy"){
-    path_marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/astar/visual_path",1,true);
-
-    geo_converter_.addFrameByEPSG("WGS84",4326);
-    geo_converter_.addFrameByENUOrigin("global_enu",40.5612,-73.9761,0);
-
-    initializeMarkers();
-}
-
-void AStarROS::initializeMarkers(){
-    path_marker_.header.frame_id = "map";
-    path_marker_.header.stamp = ros::Time::now();
-    path_marker_.type = visualization_msgs::Marker::LINE_LIST;
-    path_marker_.action = visualization_msgs::Marker::ADD;
-    path_marker_.lifetime = ros::Duration();
-
-    path_marker_.pose.position.x = 0.0;
-    path_marker_.pose.position.y = 0.0;
-    path_marker_.pose.position.z = 0.0;
-    
-    path_marker_.color.r = 0.5f;
-    path_marker_.color.g = 0.0f;
-    path_marker_.color.b = 0.5f;
-    path_marker_.color.a = 1.0f;
-
-    // Scale unit is meters
-    path_marker_.scale.x = 1.0;
-    path_marker_.scale.y = 1.0;
-    path_marker_.scale.z = 1.0;
-
-    path_marker_.pose.orientation.w = 1.0;
-    path_marker_.id = 0;
-}
-
-void AStarROS::addVisualPath(){
-    geometry_msgs::Point point;
-    for (auto path_it=path_.begin(); path_it!=path_.end();path_it++){
-        if(path_it>path_.begin()+1){
-            path_marker_.points.push_back(point);
-        }
-        Eigen::Vector3d u_wgs_eig((*path_it)->state.x(),(*path_it)->state.y(),0);
-        Eigen::Vector3d u_enu_eig;
-        geo_converter_.convert("WGS84",u_wgs_eig,"global_enu",&u_enu_eig);
-        point.x = u_enu_eig.x();
-        point.y = u_enu_eig.y();
-        path_marker_.points.push_back(point);
-    }
-    publishVisualPath();
-}
-
-void AStarROS::publishVisualPath(){
-    path_marker_pub_.publish(path_marker_);
-}
-
-void AStarROS::visualize(){
-    addVisualPath();
 }

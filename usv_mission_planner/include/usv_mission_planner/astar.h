@@ -64,20 +64,3 @@ class AStar{
         bool reconstructPathFromLookup(Vertex* v);
         bool followingStoredPath(Vertex* v);
 };
-
-class AStarROS : public AStar{
-    public:
-        AStarROS(ros::NodeHandle& nh, GraphManager* gm,MapService* map_service);
-        void visualize();
-    private:
-        geotf::GeodeticConverter geo_converter_;
-        ros::NodeHandle nh_;
-
-        ros::Publisher path_marker_pub_;
-
-        visualization_msgs::Marker path_marker_;
-
-        void initializeMarkers();
-        void addVisualPath();
-        void publishVisualPath();
-};

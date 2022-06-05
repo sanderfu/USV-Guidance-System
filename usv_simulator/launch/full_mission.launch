@@ -1,0 +1,341 @@
+<launch>
+
+  <!--Map specific parameters-->
+  <arg name="preprocessed_map" default="true" />
+  <arg name="map_name" default="outside_ny_updated" />
+  <arg name="map_extent" default="[0,0,0,0]" />
+
+  <!--Mission specific parameters USV-->
+  <arg name="usv_id" default="0" />
+  <arg name="usv_desired_speed" default="10" />
+  <arg name="usv_predefined_mission" default="true" />
+  <arg name="usv_predefined_mission_name" default="usv_full_mission" />
+  <arg name="usv_goal_pose" default="[0,0,0]" />
+  <arg name="usv_initial_pose" default="[-73.930532350995293,40.561632870013995,0]" />
+ 
+  <!--Mission specific parameters OBSTACLE1-->
+  <arg name="obstacle1_id" default="1" />
+  <arg name="obstacle1_desired_speed" default="1" />
+  <arg name="obstacle1_predefined_mission" default="true" />
+  <arg name="obstacle1_predefined_mission_name" default="obstacle1_full_mission" />
+  <arg name="obstacle1_goal_pose" default="[0,0,0]" />
+  <arg name="obstacle1_initial_pose" default="[-73.879302453,40.578979147,-3.14]" />
+
+  <!--Mission specific parameters OBSTACLE2-->
+  <arg name="obstacle2_id" default="2" />
+  <arg name="obstacle2_desired_speed" default="1" />
+  <arg name="obstacle2_predefined_mission" default="true" />
+  <arg name="obstacle2_predefined_mission_name" default="obstacle2_full_mission" />
+  <arg name="obstacle2_goal_pose" default="[0,0,0]" />
+  <arg name="obstacle2_initial_pose" default="[-73.868730,40.594285,-3.14]" />
+
+   <!--Mission specific parameters OBSTACLE3-->
+  <arg name="obstacle3_id" default="3" />
+  <arg name="obstacle3_desired_speed" default="3" />
+  <arg name="obstacle3_predefined_mission" default="true" />
+  <arg name="obstacle3_predefined_mission_name" default="obstacle3_full_mission" />
+  <arg name="obstacle3_goal_pose" default="[0,0,0]" />
+  <arg name="obstacle3_initial_pose" default="[-73.844579000,40.641538000,-3.14]" />
+
+  <!--Monte Carlo Specific Parameters-->
+  <arg name="simulation_collection_name" default="full_mission_test_"/>
+  <arg name="simulations" default="1"/>
+
+  <!--Simulation specific parameters (do not affect the guidance system in any way)-->
+  <arg name="vessel_model_file" default="$(find usv_simulator)/config/models/viknes.urdf" />
+  <arg name="obstacle_model_file" default="$(find usv_simulator)/config/models/ship1.urdf" />
+  <arg name="sim_origin" default="[-74.001588,40.590419,0]" /> 
+
+  <arg name="usv_name" default="Viknes830" />
+  <arg name="obstacle1_name" default="ship1" />
+  <arg name="obstacle2_name" default="ship2" />
+  <arg name="obstacle3_name" default="ship3" />
+
+  <group ns="$(arg usv_name)">
+      <param name="id" type="int" value = "$(arg usv_id)"/>
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg usv_desired_speed)"/>
+
+      <param name="predefined_mission" type="bool" value = "$(arg usv_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg usv_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg usv_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg usv_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
+      <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
+      <node pkg="usv_simulator"
+            name="sim"
+            type="sim_vessel_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="usv_path_trackers"
+            name="LOSNode"
+            type="los_controller_node_usv.py"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <node pkg="robot_state_publisher"
+          type="robot_state_publisher"
+          name="tf_broadcaster" />
+
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+      <include file="$(find usv_colav)/launch/colav.launch"/>
+      
+      <node pkg="rviz"
+        type="rviz"
+        name="rviz"
+        args="-d $(find usv_simulator)/config/rviz/default_2x.rviz" />
+
+      <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            >
+      </node>
+
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/leader.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <include file="$(find usv_realtime_recorder)/launch/recorder.launch"/>
+  </group>
+
+  <group ns="$(arg obstacle1_name)">
+      <param name="id" type="int" value = "$(arg obstacle1_id)"/>
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg obstacle1_desired_speed)"/>
+
+      <param name="predefined_mission" type="bool" value = "$(arg obstacle1_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg obstacle1_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg obstacle1_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg obstacle1_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
+      <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
+      <node pkg="usv_simulator"
+            name="sim"
+            type="sim_vessel_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="usv_path_trackers"
+            name="LOSNode"
+            type="los_controller_node_obstacle.py"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <node pkg="robot_state_publisher"
+          type="robot_state_publisher"
+          name="tf_broadcaster" />
+
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+
+      <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="sim_tracker"
+            type="sim_tracker_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/follower_1.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
+      </node>
+  </group>
+
+  <group ns="$(arg obstacle2_name)">
+      <param name="id" type="int" value = "$(arg obstacle2_id)"/>
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg obstacle2_desired_speed)"/>
+
+      <param name="predefined_mission" type="bool" value = "$(arg obstacle2_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg obstacle2_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg obstacle2_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg obstacle2_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
+      <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
+      <node pkg="usv_simulator"
+            name="sim"
+            type="sim_vessel_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="usv_path_trackers"
+            name="LOSNode"
+            type="los_controller_node_obstacle.py"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <node pkg="robot_state_publisher"
+          type="robot_state_publisher"
+          name="tf_broadcaster" />
+
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+
+      <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="sim_tracker"
+            type="sim_tracker_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/follower_1.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
+      </node>
+  </group>
+
+  <group ns="$(arg obstacle3_name)">
+      <param name="id" type="int" value = "$(arg obstacle3_id)"/>
+      <param name="preprocessed_map" type="bool" value = "$(arg preprocessed_map)"/>
+      <param name="map_name" type="str" value = "$(arg map_name)"/>
+      <param name="map_extent" type="yaml" value = "$(arg map_extent)"/>
+      <param name="desired_speed" type="double" value = "$(arg obstacle3_desired_speed)"/>
+
+      <param name="predefined_mission" type="bool" value = "$(arg obstacle3_predefined_mission)"/>
+      <param name="predefined_mission_name" type="str" value = "$(arg obstacle3_predefined_mission_name)"/>
+      <param name="goal_pose" type="yaml" value = "$(arg obstacle3_goal_pose)"/>
+      <param name="initial_pose" type="yaml" value = "$(arg obstacle3_initial_pose)"/>
+
+      <param name="simulation_collection_name" type="str" value = "$(arg simulation_collection_name)"/>
+      <param name="simulations" type="int" value = "$(arg simulations)"/>
+
+      <param name="sim_origin" type="yaml" value = "$(arg sim_origin)"/>
+      <include file="$(find usv_map)/launch/default.launch"/>
+
+      <node pkg="usv_simulator"
+            name="sim"
+            type="sim_vessel_node"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <node pkg="usv_path_trackers"
+            name="LOSNode"
+            type="los_controller_node_obstacle.py"
+            respawn="false"
+            output="screen">
+      </node>
+      
+      <param name="robot_description" textfile="$(arg vessel_model_file)" />
+      <node pkg="robot_state_publisher"
+          type="robot_state_publisher"
+          name="tf_broadcaster" />
+
+      <include file="$(find usv_mission_planner)/launch/mission_planner.launch"/>
+
+      <node pkg="usv_simulator"
+            name="land"
+            type="sim_land_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="sim_tracker"
+            type="sim_tracker_node"
+            respawn="false"
+            output="screen">
+      </node>
+
+      <rosparam command="load" file="$(find usv_simulator)/config/monte_carlo_supervisor/follower_1.yaml" />
+      <node pkg="usv_simulator"
+            name="monte_carlo_supervisor"
+            type="monte_carlo_supervisor_node"
+            respawn="false"
+            output="screen"
+            required="true">
+      </node>
+
+      <node pkg="usv_simulator"
+            name="system_visualization"
+            type="sim_system_visualization_node"
+            respawn="false"
+            output="screen">
+      </node>
+  </group>
+  
+
+
+
+  
+    
+</launch>

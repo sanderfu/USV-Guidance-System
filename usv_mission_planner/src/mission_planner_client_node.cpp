@@ -18,7 +18,7 @@ int main(int argc, char** argv){
     std::cout << "Waiting 2 seconds before requesting path search" << std::endl;
     ros::Duration(2).sleep();
     std::cout << "Start search" << std::endl;
-    mission_planner_client.searchFromOdom(-73.839272,40.641694,mission_name);
+    mission_planner_client.searchFromOdom(-73.839272,40.641694,0,mission_name);
     //mission_planner_client.searchFromOdom(9.29729,63.54473);
     std::cout << "Search done" << std::endl;
 

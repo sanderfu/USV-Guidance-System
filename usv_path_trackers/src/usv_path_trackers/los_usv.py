@@ -85,8 +85,6 @@ class LOS:
         self.correction = Twist()
         self.correction.linear.x = 1
 
-        
-
     def odom_cb(self,msg: Odometry) -> None:
         self.pose = msg.pose.pose
 
@@ -95,7 +93,7 @@ class LOS:
             return
 
         #Check if should switch waypoint
-        if abs(Geodesic.WGS84.Inverse(self.pose.position.y,self.pose.position.x,self.current_waypoint.position.y,self.current_waypoint.position.x)["s12"])<20:
+        if abs(Geodesic.WGS84.Inverse(self.pose.position.y,self.pose.position.x,self.current_waypoint.position.y,self.current_waypoint.position.x)["s12"])<20 or self.distanceSwitch(msg):
             #print("Within circle of acceptance, switching waypoint")
             self.waypoint_reached_pub.publish(self.current_waypoint)
             self.switch_waypoint()
@@ -117,6 +115,17 @@ class LOS:
 
     def euclidean_distance(self,point_a:Pose,point_b:Pose)->float:
         return np.sqrt(pow(point_a.position.x-point_b.position.x,2)+pow(point_a.position.y-point_b.position.y,2))
+
+    def distanceSwitch(self,msg:Odometry):
+        position_enu = self.converter_client.convert("WGS84",[self.pose.position.x,self.pose.position.y,self.pose.position.z],"global_enu")
+        if position_enu is None:
+            return None
+        tangential_pose_homogenous = self.tangential_transform@np.array([position_enu[0],position_enu[1],1]).reshape((3,1))
+        tangential_pose = tangential_pose_homogenous[:2]
+        alongtrack = tangential_pose[0]
+        current_waypoint_cart = self.converter_client.convert("WGS84",[self.current_waypoint.position.x,self.current_waypoint.position.y,self.current_waypoint.position.z],"global_enu")
+        dist_between_waypoints = self.euclidean_distance(Pose(Point(0,0,0),Quaternion()),Pose(Point(current_waypoint_cart[0],current_waypoint_cart[1],0),Quaternion()))
+        return alongtrack>=dist_between_waypoints
 
     def geo_waypoint_cb(self,msg:Pose) -> None:
         #Convert to cartesian coordinates

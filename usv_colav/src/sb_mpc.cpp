@@ -75,7 +75,7 @@ geo_converter_("COLAV",false,true,nh)
     Chi_ca_last_ = 0.0;
     P_ca_last_ = 1.0;
 
-    colav_msg_.obstacle_pose_local = std::vector<geometry_msgs::Point>(3);
+    colav_msg_.obstacle_pose_local = std::vector<geometry_msgs::Point>(4);
 
     //Initialize visualization stuff (debug purposes)
     path_viz_pub_ = nh_.advertise<visualization_msgs::Marker>("colav/path_viz",1,true);
@@ -290,13 +290,16 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
         usv_msgs::ColavPath msg_path;
         usv_msgs::ColavPathElement path_element;
         for(auto hor_it = (*it).second.horizon_.state.begin(); hor_it!=(*it).second.horizon_.state.end();hor_it++){
+            if ((*it).second.horizon_.time[hor_it-(*it).second.horizon_.state.begin()]>5){
+                break;
+            }
             point_local(0) = hor_it->at(0);
             point_local(1) = hor_it->at(1);
             point_local(2) = 0;
             geo_converter_.convertSynced("global_enu",point_local,"WGS84",&point_global);
             path.addPoint(point_global(0),point_global(1));
         }
-        if(!map_service_->intersects(&path,LayerID::COLLISION) || true){
+        if(!map_service_->intersects(&path,LayerID::COLLISION)){
             cost = (*it).second.cost_;
             u_corr_best = (*it).second.p_cand_;
             psi_corr_best = (*it).second.chi_cand_; 

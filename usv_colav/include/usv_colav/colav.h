@@ -51,9 +51,9 @@ typedef struct {
 
 } colav_benchmark_t;
 
-class SimulationBasedMPC{
+class Colav{
     public:
-        SimulationBasedMPC(const ros::NodeHandle& nh);
+        Colav(const ros::NodeHandle& nh);
     private:
         ros::NodeHandle nh_;
         ros::Subscriber dynamic_obstacles_sub_;

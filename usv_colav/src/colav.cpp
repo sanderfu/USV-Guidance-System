@@ -1,6 +1,6 @@
-#include "usv_colav/sb_mpc.h"
+#include "usv_colav/colav.h"
 
-SimulationBasedMPC::SimulationBasedMPC(const ros::NodeHandle& nh) : 
+Colav::Colav(const ros::NodeHandle& nh) : 
 nh_(nh),
 geo_converter_("COLAV",false,true,nh)
 {   
@@ -44,7 +44,7 @@ geo_converter_("COLAV",false,true,nh)
     ROS_WARN_STREAM("GDAL errors are supressed!");
     CPLPushErrorHandler(CPLQuietErrorHandler);
     
-    ROS_INFO_STREAM_COND(verbose_,"SB_MPC started, waiting for first odometry and LOS setpoint from USV");
+    ROS_INFO_STREAM_COND(verbose_,"COLAV System started, waiting for first odometry and LOS setpoint from USV");
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
     ros::topic::waitForMessage<std_msgs::Bool>("mission_planner/region_available",nh_);
@@ -53,10 +53,10 @@ geo_converter_("COLAV",false,true,nh)
     correction_pub_ = nh_.advertise<geometry_msgs::Twist>("colav/correction",1,false);
     colav_data_pub_ = nh_.advertise<usv_msgs::Colav>("colav/debug",1,false);
 
-    odom_sub_ = nh_.subscribe("odom",10,&SimulationBasedMPC::odomCb,this);
-    los_setpoint_sub_ = nh_.subscribe("los/setpoint",10,&SimulationBasedMPC::losSetpointSub,this);
-    obstacle_sub_ = nh_.subscribe("/obstacles",10,&SimulationBasedMPC::obstacleCb,this);
-    system_reinit_sub_ = nh_.subscribe("mc/system_reinit",10,&SimulationBasedMPC::reinitCb,this);
+    odom_sub_ = nh_.subscribe("odom",10,&Colav::odomCb,this);
+    los_setpoint_sub_ = nh_.subscribe("los/setpoint",10,&Colav::losSetpointSub,this);
+    obstacle_sub_ = nh_.subscribe("/obstacles",10,&Colav::obstacleCb,this);
+    system_reinit_sub_ = nh_.subscribe("mc/system_reinit",10,&Colav::reinitCb,this);
 
     //Set course action pairs
     bool multiple_changes = false;
@@ -92,33 +92,33 @@ geo_converter_("COLAV",false,true,nh)
     // Set the scale of the marker -- 1x1x1 here means 1m on a side
     path_viz_.scale.x = 2.5;
 
-    main_loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&SimulationBasedMPC::mainLoop,this);
+    main_loop_timer_ = nh_.createTimer(ros::Duration(1/update_frequency_),&Colav::mainLoop,this);
 
 }
 /**
- * @brief Callback when receiving odometry from vessel on which the SBMPC is running.
+ * @brief Callback when receiving odometry from vessel on which the Colav system is running.
  * 
  * @param odom Odometry message
  */
-void SimulationBasedMPC::odomCb(const nav_msgs::Odometry& odom){
+void Colav::odomCb(const nav_msgs::Odometry& odom){
     latest_odom_ = odom;
 }
 
 /**
- * @brief Callback when receiving LOS setpoints from vessel on which the SBMPC is running.
+ * @brief Callback when receiving LOS setpoints from vessel on which the Colav system is running.
  * 
  * @param msg Twist message (linear.x=speed setpoint, angular.z=yaw setpoint)
  */
-void SimulationBasedMPC::losSetpointSub(const geometry_msgs::Twist& msg){
+void Colav::losSetpointSub(const geometry_msgs::Twist& msg){
     latest_los_setpoint_ = msg;
 }
 
 /**
- * @brief Callback when receiving obstacle from obstacle tracking system on vessel on which the SBMPC is running
+ * @brief Callback when receiving obstacle from obstacle tracking system on vessel on which the Colav system is running
  * 
  * @param msg Obstacle message (custom message type)
  */
-void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
+void Colav::obstacleCb(const usv_simulator::obstacle& msg){
     state_type state(6);
     Eigen::Vector3d position_wgs(msg.odom.pose.pose.position.x,msg.odom.pose.pose.position.y,msg.odom.pose.pose.position.z);
     Eigen::Vector3d point_enu;
@@ -154,7 +154,7 @@ void SimulationBasedMPC::obstacleCb(const usv_simulator::obstacle& msg){
  * @param u_corr_best Best speed correction (multiplier) (-1,0,0.5,1)
  * @param psi_corr_best Best yaw correction  
  */
-void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_corr_best){
+void Colav::getBestControlOffset(double& u_corr_best, double& psi_corr_best){
     ros::Time start = ros::Time::now();
     double cost = INFINITY;
     double cost_k = 0.0;
@@ -328,13 +328,13 @@ void SimulationBasedMPC::getBestControlOffset(double& u_corr_best, double& psi_c
 }
 
 /**
- * @brief The main loop of the SBMPC. 
+ * @brief The main loop of the Colav System. 
  * 
  * @details Called periodically by designated timer. Calculates best offset from latest available information and pulishes this offset.
  * 
  * @param e TimerEveent parameter, currently not used.
  */
-void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
+void Colav::mainLoop(const ros::TimerEvent& e){
     double u_os, psi_os;
     getBestControlOffset(u_os,psi_os);
     
@@ -355,7 +355,7 @@ void SimulationBasedMPC::mainLoop(const ros::TimerEvent& e){
  * 
  * @param msg Renitialize message
  */
-void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
+void Colav::reinitCb(const usv_msgs::reinit& msg){
     main_loop_timer_.stop();
     latest_odom_ = *ros::topic::waitForMessage<nav_msgs::Odometry>("odom",nh_);
     latest_los_setpoint_ = *ros::topic::waitForMessage<geometry_msgs::Twist>("los/setpoint",nh_);
@@ -376,7 +376,7 @@ void SimulationBasedMPC::reinitCb(const usv_msgs::reinit& msg){
  * @param k ID of obstacle ship
  * @return double Cost of action candidate.
  */
-double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last)
+double Colav::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, obstacleVessel& obstacle_vessel, double P_ca, double Chi_ca, int k, double t_offset, double P_ca_last, double Chi_ca_last)
 {
 	double dist, phi, psi_o, phi_o, psi_rel, R, C, k_coll, d_safe_i;
 	Eigen::Vector2d d, los, los_inv, v_o, v_s, delta_p_obs;
@@ -521,12 +521,10 @@ double SimulationBasedMPC::costFnc(ModelLibrary::simulatedHorizon& usv_horizon, 
 /**
  * @brief Calculation used for cost function to penalize speed correction changes.
  * 
- * @remark From: https://github.com/olesot/ros_asv_system
- * 
  * @param P_ca Speed multiplier correction candidate
  * @return double Cost of action candidate
  */
-double SimulationBasedMPC::Delta_P(double P_ca, double P_ca_last){
+double Colav::Delta_P(double P_ca, double P_ca_last){
 
 	return K_DP_*std::abs(P_ca_last - P_ca);		// 0.5
 }
@@ -534,12 +532,10 @@ double SimulationBasedMPC::Delta_P(double P_ca, double P_ca_last){
 /**
  * @brief Calculation used for cost function to penalize yaw correction changes.
  * 
- * @remark From: https://github.com/olesot/ros_asv_system
- * 
  * @param Chi_ca Yaw correction candidate
  * @return double Cost of action candidate
  */
-double SimulationBasedMPC::Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu){
+double Colav::Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu){
 	double dChi = Chi_ca - Chi_ca_last;
 	if (dChi > 0){
 		return K_DCHI_P_*pow(dChi,2); 		// 0.006 0.45
@@ -559,11 +555,11 @@ void rot2d(double yaw, Eigen::Vector2d &res){
 }
 
 /**
- * @brief Visualize a SBMPC path
+ * @brief Visualize a COlav system path
  * 
  * @param path The path parametrized as a OGRLineString
  */
-void SimulationBasedMPC::visualizePath(OGRLineString& path){
+void Colav::visualizePath(OGRLineString& path){
     path_viz_.action = visualization_msgs::Marker::ADD;
     geometry_msgs::Point point1;
     geometry_msgs::Point prev_point;
@@ -596,7 +592,7 @@ void SimulationBasedMPC::visualizePath(OGRLineString& path){
  * @brief Clear visual path from rviz and clear storing vector.
  * 
  */
-void SimulationBasedMPC::clearVisualPath(){
+void Colav::clearVisualPath(){
     path_viz_.points.clear();
     path_viz_.action = visualization_msgs::Marker::DELETEALL;
     path_viz_pub_.publish(path_viz_);

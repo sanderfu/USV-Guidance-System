@@ -546,7 +546,12 @@ double Colav::Delta_Chi(double Chi_ca, double Chi_ca_last, bool mu){
 	}
 }
 
-// Utils
+/**
+ * @brief Rotation matrix for 2d vectors
+ * 
+ * @param yaw 
+ * @param res 
+ */
 void rot2d(double yaw, Eigen::Vector2d &res){
 	Eigen::Matrix2d R;
 	R << cos(yaw), -sin(yaw),
